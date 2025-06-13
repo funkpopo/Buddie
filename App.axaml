@@ -1,0 +1,115 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             x:Class="Lyxie_desktop.App"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.Styles>
+        <FluentTheme />
+        <materialIcons:MaterialIconStyles />
+    </Application.Styles>
+
+    <Application.Resources>
+        <!-- 主题颜色资源 -->
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <!-- 深色主题 -->
+                <ResourceDictionary x:Key="Dark">
+                    <!-- 背景颜色 -->
+                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#1E1E1E"/>
+                    <Color x:Key="AppBackgroundGradientStartColor">#1E1E1E</Color>
+                    <Color x:Key="AppBackgroundGradientEndColor">#252526</Color>
+
+                    <!-- 卡片/容器背景 -->
+                    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#2D2D30"/>
+                    <SolidColorBrush x:Key="CardBorderBrush" Color="#404040"/>
+
+                    <!-- 按钮颜色 -->
+                    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#2D2D30"/>
+                    <Color x:Key="ButtonBackgroundGradientStartColor">#2D2D30</Color>
+                    <Color x:Key="ButtonBackgroundGradientEndColor">#3C3C3C</Color>
+                    <SolidColorBrush x:Key="ButtonBorderBrush" Color="#404040"/>
+                    <Color x:Key="ButtonBorderGradientStartColor">#404040</Color>
+                    <Color x:Key="ButtonBorderGradientEndColor">#505050</Color>
+
+                    <!-- 按钮悬停状态 -->
+                    <SolidColorBrush x:Key="ButtonHoverBackgroundBrush" Color="#3C3C3C"/>
+                    <Color x:Key="ButtonHoverGradientStartColor">#3E3E42</Color>
+                    <Color x:Key="ButtonHoverGradientEndColor">#4A4A4E</Color>
+                    <Color x:Key="ButtonHoverBorderGradientStartColor">#505050</Color>
+                    <Color x:Key="ButtonHoverBorderGradientEndColor">#606060</Color>
+
+                    <!-- 按钮按下状态 -->
+                    <Color x:Key="ButtonPressedGradientStartColor">#1E1E1E</Color>
+                    <Color x:Key="ButtonPressedGradientEndColor">#2A2A2A</Color>
+
+                    <!-- 文本颜色 -->
+                    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#E0E0E0"/>
+                    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#B0B0B0"/>
+                    <SolidColorBrush x:Key="AccentTextBrush" Color="#FFFFFF"/>
+
+                    <!-- 图标颜色 -->
+                    <SolidColorBrush x:Key="IconBrush" Color="#E0E0E0"/>
+                    <SolidColorBrush x:Key="SecondaryIconBrush" Color="#B0B0B0"/>
+
+                    <!-- 浮动面板 -->
+                    <SolidColorBrush x:Key="FloatingPanelBackgroundBrush" Color="#CC2D2D30"/>
+                    <SolidColorBrush x:Key="FloatingPanelBorderBrush" Color="#404040"/>
+
+                    <!-- 欢迎界面背景 -->
+                    <Color x:Key="WelcomeBackgroundStartColor">#000000</Color>
+                    <Color x:Key="WelcomeBackgroundEndColor">#1A1A1A</Color>
+                </ResourceDictionary>
+
+                <!-- 浅色主题 -->
+                <ResourceDictionary x:Key="Light">
+                    <!-- 背景颜色 -->
+                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#FFFFFF"/>
+                    <Color x:Key="AppBackgroundGradientStartColor">#FFFFFF</Color>
+                    <Color x:Key="AppBackgroundGradientEndColor">#F5F5F5</Color>
+
+                    <!-- 卡片/容器背景 -->
+                    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#F8F8F8"/>
+                    <SolidColorBrush x:Key="CardBorderBrush" Color="#E0E0E0"/>
+
+                    <!-- 按钮颜色 -->
+                    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#F8F8F8"/>
+                    <Color x:Key="ButtonBackgroundGradientStartColor">#F8F8F8</Color>
+                    <Color x:Key="ButtonBackgroundGradientEndColor">#E8E8E8</Color>
+                    <SolidColorBrush x:Key="ButtonBorderBrush" Color="#D0D0D0"/>
+                    <Color x:Key="ButtonBorderGradientStartColor">#D0D0D0</Color>
+                    <Color x:Key="ButtonBorderGradientEndColor">#C0C0C0</Color>
+
+                    <!-- 按钮悬停状态 -->
+                    <SolidColorBrush x:Key="ButtonHoverBackgroundBrush" Color="#E8E8E8"/>
+                    <Color x:Key="ButtonHoverGradientStartColor">#E8E8E8</Color>
+                    <Color x:Key="ButtonHoverGradientEndColor">#D8D8D8</Color>
+                    <Color x:Key="ButtonHoverBorderGradientStartColor">#C0C0C0</Color>
+                    <Color x:Key="ButtonHoverBorderGradientEndColor">#B0B0B0</Color>
+
+                    <!-- 按钮按下状态 -->
+                    <Color x:Key="ButtonPressedGradientStartColor">#D8D8D8</Color>
+                    <Color x:Key="ButtonPressedGradientEndColor">#C8C8C8</Color>
+
+                    <!-- 文本颜色 -->
+                    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#2D2D30"/>
+                    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#666666"/>
+                    <SolidColorBrush x:Key="AccentTextBrush" Color="#000000"/>
+
+                    <!-- 图标颜色 -->
+                    <SolidColorBrush x:Key="IconBrush" Color="#2D2D30"/>
+                    <SolidColorBrush x:Key="SecondaryIconBrush" Color="#666666"/>
+
+                    <!-- 浮动面板 -->
+                    <SolidColorBrush x:Key="FloatingPanelBackgroundBrush" Color="#CCF8F8F8"/>
+                    <SolidColorBrush x:Key="FloatingPanelBorderBrush" Color="#E0E0E0"/>
+
+                    <!-- 欢迎界面背景 -->
+                    <Color x:Key="WelcomeBackgroundStartColor">#F0F0F0</Color>
+                    <Color x:Key="WelcomeBackgroundEndColor">#E0E0E0</Color>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

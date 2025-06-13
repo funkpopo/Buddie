@@ -1,0 +1,464 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="760"
+             x:Class="Lyxie_desktop.Views.SettingsView">
+
+    <Grid>
+        <!-- 添加微妙的背景渐变效果 -->
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{DynamicResource AppBackgroundGradientStartColor}" Offset="0"/>
+                <GradientStop Color="{DynamicResource AppBackgroundGradientEndColor}" Offset="1"/>
+            </LinearGradientBrush>
+        </Grid.Background>
+
+        <!-- 返回按钮 -->
+        <Button Name="BackButton"
+                Width="40"
+                Height="40"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Margin="20"
+                Background="Transparent"
+                BorderThickness="0"
+                Cursor="Hand">
+            <materialIcons:MaterialIcon Kind="ArrowLeft"
+                                        Width="24"
+                                        Height="24"
+                                        Foreground="{DynamicResource IconBrush}" />
+
+            <!-- 按钮悬停效果 -->
+            <Button.Styles>
+                <Style Selector="Button:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                </Style>
+                <Style Selector="Button:pressed">
+                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                </Style>
+            </Button.Styles>
+        </Button>
+
+        <!-- 设置内容 -->
+        <ScrollViewer HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      Margin="80,80,20,80"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel HorizontalAlignment="Center"
+                        MaxWidth="1000"
+                        Spacing="30">
+                <!-- 标题 -->
+                <TextBlock Name="TitleTextBlock"
+                           Text="设置"
+                           FontSize="32"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,20"/>
+
+                <!-- 三个设置卡片在同一行 -->
+                <Grid ColumnDefinitions="*,20,*,20,*">
+                    <!-- 外观设置 -->
+                    <Border Grid.Column="0"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource CardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20">
+                        <StackPanel Spacing="15">
+                            <TextBlock Name="AppearanceTitle"
+                                       Text="外观"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <materialIcons:MaterialIcon Kind="Palette"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{DynamicResource SecondaryIconBrush}"
+                                                                VerticalAlignment="Center"/>
+                                    <TextBlock Name="ThemeLabel"
+                                               Text="主题"
+                                               FontSize="14"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <ComboBox Name="ThemeComboBox"
+                                          Width="150"
+                                          HorizontalAlignment="Left"
+                                          SelectedIndex="0">
+                                    <ComboBoxItem Content="深色模式"/>
+                                    <ComboBoxItem Content="浅色模式"/>
+                                    <ComboBoxItem Content="跟随系统"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 语言设置 -->
+                    <Border Grid.Column="2"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource CardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20">
+                        <StackPanel Spacing="15">
+                            <TextBlock Name="LanguageTitle"
+                                       Text="语言"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <materialIcons:MaterialIcon Kind="Translate"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{DynamicResource SecondaryIconBrush}"
+                                                                VerticalAlignment="Center"/>
+                                    <TextBlock Name="LanguageLabel"
+                                               Text="界面语言"
+                                               FontSize="14"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <ComboBox Name="LanguageComboBox"
+                                          Width="150"
+                                          HorizontalAlignment="Left"
+                                          SelectedIndex="0">
+                                    <ComboBoxItem Content="简体中文"/>
+                                    <ComboBoxItem Content="English"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 字体设置 -->
+                    <Border Grid.Column="4"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource CardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20">
+                        <StackPanel Spacing="15">
+                            <TextBlock Name="FontTitle"
+                                       Text="字体"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                            <StackPanel Spacing="15">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <materialIcons:MaterialIcon Kind="FormatSize"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{DynamicResource SecondaryIconBrush}"
+                                                                VerticalAlignment="Center"/>
+                                    <TextBlock Name="FontSizeLabel"
+                                               Text="字体大小"
+                                               FontSize="14"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- 字体大小选择按钮 -->
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Button Name="FontSizeSmallButton"
+                                            Content="小号"
+                                            Width="50"
+                                            Height="32"
+                                            FontSize="11"
+                                            Background="{DynamicResource ButtonBackgroundBrush}"
+                                            Foreground="{DynamicResource PrimaryTextBrush}"
+                                            BorderBrush="{DynamicResource ButtonBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Cursor="Hand"/>
+
+                                    <Button Name="FontSizeDefaultButton"
+                                            Content="默认"
+                                            Width="50"
+                                            Height="32"
+                                            FontSize="11"
+                                            Background="#4A90E2"
+                                            Foreground="#FFFFFF"
+                                            BorderBrush="#4A90E2"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Cursor="Hand"/>
+
+                                    <Button Name="FontSizeMediumButton"
+                                            Content="中号"
+                                            Width="50"
+                                            Height="32"
+                                            FontSize="11"
+                                            Background="{DynamicResource ButtonBackgroundBrush}"
+                                            Foreground="{DynamicResource PrimaryTextBrush}"
+                                            BorderBrush="{DynamicResource ButtonBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Cursor="Hand"/>
+
+                                    <Button Name="FontSizeLargeButton"
+                                            Content="大号"
+                                            Width="50"
+                                            Height="32"
+                                            FontSize="11"
+                                            Background="{DynamicResource ButtonBackgroundBrush}"
+                                            Foreground="{DynamicResource PrimaryTextBrush}"
+                                            BorderBrush="{DynamicResource ButtonBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Cursor="Hand"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- 关于 -->
+                <Border Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="20">
+                    <StackPanel Spacing="15">
+                        <TextBlock Name="AboutTitle"
+                                   Text="关于"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <materialIcons:MaterialIcon Kind="Information"
+                                                            Width="20"
+                                                            Height="20"
+                                                            Foreground="{DynamicResource SecondaryIconBrush}"
+                                                            VerticalAlignment="Center"/>
+                                <TextBlock Text="Lyxie"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <TextBlock Name="VersionText"
+                                       Text="版本 1.0.0"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       Margin="30,0,0,0"/>
+
+                            <TextBlock Name="DescriptionText"
+                                       Text="基于 Avalonia UI 开发的现代化 AI 助手"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       Margin="30,0,0,0"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- LLM API设置 -->
+                <Border Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="20">
+                    <StackPanel Spacing="15">
+                        <TextBlock Name="LlmApiSettingsTitle"
+                                   Text="LLM API 设置"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                        <!-- LLM API配置列表 -->
+                        <Border Background="{DynamicResource CardBackgroundBrush}"
+                                BorderBrush="{DynamicResource CardBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="10">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="配置列表"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                                <StackPanel Name="LlmConfigListPanel" Spacing="8">
+                                    <!-- 配置项将在代码中动态添加 -->
+                                </StackPanel>
+
+                                <Button Name="AddLlmConfigButton"
+                                        Content="添加新的 LLM 配置"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,5,0,0"
+                                        Padding="10,5"
+                                        Background="{DynamicResource ButtonBackgroundBrush}"
+                                        Foreground="{DynamicResource PrimaryTextBrush}"
+                                        BorderBrush="{DynamicResource ButtonBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Cursor="Hand">
+                                    <Button.Styles>
+                                        <Style Selector="Button:pointerover">
+                                            <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                                        </Style>
+                                    </Button.Styles>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 配置详情编辑区域 -->
+                        <Border Name="ConfigDetailBorder"
+                                Background="{DynamicResource CardBackgroundBrush}"
+                                BorderBrush="{DynamicResource CardBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="10"
+                                IsVisible="False">
+                            <StackPanel Spacing="15">
+                                <TextBlock Text="配置详情"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                                <!-- 配置名称 -->
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="配置名称"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    <TextBox Name="ConfigNameTextBox"
+                                             Width="300"
+                                             HorizontalAlignment="Left"
+                                             Watermark="例如：OpenAI GPT-3.5"/>
+                                </StackPanel>
+
+                                <!-- API URL -->
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="API URL"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    <TextBox Name="ApiUrlTextBox"
+                                             Width="450"
+                                             HorizontalAlignment="Left"
+                                             Watermark="例如：https://api.openai.com/v1/chat/completions"/>
+                                </StackPanel>
+
+                                <!-- API Key -->
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="API Key"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    <TextBox Name="ApiKeyTextBox"
+                                             Width="450"
+                                             HorizontalAlignment="Left"
+                                             PasswordChar="•"
+                                             Watermark="输入您的API密钥"/>
+                                </StackPanel>
+
+                                <!-- Model Name -->
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="模型名称"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    <TextBox Name="ModelNameTextBox"
+                                             Width="300"
+                                             HorizontalAlignment="Left"
+                                             Watermark="例如：gpt-3.5-turbo"/>
+                                </StackPanel>
+
+                                <!-- Temperature -->
+                                <StackPanel Spacing="5">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <TextBlock Text="温度值"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBlock Name="TemperatureValueText"
+                                                   Text="0.7"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    </StackPanel>
+                                    <Slider Name="TemperatureSlider"
+                                            Width="300"
+                                            HorizontalAlignment="Left"
+                                            Minimum="0"
+                                            Maximum="2"
+                                            Value="0.7"
+                                            TickFrequency="0.1"
+                                            IsSnapToTickEnabled="True"/>
+                                </StackPanel>
+
+                                <!-- Max Tokens -->
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="最大令牌数"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    <NumericUpDown Name="MaxTokensNumericUpDown"
+                                                   Width="300"
+                                                   HorizontalAlignment="Left"
+                                                   Value="4096"
+                                                   Minimum="100"
+                                                   Maximum="999999999"
+                                                   Increment="100"/>
+                                </StackPanel>
+
+                                <!-- 保存按钮 -->
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Button Name="SaveLlmConfigButton"
+                                            Content="保存配置"
+                                            HorizontalAlignment="Left"
+                                            Margin="0,10,0,0"
+                                            Padding="15,8"
+                                            Background="#4A90E2"
+                                            Foreground="#FFFFFF"
+                                            BorderBrush="#4A90E2"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Cursor="Hand">
+                                        <Button.Styles>
+                                            <Style Selector="Button:pointerover">
+                                                <Setter Property="Background" Value="#3A80D2"/>
+                                                <Setter Property="BorderBrush" Value="#3A80D2"/>
+                                            </Style>
+                                        </Button.Styles>
+                                    </Button>
+                                    
+                                    <Button Name="CancelLlmConfigButton"
+                                            Content="取消"
+                                            HorizontalAlignment="Left"
+                                            Margin="0,10,0,0"
+                                            Padding="15,8"
+                                            Background="{DynamicResource ButtonBackgroundBrush}"
+                                            Foreground="{DynamicResource PrimaryTextBrush}"
+                                            BorderBrush="{DynamicResource ButtonBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Cursor="Hand">
+                                        <Button.Styles>
+                                            <Style Selector="Button:pointerover">
+                                                <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                                            </Style>
+                                        </Button.Styles>
+                                    </Button>
+                                    
+                                    <TextBlock Name="SaveStatusTextBlock"
+                                               Text=""
+                                               VerticalAlignment="Center"
+                                               Margin="10,10,0,0"
+                                               FontSize="14"
+                                               Foreground="#4A90E2"
+                                               IsVisible="False"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

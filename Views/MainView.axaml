@@ -1,0 +1,265 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="760"
+             x:Class="Lyxie_desktop.Views.MainView">
+
+    <!-- 使用Border包装Grid以支持BoxShadow -->
+    <Border Name="MainViewBorder" BoxShadow="inset 0 0 15 0 Transparent">
+        <Grid>
+            <!-- 添加微妙的背景渐变效果 -->
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="{DynamicResource AppBackgroundGradientStartColor}" Offset="0"/>
+                    <GradientStop Color="{DynamicResource AppBackgroundGradientEndColor}" Offset="1"/>
+                </LinearGradientBrush>
+            </Grid.Background>
+
+        <!-- 设置按钮 -->
+        <Button Name="SettingsButton"
+                Width="40"
+                Height="40"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Margin="20"
+                Background="Transparent"
+                BorderThickness="0"
+                Cursor="Hand">
+            <materialIcons:MaterialIcon Kind="Settings"
+                                        Width="24"
+                                        Height="24"
+                                        Foreground="{DynamicResource IconBrush}" />
+
+            <!-- 按钮悬停效果 -->
+            <Button.Styles>
+                <Style Selector="Button:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                </Style>
+                <Style Selector="Button:pressed">
+                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                </Style>
+            </Button.Styles>
+        </Button>
+
+        <!-- 扳手按钮 -->
+        <Button Name="ToolButton"
+                Width="40"
+                Height="40"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="20"
+                Background="Transparent"
+                BorderThickness="0"
+                Cursor="Hand">
+            <materialIcons:MaterialIcon Kind="Wrench"
+                                        Width="24"
+                                        Height="24"
+                                        Foreground="{DynamicResource IconBrush}" />
+
+            <!-- 按钮悬停效果 -->
+            <Button.Styles>
+                <Style Selector="Button:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                </Style>
+                <Style Selector="Button:pressed">
+                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                </Style>
+            </Button.Styles>
+        </Button>
+
+        <!-- 主界面内容 -->
+        <Button Name="MainCircleButton"
+                Width="600"
+                Height="600"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                CornerRadius="300"
+                BorderThickness="3"
+                Cursor="Hand">
+
+            <!-- 按钮背景渐变 -->
+            <Button.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="{DynamicResource ButtonBackgroundGradientStartColor}" Offset="0"/>
+                    <GradientStop Color="{DynamicResource ButtonBackgroundGradientEndColor}" Offset="1"/>
+                </LinearGradientBrush>
+            </Button.Background>
+
+            <!-- 按钮边框渐变 -->
+            <Button.BorderBrush>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="{DynamicResource ButtonBorderGradientStartColor}" Offset="0"/>
+                    <GradientStop Color="{DynamicResource ButtonBorderGradientEndColor}" Offset="1"/>
+                </LinearGradientBrush>
+            </Button.BorderBrush>
+
+            <Button.Styles>
+                <Style Selector="Button:pointerover">
+                    <Setter Property="Background">
+                        <Setter.Value>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="{DynamicResource ButtonHoverGradientStartColor}" Offset="0"/>
+                                <GradientStop Color="{DynamicResource ButtonHoverGradientEndColor}" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="BorderBrush">
+                        <Setter.Value>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="{DynamicResource ButtonHoverBorderGradientStartColor}" Offset="0"/>
+                                <GradientStop Color="{DynamicResource ButtonHoverBorderGradientEndColor}" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+                <Style Selector="Button:pressed">
+                    <Setter Property="Background">
+                        <Setter.Value>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="{DynamicResource ButtonPressedGradientStartColor}" Offset="0"/>
+                                <GradientStop Color="{DynamicResource ButtonPressedGradientEndColor}" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="BorderBrush">
+                        <Setter.Value>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="{DynamicResource ButtonHoverBorderGradientStartColor}" Offset="0"/>
+                                <GradientStop Color="{DynamicResource ButtonHoverBorderGradientEndColor}" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Button.Styles>
+            
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <TextBlock Name="AppNameTextBlock"
+                           Text="Lyxie"
+                           FontSize="24"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,10"/>
+
+                <TextBlock Name="ClickToStartTextBlock"
+                           Text="点击开始对话"
+                           FontSize="16"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           HorizontalAlignment="Center"
+                           Opacity="0.9"/>
+            </StackPanel>
+        </Button>
+
+        <!-- 浮动工具面板 - 响应式布局 -->
+        <Border Name="ToolPanel"
+                MinWidth="220"
+                MaxWidth="300"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="20,0,0,70"
+                Background="{DynamicResource FloatingPanelBackgroundBrush}"
+                BorderBrush="{DynamicResource FloatingPanelBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                BoxShadow="0 4 12 0 #40000000"
+                Opacity="0"
+                IsVisible="False">
+
+            <Grid Margin="12">
+                <!-- 定义行：标题 + 三个开关行 -->
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>  <!-- 标题行 -->
+                    <RowDefinition Height="Auto"/>  <!-- TTS开关 -->
+                    <RowDefinition Height="Auto"/>  <!-- 开发功能1 -->
+                    <RowDefinition Height="Auto"/>  <!-- 开发功能2 -->
+                </Grid.RowDefinitions>
+
+                <!-- 定义列：图标、文本、开关 -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>    <!-- 图标列 -->
+                    <ColumnDefinition Width="*"/>       <!-- 文本列，自适应 -->
+                    <ColumnDefinition Width="Auto"/>    <!-- 开关列 -->
+                </Grid.ColumnDefinitions>
+
+                <!-- 标题 -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                           Text="工具设置"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           Margin="0,0,0,8"
+                           HorizontalAlignment="Left"/>
+
+                <!-- TTS开关行 -->
+                <materialIcons:MaterialIcon Grid.Row="1" Grid.Column="0"
+                                            Kind="VolumeHigh"
+                                            Width="16"
+                                            Height="16"
+                                            Foreground="{DynamicResource SecondaryIconBrush}"
+                                            VerticalAlignment="Center"
+                                            Margin="0,0,8,0"/>
+                <TextBlock Grid.Row="1" Grid.Column="1"
+                           Text="TTS"
+                           FontSize="12"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="2"
+                              Name="TTSToggle"
+                              OffContent=""
+                              OnContent=""
+                              Width="40"
+                              VerticalAlignment="Center"/>
+
+                <!-- 开发功能1开关行 -->
+                <materialIcons:MaterialIcon Grid.Row="2" Grid.Column="0"
+                                            Kind="Build"
+                                            Width="16"
+                                            Height="16"
+                                            Foreground="{DynamicResource SecondaryIconBrush}"
+                                            VerticalAlignment="Center"
+                                            Margin="0,6,8,0"/>
+                <TextBlock Grid.Row="2" Grid.Column="1"
+                           Text="开发功能1"
+                           FontSize="12"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           VerticalAlignment="Center"
+                           Margin="0,6,8,0"/>
+                <ToggleSwitch Grid.Row="2" Grid.Column="2"
+                              Name="Dev1Toggle"
+                              OffContent=""
+                              OnContent=""
+                              Width="40"
+                              VerticalAlignment="Center"
+                              Margin="0,6,0,0"/>
+
+                <!-- 开发功能2开关行 -->
+                <materialIcons:MaterialIcon Grid.Row="3" Grid.Column="0"
+                                            Kind="Code"
+                                            Width="16"
+                                            Height="16"
+                                            Foreground="{DynamicResource SecondaryIconBrush}"
+                                            VerticalAlignment="Center"
+                                            Margin="0,6,8,0"/>
+                <TextBlock Grid.Row="3" Grid.Column="1"
+                           Text="开发功能2"
+                           FontSize="12"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           VerticalAlignment="Center"
+                           Margin="0,6,8,0"/>
+                <ToggleSwitch Grid.Row="3" Grid.Column="2"
+                              Name="Dev2Toggle"
+                              OffContent=""
+                              OnContent=""
+                              Width="40"
+                              VerticalAlignment="Center"
+                              Margin="0,6,0,0"/>
+            </Grid>
+        </Border>
+        </Grid>
+    </Border>
+
+</UserControl>

@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="using:Lyxie_desktop.Views"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="760"
+        x:Class="Lyxie_desktop.MainWindow"
+        Title="Lyxie"
+        Width="1280" Height="760"
+        MinWidth="1280" MinHeight="760"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid ClipToBounds="True">
+        <!-- 欢迎界面 -->
+        <views:WelcomeView Name="WelcomeView">
+            <views:WelcomeView.RenderTransform>
+                <TranslateTransform X="0" Y="0"/>
+            </views:WelcomeView.RenderTransform>
+        </views:WelcomeView>
+
+        <!-- 主界面 (初始位置在下方) -->
+        <views:MainView Name="MainView">
+            <views:MainView.RenderTransform>
+                <TranslateTransform X="0" Y="760"/>
+            </views:MainView.RenderTransform>
+        </views:MainView>
+
+        <!-- 设置界面 (初始位置在左侧) -->
+        <views:SettingsView Name="SettingsView">
+            <views:SettingsView.RenderTransform>
+                <TranslateTransform X="-1280" Y="0"/>
+            </views:SettingsView.RenderTransform>
+        </views:SettingsView>
+    </Grid>
+
+</Window>
