@@ -40,9 +40,9 @@
                     <Color x:Key="ButtonHoverBorderGradientStartColor">#505050</Color>
                     <Color x:Key="ButtonHoverBorderGradientEndColor">#606060</Color>
 
-                    <!-- 按钮按下状态 -->
-                    <Color x:Key="ButtonPressedGradientStartColor">#1E1E1E</Color>
-                    <Color x:Key="ButtonPressedGradientEndColor">#2A2A2A</Color>
+                    <!-- 按钮按下状态 - 使用主题蓝色的深色变体 -->
+                    <Color x:Key="ButtonPressedGradientStartColor">#1E3A5F</Color>
+                    <Color x:Key="ButtonPressedGradientEndColor">#2A4A6B</Color>
 
                     <!-- 文本颜色 -->
                     <SolidColorBrush x:Key="PrimaryTextBrush" Color="#E0E0E0"/>
@@ -60,6 +60,17 @@
                     <!-- 欢迎界面背景 -->
                     <Color x:Key="WelcomeBackgroundStartColor">#000000</Color>
                     <Color x:Key="WelcomeBackgroundEndColor">#1A1A1A</Color>
+
+                    <!-- 光晕效果颜色 -->
+                    <Color x:Key="GlowPrimaryColor">#4A9EFF</Color>
+                    <Color x:Key="GlowSecondaryColor">#7B68EE</Color>
+                    <Color x:Key="GlowAccentColor">#20B2AA</Color>
+                    <SolidColorBrush x:Key="GlowPrimaryBrush" Color="{DynamicResource GlowPrimaryColor}"/>
+                    <SolidColorBrush x:Key="GlowSecondaryBrush" Color="{DynamicResource GlowSecondaryColor}"/>
+                    <SolidColorBrush x:Key="GlowAccentBrush" Color="{DynamicResource GlowAccentColor}"/>
+
+                    <!-- 词云文字颜色 -->
+                    <SolidColorBrush x:Key="WordCloudTextBrush" Color="#80FFFFFF"/>
                 </ResourceDictionary>
 
                 <!-- 浅色主题 -->
@@ -88,9 +99,9 @@
                     <Color x:Key="ButtonHoverBorderGradientStartColor">#C0C0C0</Color>
                     <Color x:Key="ButtonHoverBorderGradientEndColor">#B0B0B0</Color>
 
-                    <!-- 按钮按下状态 -->
-                    <Color x:Key="ButtonPressedGradientStartColor">#D8D8D8</Color>
-                    <Color x:Key="ButtonPressedGradientEndColor">#C8C8C8</Color>
+                    <!-- 按钮按下状态 - 使用主题色的深色变体 -->
+                    <Color x:Key="ButtonPressedGradientStartColor">#D6E8F5</Color>
+                    <Color x:Key="ButtonPressedGradientEndColor">#C2D9ED</Color>
 
                     <!-- 文本颜色 -->
                     <SolidColorBrush x:Key="PrimaryTextBrush" Color="#2D2D30"/>
@@ -108,6 +119,17 @@
                     <!-- 欢迎界面背景 -->
                     <Color x:Key="WelcomeBackgroundStartColor">#F0F0F0</Color>
                     <Color x:Key="WelcomeBackgroundEndColor">#E0E0E0</Color>
+
+                    <!-- 光晕效果颜色 -->
+                    <Color x:Key="GlowPrimaryColor">#2E86AB</Color>
+                    <Color x:Key="GlowSecondaryColor">#A23B72</Color>
+                    <Color x:Key="GlowAccentColor">#F18F01</Color>
+                    <SolidColorBrush x:Key="GlowPrimaryBrush" Color="{DynamicResource GlowPrimaryColor}"/>
+                    <SolidColorBrush x:Key="GlowSecondaryBrush" Color="{DynamicResource GlowSecondaryColor}"/>
+                    <SolidColorBrush x:Key="GlowAccentBrush" Color="{DynamicResource GlowAccentColor}"/>
+
+                    <!-- 词云文字颜色 -->
+                    <SolidColorBrush x:Key="WordCloudTextBrush" Color="#60000000"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

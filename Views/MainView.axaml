@@ -17,6 +17,14 @@
                 </LinearGradientBrush>
             </Grid.Background>
 
+            <!-- 词云背景层 - 覆盖整个主界面 -->
+            <Border Name="WordCloudContainer"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    ZIndex="1">
+                <!-- 词云控件将在代码中动态添加 -->
+            </Border>
+
         <!-- 设置按钮 -->
         <Button Name="SettingsButton"
                 Width="40"
@@ -26,7 +34,8 @@
                 Margin="20"
                 Background="Transparent"
                 BorderThickness="0"
-                Cursor="Hand">
+                Cursor="Hand"
+                ZIndex="3">
             <materialIcons:MaterialIcon Kind="Settings"
                                         Width="24"
                                         Height="24"
@@ -52,7 +61,8 @@
                 Margin="20"
                 Background="Transparent"
                 BorderThickness="0"
-                Cursor="Hand">
+                Cursor="Hand"
+                ZIndex="3">
             <materialIcons:MaterialIcon Kind="Wrench"
                                         Width="24"
                                         Height="24"
@@ -69,6 +79,54 @@
             </Button.Styles>
         </Button>
 
+        <!-- 光晕效果层 -->
+        <Grid HorizontalAlignment="Center" VerticalAlignment="Center" ZIndex="1">
+            <!-- 外层光晕 -->
+            <Border Name="OuterGlow"
+                    Width="680"
+                    Height="680"
+                    CornerRadius="340"
+                    Opacity="0.15"
+                    IsHitTestVisible="False">
+                <Border.Background>
+                    <RadialGradientBrush>
+                        <GradientStop Color="{DynamicResource GlowPrimaryColor}" Offset="0"/>
+                        <GradientStop Color="Transparent" Offset="1"/>
+                    </RadialGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <!-- 中层光晕 -->
+            <Border Name="MiddleGlow"
+                    Width="640"
+                    Height="640"
+                    CornerRadius="320"
+                    Opacity="0.2"
+                    IsHitTestVisible="False">
+                <Border.Background>
+                    <RadialGradientBrush>
+                        <GradientStop Color="{DynamicResource GlowSecondaryColor}" Offset="0"/>
+                        <GradientStop Color="Transparent" Offset="0.8"/>
+                    </RadialGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <!-- 内层光晕 -->
+            <Border Name="InnerGlow"
+                    Width="620"
+                    Height="620"
+                    CornerRadius="310"
+                    Opacity="0.25"
+                    IsHitTestVisible="False">
+                <Border.Background>
+                    <RadialGradientBrush>
+                        <GradientStop Color="{DynamicResource GlowAccentColor}" Offset="0"/>
+                        <GradientStop Color="Transparent" Offset="0.6"/>
+                    </RadialGradientBrush>
+                </Border.Background>
+            </Border>
+        </Grid>
+
         <!-- 主界面内容 -->
         <Button Name="MainCircleButton"
                 Width="600"
@@ -77,7 +135,8 @@
                 VerticalAlignment="Center"
                 CornerRadius="300"
                 BorderThickness="3"
-                Cursor="Hand">
+                Cursor="Hand"
+                ZIndex="2">
 
             <!-- 按钮背景渐变 -->
             <Button.Background>

@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="400"
+             x:Class="Lyxie_desktop.Controls.WordCloudControl">
+
+    <!-- 词云容器 - 扩大以覆盖整个主界面 -->
+    <Border Name="WordCloudBorder"
+            Width="1280"
+            Height="760"
+            ClipToBounds="True"
+            Background="Transparent">
+        
+        <!-- 多层词云画布 -->
+        <Grid>
+            <!-- 背景粒子层 -->
+            <Canvas Name="ParticleCanvas"
+                    Width="1280"
+                    Height="760"
+                    Background="Transparent"
+                    ZIndex="0"/>
+            
+            <!-- 主词云层 -->
+            <Canvas Name="WordCanvas"
+                    Width="1280"
+                    Height="760"
+                    Background="Transparent"
+                    ZIndex="1"/>
+            
+            <!-- 前景效果层 -->
+            <Canvas Name="EffectCanvas"
+                    Width="1280"
+                    Height="760"
+                    Background="Transparent"
+                    ZIndex="2"/>
+        </Grid>
+    </Border>
+
+</UserControl>

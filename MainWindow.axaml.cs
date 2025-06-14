@@ -18,6 +18,22 @@ public partial class MainWindow : Window
         InitializeComponent();
         StartWelcomeSequence();
         SetupViewEvents();
+        SetupWindowEvents();
+        
+        // 初始化设置界面位置
+        InitializeSettingsViewPosition();
+    }
+
+    private void InitializeSettingsViewPosition()
+    {
+        var settingsView = this.FindControl<Views.SettingsView>("SettingsView");
+        if (settingsView != null)
+        {
+            var settingsTransform = settingsView.RenderTransform as TranslateTransform ?? new TranslateTransform();
+            settingsTransform.X = -this.Width;
+            settingsTransform.Y = 0;
+            settingsView.RenderTransform = settingsTransform;
+        }
     }
 
     private void SetupViewEvents()
@@ -38,6 +54,75 @@ public partial class MainWindow : Window
 
             // 应用初始字体大小
             ApplyFontSize(settingsView.GetCurrentFontSize());
+        }
+    }
+
+    private void SetupWindowEvents()
+    {
+        // 监听窗口大小变化事件
+        this.SizeChanged += OnWindowSizeChanged;
+        this.PropertyChanged += OnWindowPropertyChanged;
+    }
+
+    private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        // 重新初始化设置界面位置
+        InitializeSettingsViewPosition();
+        
+        // 确保视图在窗口大小变化时正确显示
+        EnsureViewVisibility();
+    }
+
+    private void OnWindowPropertyChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e)
+    {
+        // 监听窗口状态变化
+        if (e.Property == WindowStateProperty)
+        {
+            EnsureViewVisibility();
+        }
+    }
+
+    private void EnsureViewVisibility()
+    {
+        // 获取当前活动的视图
+        var mainView = this.FindControl<Views.MainView>("MainView");
+        var settingsView = this.FindControl<Views.SettingsView>("SettingsView");
+        var welcomeView = this.FindControl<Views.WelcomeView>("WelcomeView");
+
+        if (mainView != null && settingsView != null && welcomeView != null)
+        {
+            // 检查当前哪个视图应该可见
+            var mainTransform = mainView.RenderTransform as TranslateTransform;
+            var settingsTransform = settingsView.RenderTransform as TranslateTransform;
+            var welcomeTransform = welcomeView.RenderTransform as TranslateTransform;
+
+            // 确保只有当前活动的视图可见，其他视图隐藏在屏幕外
+            if (mainTransform != null && Math.Abs(mainTransform.Y) < 10)
+            {
+                // MainView是活动的
+                if (settingsTransform != null) 
+                {
+                    // 设置界面应该在左侧隐藏
+                    settingsTransform.X = -this.Width;
+                    settingsTransform.Y = 0;
+                }
+                if (welcomeTransform != null) welcomeTransform.Y = -this.Height;
+            }
+            else if (settingsTransform != null && Math.Abs(settingsTransform.X) < 10)
+            {
+                // SettingsView是活动的
+                if (mainTransform != null) mainTransform.Y = this.Height;
+                if (welcomeTransform != null) welcomeTransform.Y = -this.Height;
+            }
+            else
+            {
+                // 确保设置界面在正确的隐藏位置
+                if (settingsTransform != null)
+                {
+                    settingsTransform.X = -this.Width;
+                    settingsTransform.Y = 0;
+                }
+            }
         }
     }
 
@@ -76,7 +161,7 @@ public partial class MainWindow : Window
             {
                 // 现代流畅动画实现：使用缓动函数和高帧率
                 const int steps = 60; // 60fps效果，更流畅
-                const int totalDuration = 300; // 毫秒，适中的速度
+                const int totalDuration = 1000; // 毫秒，更流畅的过渡
                 const int stepDelay = totalDuration / steps;
                 const double maxBlurRadius = 15.0; // 最大模糊半径
 
@@ -207,16 +292,27 @@ public partial class MainWindow : Window
         {
             _isAnimating = true;
 
-            // 获取Transform对象
-            var mainTransform = mainView.RenderTransform as TranslateTransform;
-            var settingsTransform = settingsView.RenderTransform as TranslateTransform;
+            // 确保设置界面可见
+            settingsView.IsVisible = true;
+            settingsView.Opacity = 1.0;
+
+            // 获取Transform对象，如果不存在则创建
+            var mainTransform = mainView.RenderTransform as TranslateTransform ?? new TranslateTransform();
+            var settingsTransform = settingsView.RenderTransform as TranslateTransform ?? new TranslateTransform();
+            
+            // 确保Transform已设置
+            if (mainView.RenderTransform == null) mainView.RenderTransform = mainTransform;
+            if (settingsView.RenderTransform == null) settingsView.RenderTransform = settingsTransform;
 
             if (mainTransform != null && settingsTransform != null)
             {
                 // 使用与现有动画相同的参数
                 const int steps = 60; // 60fps效果，更流畅
-                const int totalDuration = 300; // 毫秒，适中的速度
+                const int totalDuration = 1000; // 毫秒，更流畅的过渡
                 const int stepDelay = totalDuration / steps;
+
+                // 确保设置界面从正确的位置开始
+                settingsTransform.X = -this.Width;
 
                 for (int i = 0; i <= steps; i++)
                 {
@@ -225,13 +321,13 @@ public partial class MainWindow : Window
                     // 使用缓出三次方缓动函数 (ease-out cubic)
                     double easedProgress = 1.0 - Math.Pow(1.0 - progress, 3.0);
 
-                    // 主界面向右移动
-                    double mainOffset = 1280.0 * easedProgress;
-                    mainTransform.X = mainOffset;
-
-                    // 设置界面从左侧移动到中央
-                    double settingsOffset = -1280.0 * (1.0 - easedProgress);
+                    // 设置界面从左侧移动到中央，完全遮挡主界面
+                    // 从-1280移动到0（完全可见）
+                    double settingsOffset = -this.Width * (1.0 - easedProgress);
                     settingsTransform.X = settingsOffset;
+
+                    // 主界面保持在原位置，被设置界面遮挡
+                    mainTransform.X = 0;
 
                     if (i < steps)
                     {
@@ -253,15 +349,19 @@ public partial class MainWindow : Window
         {
             _isAnimating = true;
 
-            // 获取Transform对象
-            var mainTransform = mainView.RenderTransform as TranslateTransform;
-            var settingsTransform = settingsView.RenderTransform as TranslateTransform;
+            // 获取Transform对象，如果不存在则创建
+            var mainTransform = mainView.RenderTransform as TranslateTransform ?? new TranslateTransform();
+            var settingsTransform = settingsView.RenderTransform as TranslateTransform ?? new TranslateTransform();
+            
+            // 确保Transform已设置
+            if (mainView.RenderTransform == null) mainView.RenderTransform = mainTransform;
+            if (settingsView.RenderTransform == null) settingsView.RenderTransform = settingsTransform;
 
             if (mainTransform != null && settingsTransform != null)
             {
                 // 使用与现有动画相同的参数
                 const int steps = 60; // 60fps效果，更流畅
-                const int totalDuration = 300; // 毫秒，适中的速度
+                const int totalDuration = 1000; // 毫秒，更流畅的过渡
                 const int stepDelay = totalDuration / steps;
 
                 for (int i = 0; i <= steps; i++)
@@ -271,13 +371,13 @@ public partial class MainWindow : Window
                     // 使用缓出三次方缓动函数 (ease-out cubic)
                     double easedProgress = 1.0 - Math.Pow(1.0 - progress, 3.0);
 
-                    // 主界面从右侧移动回中央
-                    double mainOffset = 1280.0 * (1.0 - easedProgress);
-                    mainTransform.X = mainOffset;
-
                     // 设置界面向左移动隐藏
-                    double settingsOffset = -1280.0 * easedProgress;
+                    // 从0移动到-1280（完全隐藏）
+                    double settingsOffset = -this.Width * easedProgress;
                     settingsTransform.X = settingsOffset;
+
+                    // 主界面保持在原位置
+                    mainTransform.X = 0;
 
                     if (i < steps)
                     {
@@ -285,6 +385,9 @@ public partial class MainWindow : Window
                     }
                 }
             }
+
+            // 动画完成后，可以选择隐藏设置界面以节省资源（可选）
+            // settingsView.IsVisible = false;
 
             _isAnimating = false;
         }

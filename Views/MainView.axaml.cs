@@ -1,5 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Lyxie_desktop.Controls;
+using Lyxie_desktop.Utils;
 using System;
 using System.Threading.Tasks;
 
@@ -13,15 +16,25 @@ public partial class MainView : UserControl
     // 工具面板状态
     private bool _isToolPanelVisible = false;
     private bool _isAnimating = false;
+
+    // 词云控件和光晕动画
+    private WordCloudControl? _wordCloudControl;
+    private DispatcherTimer? _glowAnimationTimer;
+    private bool _isGlowAnimationRunning = false;
+
     public MainView()
     {
         InitializeComponent();
+        InitializeWordCloud();
+        InitializeGlowAnimation();
 
-        // 为圆形按钮添加点击事件
+        // 为圆形按钮添加事件
         var button = this.FindControl<Button>("MainCircleButton");
         if (button != null)
         {
             button.Click += OnMainButtonClick;
+            button.PointerEntered += OnMainButtonPointerEntered;
+            button.PointerExited += OnMainButtonPointerExited;
         }
 
         // 为设置按钮添加点击事件
@@ -64,10 +77,33 @@ public partial class MainView : UserControl
         UpdateInterfaceTexts();
     }
     
-    private void OnMainButtonClick(object? sender, RoutedEventArgs e)
+    private async void OnMainButtonClick(object? sender, RoutedEventArgs e)
     {
+        if (_isAnimating) return;
+
+        // 通知词云按钮被按下
+        _wordCloudControl?.SetButtonState(false, true);
+
+        // 执行点击动画
+        await PerformClickAnimation();
+
+        // 恢复词云状态
+        _wordCloudControl?.SetButtonState(false, false);
+
         // TODO: 实现AI对话功能
         // 这里可以添加打开对话窗口或切换到对话界面的逻辑
+    }
+
+    private void OnMainButtonPointerEntered(object? sender, Avalonia.Input.PointerEventArgs e)
+    {
+        // 通知词云按钮被悬停
+        _wordCloudControl?.SetButtonState(true, false);
+    }
+
+    private void OnMainButtonPointerExited(object? sender, Avalonia.Input.PointerEventArgs e)
+    {
+        // 通知词云按钮悬停结束
+        _wordCloudControl?.SetButtonState(false, false);
     }
 
     private void OnSettingsButtonClick(object? sender, RoutedEventArgs e)
@@ -202,4 +238,166 @@ public partial class MainView : UserControl
             System.Diagnostics.Debug.WriteLine($"开发功能2开关状态: {toggle.IsChecked}");
         }
     }
+
+    #region 词云和光晕动画
+
+    /// <summary>
+    /// 初始化词云控件
+    /// </summary>
+    private void InitializeWordCloud()
+    {
+        var container = this.FindControl<Border>("WordCloudContainer");
+        if (container != null)
+        {
+            _wordCloudControl = new WordCloudControl();
+            container.Child = _wordCloudControl;
+            
+            // 监听容器大小变化以重新定位词云
+            container.SizeChanged += OnWordCloudContainerSizeChanged;
+        }
+    }
+
+    /// <summary>
+    /// 词云容器大小变化处理
+    /// </summary>
+    private void OnWordCloudContainerSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        // 当容器大小变化时，确保词云正确重新定位
+        _wordCloudControl?.InvalidateVisual();
+    }
+
+    /// <summary>
+    /// 初始化光晕动画
+    /// </summary>
+    private void InitializeGlowAnimation()
+    {
+        _glowAnimationTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(17) // 60fps for ultra-smooth animation
+        };
+        _glowAnimationTimer.Tick += OnGlowAnimationTick;
+
+        // 启动光晕动画
+        StartGlowAnimation();
+    }
+
+    /// <summary>
+    /// 启动光晕动画
+    /// </summary>
+    private void StartGlowAnimation()
+    {
+        if (!_isGlowAnimationRunning)
+        {
+            _isGlowAnimationRunning = true;
+            _glowAnimationTimer?.Start();
+        }
+    }
+
+    /// <summary>
+    /// 停止光晕动画
+    /// </summary>
+    private void StopGlowAnimation()
+    {
+        _isGlowAnimationRunning = false;
+        _glowAnimationTimer?.Stop();
+    }
+
+    /// <summary>
+    /// 光晕动画帧更新 - 增强版呼吸和脉冲效果
+    /// </summary>
+    private void OnGlowAnimationTick(object? sender, EventArgs e)
+    {
+        if (!_isGlowAnimationRunning) return;
+
+        var time = DateTime.Now.TimeOfDay.TotalSeconds;
+
+        // 获取光晕层
+        var outerGlow = this.FindControl<Border>("OuterGlow");
+        var middleGlow = this.FindControl<Border>("MiddleGlow");
+        var innerGlow = this.FindControl<Border>("InnerGlow");
+
+        if (outerGlow != null && middleGlow != null && innerGlow != null)
+        {
+            // 主呼吸周期（慢速）
+            var breathingCycle = Math.Sin(time * 0.6) * 0.5 + 0.5; // 0-1范围
+            
+            // 心跳脉冲效果（快速）
+            var pulseCycle = Math.Max(0, Math.Sin(time * 2.5)) * 0.3;
+            
+            // 微妙的随机波动
+            var randomFlicker = Math.Sin(time * 3.7) * 0.02;
+            
+            // 组合效果
+            var baseIntensity = 0.8 + 0.4 * breathingCycle + pulseCycle + randomFlicker;
+            
+            // 为每层应用不同的强度和相位
+            var outerOpacity = Math.Max(0.05, Math.Min(0.25, 0.12 * baseIntensity));
+            var middleOpacity = Math.Max(0.08, Math.Min(0.35, 0.18 * baseIntensity * Math.Sin(time * 0.8 + Math.PI / 4)));
+            var innerOpacity = Math.Max(0.12, Math.Min(0.45, 0.25 * baseIntensity * Math.Sin(time * 1.1 + Math.PI / 2)));
+
+            outerGlow.Opacity = outerOpacity;
+            middleGlow.Opacity = middleOpacity;
+            innerGlow.Opacity = innerOpacity;
+        }
+    }
+
+    /// <summary>
+    /// 执行按钮点击动画
+    /// </summary>
+    private async Task PerformClickAnimation()
+    {
+        _isAnimating = true;
+
+        var button = this.FindControl<Button>("MainCircleButton");
+        var outerGlow = this.FindControl<Border>("OuterGlow");
+        var middleGlow = this.FindControl<Border>("MiddleGlow");
+        var innerGlow = this.FindControl<Border>("InnerGlow");
+
+        if (button != null && outerGlow != null && middleGlow != null && innerGlow != null)
+        {
+            // 保存原始透明度
+            var originalOuterOpacity = outerGlow.Opacity;
+            var originalMiddleOpacity = middleGlow.Opacity;
+            var originalInnerOpacity = innerGlow.Opacity;
+
+            try
+            {
+                // 第一阶段：快速缩小 + 光晕增强
+                var scaleTask = AnimationHelper.CreateScaleAnimation(button, 1.0, 0.95, TimeSpan.FromMilliseconds(100));
+                var glowTask1 = Task.WhenAll(
+                    AnimationHelper.CreateOpacityAnimation(outerGlow, originalOuterOpacity, 0.6, TimeSpan.FromMilliseconds(100)),
+                    AnimationHelper.CreateOpacityAnimation(middleGlow, originalMiddleOpacity, 0.7, TimeSpan.FromMilliseconds(100)),
+                    AnimationHelper.CreateOpacityAnimation(innerGlow, originalInnerOpacity, 0.8, TimeSpan.FromMilliseconds(100))
+                );
+
+                await Task.WhenAll(scaleTask, glowTask1);
+
+                // 第二阶段：弹性放大 + 旋转
+                var bounceTask = AnimationHelper.CreateCompositeTransformAnimation(button, 0.95, 1.05, 0, 2, TimeSpan.FromMilliseconds(200));
+                await bounceTask;
+
+                // 第三阶段：回到原始状态
+                var restoreTask = AnimationHelper.CreateCompositeTransformAnimation(button, 1.05, 1.0, 2, 0, TimeSpan.FromMilliseconds(300));
+                var glowTask2 = Task.WhenAll(
+                    AnimationHelper.CreateOpacityAnimation(outerGlow, 0.6, originalOuterOpacity, TimeSpan.FromMilliseconds(300)),
+                    AnimationHelper.CreateOpacityAnimation(middleGlow, 0.7, originalMiddleOpacity, TimeSpan.FromMilliseconds(300)),
+                    AnimationHelper.CreateOpacityAnimation(innerGlow, 0.8, originalInnerOpacity, TimeSpan.FromMilliseconds(300))
+                );
+
+                await Task.WhenAll(restoreTask, glowTask2);
+            }
+            catch (Exception)
+            {
+                // 动画可能被中断，恢复原始状态
+                button.RenderTransform = null;
+                outerGlow.Opacity = originalOuterOpacity;
+                middleGlow.Opacity = originalMiddleOpacity;
+                innerGlow.Opacity = originalInnerOpacity;
+            }
+        }
+
+        _isAnimating = false;
+    }
+
+    #endregion
 }

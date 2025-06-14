@@ -12,21 +12,27 @@
 
     <Grid ClipToBounds="True">
         <!-- 欢迎界面 -->
-        <views:WelcomeView Name="WelcomeView">
+        <views:WelcomeView Name="WelcomeView"
+                           ClipToBounds="True">
             <views:WelcomeView.RenderTransform>
                 <TranslateTransform X="0" Y="0"/>
             </views:WelcomeView.RenderTransform>
         </views:WelcomeView>
 
         <!-- 主界面 (初始位置在下方) -->
-        <views:MainView Name="MainView">
+        <views:MainView Name="MainView"
+                        ClipToBounds="True"
+                        ZIndex="1">
             <views:MainView.RenderTransform>
                 <TranslateTransform X="0" Y="760"/>
             </views:MainView.RenderTransform>
         </views:MainView>
 
-        <!-- 设置界面 (初始位置在左侧) -->
-        <views:SettingsView Name="SettingsView">
+        <!-- 设置界面 (初始位置在左侧，Z-Index更高以遮挡主界面) -->
+        <views:SettingsView Name="SettingsView"
+                            ClipToBounds="True"
+                            ZIndex="2"
+                            IsVisible="True">
             <views:SettingsView.RenderTransform>
                 <TranslateTransform X="-1280" Y="0"/>
             </views:SettingsView.RenderTransform>
