@@ -1,6 +1,10 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
+using Avalonia.Styling;
+using Avalonia.Media;
 using Lyxie_desktop.Controls;
 using Lyxie_desktop.Utils;
 using System;
@@ -22,11 +26,15 @@ public partial class MainView : UserControl
     private DispatcherTimer? _glowAnimationTimer;
     private bool _isGlowAnimationRunning = false;
 
+    // 边框渐变旋转动画
+    private bool _isBorderAnimationRunning = false;
+
     public MainView()
     {
         InitializeComponent();
         InitializeWordCloud();
         InitializeGlowAnimation();
+        InitializeBorderAnimation();
 
         // 为圆形按钮添加事件
         var button = this.FindControl<Button>("MainCircleButton");
@@ -75,6 +83,10 @@ public partial class MainView : UserControl
 
         // 初始化界面文本
         UpdateInterfaceTexts();
+
+        // 测试渐变旋转功能
+        TestGradientRotation.TestBasicRotation();
+        TestGradientRotation.TestAttachedProperty();
     }
     
     private async void OnMainButtonClick(object? sender, RoutedEventArgs e)
@@ -89,6 +101,16 @@ public partial class MainView : UserControl
 
         // 恢复词云状态
         _wordCloudControl?.SetButtonState(false, false);
+
+        // 测试边框动画 - 如果还没有启动，则启动边框动画
+        if (!_isBorderAnimationRunning)
+        {
+            var button = this.FindControl<Button>("MainCircleButton");
+            if (button?.BorderBrush is LinearGradientBrush)
+            {
+                StartBorderRotationAnimation(button);
+            }
+        }
 
         // TODO: 实现AI对话功能
         // 这里可以添加打开对话窗口或切换到对话界面的逻辑
@@ -290,6 +312,43 @@ public partial class MainView : UserControl
         {
             _isGlowAnimationRunning = true;
             _glowAnimationTimer?.Start();
+        }
+    }
+
+    /// <summary>
+    /// 初始化边框渐变旋转动画
+    /// </summary>
+    private void InitializeBorderAnimation()
+    {
+        // 延迟启动边框动画，确保控件已完全加载
+        Dispatcher.UIThread.Post(() =>
+        {
+            var button = this.FindControl<Button>("MainCircleButton");
+            if (button?.BorderBrush is LinearGradientBrush)
+            {
+                StartBorderRotationAnimation(button);
+            }
+        }, DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// 启动边框渐变旋转动画
+    /// </summary>
+    private void StartBorderRotationAnimation(Button button)
+    {
+        if (_isBorderAnimationRunning) return;
+
+        _isBorderAnimationRunning = true;
+
+        try
+        {
+            // 使用AnimationHelper创建无限循环的渐变旋转动画
+            _ = AnimationHelper.CreateInfiniteGradientRotationAnimation(button, TimeSpan.FromSeconds(4));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"边框动画错误: {ex.Message}");
+            _isBorderAnimationRunning = false;
         }
     }
 

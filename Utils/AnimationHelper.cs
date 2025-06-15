@@ -281,4 +281,73 @@ public static class AnimationHelper
 
         await animation.RunAsync(translateTransform);
     }
+
+    /// <summary>
+    /// 创建渐变旋转动画
+    /// </summary>
+    /// <param name="target">目标控件</param>
+    /// <param name="fromAngle">起始角度（弧度）</param>
+    /// <param name="toAngle">结束角度（弧度）</param>
+    /// <param name="duration">持续时间</param>
+    /// <param name="easing">缓动函数</param>
+    public static async Task CreateGradientRotationAnimation(Control target,
+        double fromAngle, double toAngle, TimeSpan duration, Easing? easing = null)
+    {
+        easing ??= new LinearEasing();
+
+        var animation = new Animation
+        {
+            Duration = duration,
+            Easing = easing,
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0d),
+                    Setters = { new Setter(LinearGradientBrushHelper.RotateAngleProperty, fromAngle) }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1d),
+                    Setters = { new Setter(LinearGradientBrushHelper.RotateAngleProperty, toAngle) }
+                }
+            }
+        };
+
+        await animation.RunAsync(target);
+    }
+
+    /// <summary>
+    /// 创建无限循环的渐变旋转动画
+    /// </summary>
+    /// <param name="target">目标控件</param>
+    /// <param name="duration">单次旋转持续时间</param>
+    /// <param name="easing">缓动函数</param>
+    public static async Task CreateInfiniteGradientRotationAnimation(Control target,
+        TimeSpan duration, Easing? easing = null)
+    {
+        easing ??= new LinearEasing();
+
+        var animation = new Animation
+        {
+            Duration = duration,
+            IterationCount = IterationCount.Infinite,
+            Easing = easing,
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0d),
+                    Setters = { new Setter(LinearGradientBrushHelper.RotateAngleProperty, 0.0) }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1d),
+                    Setters = { new Setter(LinearGradientBrushHelper.RotateAngleProperty, Math.PI * 2) }
+                }
+            }
+        };
+
+        await animation.RunAsync(target);
+    }
 }
