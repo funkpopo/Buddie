@@ -50,6 +50,38 @@
                     <Color x:Key="ButtonHighlightColor">#30FFFFFF</Color>
                     <Color x:Key="ButtonMidHighlightColor">#15FFFFFF</Color>
 
+                    <!-- 3D立体按钮专用颜色 - 浅色主题 -->
+                    <!-- 按钮顶面 - 最亮面，接受光照 -->
+                    <Color x:Key="Button3DTopStartColor">#FFFFFF</Color>
+                    <Color x:Key="Button3DTopMidColor">#F0F4F8</Color>
+                    <Color x:Key="Button3DTopEndColor">#E2E8F0</Color>
+                    
+                    <!-- 按钮侧面 - 中等亮度，营造厚度感 -->
+                    <Color x:Key="Button3DSideStartColor">#CBD5E0</Color>
+                    <Color x:Key="Button3DSideEndColor">#A0AEC0</Color>
+                    
+                    <!-- 按钮底面/阴影 - 最暗面 -->
+                    <Color x:Key="Button3DBottomColor">#718096</Color>
+                    <Color x:Key="Button3DDeepShadowColor">#4A5568</Color>
+                    
+                    <!-- 3D按钮高光系统 -->
+                    <Color x:Key="Button3DHighlightTopColor">#CCEEFFFF</Color>
+                    <Color x:Key="Button3DHighlightMidColor">#80FFFFFF</Color>
+                    <Color x:Key="Button3DHighlightEdgeColor">#40FFFFFF</Color>
+                    
+                    <!-- 3D按钮边框 -->
+                    <Color x:Key="Button3DBorderTopColor">#E2E8F0</Color>
+                    <Color x:Key="Button3DBorderBottomColor">#A0AEC0</Color>
+                    
+                    <!-- 悬停状态 -->
+                    <Color x:Key="Button3DHoverTopStartColor">#F7FAFC</Color>
+                    <Color x:Key="Button3DHoverTopMidColor">#EDF2F7</Color>
+                    <Color x:Key="Button3DHoverTopEndColor">#E2E8F0</Color>
+                    
+                    <!-- 按下状态 -->
+                    <Color x:Key="Button3DPressedTopColor">#CBD5E0</Color>
+                    <Color x:Key="Button3DPressedBottomColor">#A0AEC0</Color>
+
                     <!-- 文本颜色 -->
                     <SolidColorBrush x:Key="PrimaryTextBrush" Color="#E0E0E0"/>
                     <SolidColorBrush x:Key="SecondaryTextBrush" Color="#B0B0B0"/>
@@ -114,6 +146,38 @@
                     <Color x:Key="ButtonDeepShadowColor">#A0A0A0</Color>
                     <Color x:Key="ButtonHighlightColor">#50FFFFFF</Color>
                     <Color x:Key="ButtonMidHighlightColor">#25FFFFFF</Color>
+
+                    <!-- 3D立体按钮专用颜色 -->
+                    <!-- 按钮顶面 - 最亮面，接受光照 -->
+                    <Color x:Key="Button3DTopStartColor">#4A5568</Color>
+                    <Color x:Key="Button3DTopMidColor">#3A4556</Color>
+                    <Color x:Key="Button3DTopEndColor">#2D3748</Color>
+                    
+                    <!-- 按钮侧面 - 中等亮度，营造厚度感 -->
+                    <Color x:Key="Button3DSideStartColor">#2D3748</Color>
+                    <Color x:Key="Button3DSideEndColor">#1A202C</Color>
+                    
+                    <!-- 按钮底面/阴影 - 最暗面 -->
+                    <Color x:Key="Button3DBottomColor">#0F1419</Color>
+                    <Color x:Key="Button3DDeepShadowColor">#0A0E13</Color>
+                    
+                    <!-- 3D按钮高光系统 -->
+                    <Color x:Key="Button3DHighlightTopColor">#80FFFFFF</Color>
+                    <Color x:Key="Button3DHighlightMidColor">#40FFFFFF</Color>
+                    <Color x:Key="Button3DHighlightEdgeColor">#20FFFFFF</Color>
+                    
+                    <!-- 3D按钮边框 -->
+                    <Color x:Key="Button3DBorderTopColor">#5A6B7D</Color>
+                    <Color x:Key="Button3DBorderBottomColor">#1A202C</Color>
+                    
+                    <!-- 悬停状态 -->
+                    <Color x:Key="Button3DHoverTopStartColor">#5A6B7D</Color>
+                    <Color x:Key="Button3DHoverTopMidColor">#4A5A6D</Color>
+                    <Color x:Key="Button3DHoverTopEndColor">#3A4A5D</Color>
+                    
+                    <!-- 按下状态 -->
+                    <Color x:Key="Button3DPressedTopColor">#2A3441</Color>
+                    <Color x:Key="Button3DPressedBottomColor">#1A2431</Color>
 
                     <!-- 文本颜色 -->
                     <SolidColorBrush x:Key="PrimaryTextBrush" Color="#2D2D30"/>

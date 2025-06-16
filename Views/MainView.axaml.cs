@@ -28,6 +28,9 @@ public partial class MainView : UserControl
 
     // 边框渐变旋转动画
     private bool _isBorderAnimationRunning = false;
+    
+    // 光晕动画状态
+    private bool _isGlowAnimating = false;
 
     public MainView()
     {
@@ -43,6 +46,8 @@ public partial class MainView : UserControl
             button.Click += OnMainButtonClick;
             button.PointerEntered += OnMainButtonPointerEntered;
             button.PointerExited += OnMainButtonPointerExited;
+            button.PointerPressed += OnMainButtonPointerPressed;
+            button.PointerReleased += OnMainButtonPointerReleased;
         }
 
         // 为设置按钮添加点击事件
@@ -105,10 +110,10 @@ public partial class MainView : UserControl
         // 测试边框动画 - 如果还没有启动，则启动边框动画
         if (!_isBorderAnimationRunning)
         {
-            var button = this.FindControl<Button>("MainCircleButton");
-            if (button?.BorderBrush is LinearGradientBrush)
+            var borderContainer = this.FindControl<Border>("BorderContainer");
+            if (borderContainer?.BorderBrush is LinearGradientBrush)
             {
-                StartBorderRotationAnimation(button);
+                StartBorderRotationAnimation(borderContainer);
             }
         }
 
@@ -120,12 +125,89 @@ public partial class MainView : UserControl
     {
         // 通知词云按钮被悬停
         _wordCloudControl?.SetButtonState(true, false);
+        
+        // 启动光晕效果
+        AnimateButtonGlow(isHover: true, isPressed: false);
     }
 
     private void OnMainButtonPointerExited(object? sender, Avalonia.Input.PointerEventArgs e)
     {
         // 通知词云按钮悬停结束
         _wordCloudControl?.SetButtonState(false, false);
+        
+        // 关闭光晕效果
+        AnimateButtonGlow(isHover: false, isPressed: false);
+    }
+
+    private void OnMainButtonPointerPressed(object? sender, Avalonia.Input.PointerEventArgs e)
+    {
+        // 按压时的光晕效果
+        AnimateButtonGlow(isHover: true, isPressed: true);
+    }
+
+    private void OnMainButtonPointerReleased(object? sender, Avalonia.Input.PointerEventArgs e)
+    {
+        // 释放时恢复悬停光晕
+        AnimateButtonGlow(isHover: true, isPressed: false);
+    }
+
+    private async void AnimateButtonGlow(bool isHover, bool isPressed)
+    {
+        // 防止重复动画
+        if (_isGlowAnimating) return;
+        
+        var glowBackground = this.FindControl<Border>("ButtonGlowBackground");
+        if (glowBackground?.Effect is BlurEffect blurEffect)
+        {
+            _isGlowAnimating = true;
+            
+            try
+            {
+                double targetOpacity = 0;
+                double targetBlurRadius = 0;
+                
+                if (isHover)
+                {
+                    targetOpacity = 0.3; // 进一步降低透明度，更加微妙
+                    targetBlurRadius = isPressed ? 6 : 15; // 减小模糊半径，更精细的效果
+                }
+
+                // 快速响应的动画过渡
+                const int steps = 10;
+                const int duration = 200; // 减少动画时间
+                const int stepDelay = duration / steps;
+
+                double startOpacity = glowBackground.Opacity;
+                double startBlurRadius = blurEffect.Radius;
+
+                for (int i = 0; i <= steps; i++)
+                {
+                    // 检查动画是否应该被中断
+                    if (!_isGlowAnimating) break;
+                    
+                    double progress = (double)i / steps;
+                    
+                    // 使用更平滑的缓动函数
+                    double easedProgress = Math.Sin(progress * Math.PI * 0.5);
+                    
+                    glowBackground.Opacity = startOpacity + (targetOpacity - startOpacity) * easedProgress;
+                    blurEffect.Radius = startBlurRadius + (targetBlurRadius - startBlurRadius) * easedProgress;
+
+                    if (i < steps)
+                    {
+                        await Task.Delay(stepDelay);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // 动画失败时静默处理
+            }
+            finally
+            {
+                _isGlowAnimating = false;
+            }
+        }
     }
 
     private void OnSettingsButtonClick(object? sender, RoutedEventArgs e)
@@ -323,10 +405,10 @@ public partial class MainView : UserControl
         // 延迟启动边框动画，确保控件已完全加载
         Dispatcher.UIThread.Post(() =>
         {
-            var button = this.FindControl<Button>("MainCircleButton");
-            if (button?.BorderBrush is LinearGradientBrush)
+            var borderContainer = this.FindControl<Border>("BorderContainer");
+            if (borderContainer?.BorderBrush is LinearGradientBrush)
             {
-                StartBorderRotationAnimation(button);
+                StartBorderRotationAnimation(borderContainer);
             }
         }, DispatcherPriority.Loaded);
     }
@@ -334,7 +416,7 @@ public partial class MainView : UserControl
     /// <summary>
     /// 启动边框渐变旋转动画
     /// </summary>
-    private void StartBorderRotationAnimation(Button button)
+    private void StartBorderRotationAnimation(Border borderContainer)
     {
         if (_isBorderAnimationRunning) return;
 
@@ -343,7 +425,7 @@ public partial class MainView : UserControl
         try
         {
             // 使用AnimationHelper创建无限循环的渐变旋转动画
-            _ = AnimationHelper.CreateInfiniteGradientRotationAnimation(button, TimeSpan.FromSeconds(4));
+            _ = AnimationHelper.CreateInfiniteGradientRotationAnimation(borderContainer, TimeSpan.FromSeconds(4));
         }
         catch (Exception ex)
         {
