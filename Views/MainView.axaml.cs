@@ -421,26 +421,26 @@ public partial class MainView : UserControl
 
             try
             {
-                // 第一阶段：快速缩小 + 光晕增强
-                var scaleTask = AnimationHelper.CreateScaleAnimation(button, 1.0, 0.95, TimeSpan.FromMilliseconds(100));
+                // 第一阶段：快速缩小 + 光晕增强 (更平滑的缓动)
+                var scaleTask = AnimationHelper.CreateScaleAnimation(button, 1.0, 0.92, TimeSpan.FromMilliseconds(120), new CubicEaseIn());
                 var glowTask1 = Task.WhenAll(
-                    AnimationHelper.CreateOpacityAnimation(outerGlow, originalOuterOpacity, 0.6, TimeSpan.FromMilliseconds(100)),
-                    AnimationHelper.CreateOpacityAnimation(middleGlow, originalMiddleOpacity, 0.7, TimeSpan.FromMilliseconds(100)),
-                    AnimationHelper.CreateOpacityAnimation(innerGlow, originalInnerOpacity, 0.8, TimeSpan.FromMilliseconds(100))
+                    AnimationHelper.CreateOpacityAnimation(outerGlow, originalOuterOpacity, 0.7, TimeSpan.FromMilliseconds(120)),
+                    AnimationHelper.CreateOpacityAnimation(middleGlow, originalMiddleOpacity, 0.8, TimeSpan.FromMilliseconds(120)),
+                    AnimationHelper.CreateOpacityAnimation(innerGlow, originalInnerOpacity, 0.9, TimeSpan.FromMilliseconds(120))
                 );
 
                 await Task.WhenAll(scaleTask, glowTask1);
 
-                // 第二阶段：弹性放大 + 旋转
-                var bounceTask = AnimationHelper.CreateCompositeTransformAnimation(button, 0.95, 1.05, 0, 2, TimeSpan.FromMilliseconds(200));
+                // 第二阶段：弹性放大 + 轻微旋转 (更自然的弹性效果)
+                var bounceTask = AnimationHelper.CreateCompositeTransformAnimation(button, 0.92, 1.06, 0, 3, TimeSpan.FromMilliseconds(350), new SineEaseInOut());
                 await bounceTask;
 
-                // 第三阶段：回到原始状态
-                var restoreTask = AnimationHelper.CreateCompositeTransformAnimation(button, 1.05, 1.0, 2, 0, TimeSpan.FromMilliseconds(300));
+                // 第三阶段：平滑回到原始状态
+                var restoreTask = AnimationHelper.CreateCompositeTransformAnimation(button, 1.06, 1.0, 3, 0, TimeSpan.FromMilliseconds(300), new CubicEaseOut());
                 var glowTask2 = Task.WhenAll(
-                    AnimationHelper.CreateOpacityAnimation(outerGlow, 0.6, originalOuterOpacity, TimeSpan.FromMilliseconds(300)),
-                    AnimationHelper.CreateOpacityAnimation(middleGlow, 0.7, originalMiddleOpacity, TimeSpan.FromMilliseconds(300)),
-                    AnimationHelper.CreateOpacityAnimation(innerGlow, 0.8, originalInnerOpacity, TimeSpan.FromMilliseconds(300))
+                    AnimationHelper.CreateOpacityAnimation(outerGlow, 0.7, originalOuterOpacity, TimeSpan.FromMilliseconds(300)),
+                    AnimationHelper.CreateOpacityAnimation(middleGlow, 0.8, originalMiddleOpacity, TimeSpan.FromMilliseconds(300)),
+                    AnimationHelper.CreateOpacityAnimation(innerGlow, 0.9, originalInnerOpacity, TimeSpan.FromMilliseconds(300))
                 );
 
                 await Task.WhenAll(restoreTask, glowTask2);

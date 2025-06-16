@@ -135,25 +135,30 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 CornerRadius="300"
-                BorderThickness="4"
+                BorderThickness="6"
                 Cursor="Hand"
                 ZIndex="2"
                 utils:LinearGradientBrushHelper.RotateAngle="0">
 
-            <!-- 按钮背景渐变 -->
+            <!-- 按钮背景渐变 - 半球形立体效果，顶部面向用户 -->
             <Button.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <RadialGradientBrush Center="0.5,0.3" RadiusX="1.0" RadiusY="1.0">
                     <GradientStop Color="{DynamicResource ButtonBackgroundGradientStartColor}" Offset="0"/>
-                    <GradientStop Color="{DynamicResource ButtonBackgroundGradientEndColor}" Offset="1"/>
-                </LinearGradientBrush>
+                    <GradientStop Color="{DynamicResource ButtonBackgroundGradientStartColor}" Offset="0.2"/>
+                    <GradientStop Color="{DynamicResource ButtonBackgroundGradientEndColor}" Offset="0.6"/>
+                    <GradientStop Color="{DynamicResource ButtonShadowColor}" Offset="0.9"/>
+                    <GradientStop Color="{DynamicResource ButtonDeepShadowColor}" Offset="1"/>
+                </RadialGradientBrush>
             </Button.Background>
 
-            <!-- 按钮边框渐变 - 支持旋转动画 -->
+            <!-- 按钮边框渐变 - 支持旋转动画，增强半球边缘 -->
             <Button.BorderBrush>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                    <GradientStop Color="#5ddcff" Offset="0"/>
-                    <GradientStop Color="#3c67e3" Offset="0.43"/>
-                    <GradientStop Color="#4e00c2" Offset="1"/>
+                    <GradientStop Color="#8ddcff" Offset="0"/>
+                    <GradientStop Color="#5c87e3" Offset="0.2"/>
+                    <GradientStop Color="#3c67e3" Offset="0.5"/>
+                    <GradientStop Color="#2e00c2" Offset="0.8"/>
+                    <GradientStop Color="#1a0080" Offset="1"/>
                 </LinearGradientBrush>
             </Button.BorderBrush>
 
@@ -161,10 +166,13 @@
                 <Style Selector="Button:pointerover">
                     <Setter Property="Background">
                         <Setter.Value>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <RadialGradientBrush Center="0.5,0.25" RadiusX="1.1" RadiusY="1.1">
                                 <GradientStop Color="{DynamicResource ButtonHoverGradientStartColor}" Offset="0"/>
-                                <GradientStop Color="{DynamicResource ButtonHoverGradientEndColor}" Offset="1"/>
-                            </LinearGradientBrush>
+                                <GradientStop Color="{DynamicResource ButtonHoverGradientStartColor}" Offset="0.15"/>
+                                <GradientStop Color="{DynamicResource ButtonHoverGradientEndColor}" Offset="0.55"/>
+                                <GradientStop Color="{DynamicResource ButtonShadowColor}" Offset="0.85"/>
+                                <GradientStop Color="{DynamicResource ButtonDeepShadowColor}" Offset="1"/>
+                            </RadialGradientBrush>
                         </Setter.Value>
                     </Setter>
                     <Setter Property="BorderBrush">
@@ -179,10 +187,13 @@
                 <Style Selector="Button:pressed">
                     <Setter Property="Background">
                         <Setter.Value>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                <GradientStop Color="{DynamicResource ButtonPressedGradientStartColor}" Offset="0"/>
-                                <GradientStop Color="{DynamicResource ButtonPressedGradientEndColor}" Offset="1"/>
-                            </LinearGradientBrush>
+                            <RadialGradientBrush Center="0.5,0.4" RadiusX="0.9" RadiusY="0.9">
+                                <GradientStop Color="{DynamicResource ButtonPressedGradientEndColor}" Offset="0"/>
+                                <GradientStop Color="{DynamicResource ButtonPressedGradientStartColor}" Offset="0.3"/>
+                                <GradientStop Color="{DynamicResource ButtonPressedGradientEndColor}" Offset="0.7"/>
+                                <GradientStop Color="{DynamicResource ButtonShadowColor}" Offset="0.9"/>
+                                <GradientStop Color="{DynamicResource ButtonDeepShadowColor}" Offset="1"/>
+                            </RadialGradientBrush>
                         </Setter.Value>
                     </Setter>
                     <Setter Property="BorderBrush">
@@ -195,24 +206,41 @@
                     </Setter>
                 </Style>
             </Button.Styles>
-            
-            <StackPanel HorizontalAlignment="Center"
-                        VerticalAlignment="Center">
-                <TextBlock Name="AppNameTextBlock"
-                           Text="Lyxie"
-                           FontSize="24"
-                           FontWeight="Bold"
-                           Foreground="{DynamicResource PrimaryTextBrush}"
-                           HorizontalAlignment="Center"
-                           Margin="0,0,0,10"/>
+                
+            <!-- Button内容：高光层和文本层 -->
+            <Grid>
+                <!-- 高光层 - 增强半球效果，顶部面向用户 -->
+                <Border Width="580" Height="580" 
+                        CornerRadius="290"
+                        IsHitTestVisible="False">
+                    <Border.Background>
+                        <RadialGradientBrush Center="0.5,0.2" RadiusX="0.6" RadiusY="0.6">
+                            <GradientStop Color="{DynamicResource ButtonHighlightColor}" Offset="0"/>
+                            <GradientStop Color="{DynamicResource ButtonMidHighlightColor}" Offset="0.5"/>
+                            <GradientStop Color="Transparent" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Border.Background>
+                </Border>
 
-                <TextBlock Name="ClickToStartTextBlock"
-                           Text="点击开始对话"
-                           FontSize="16"
-                           Foreground="{DynamicResource SecondaryTextBrush}"
-                           HorizontalAlignment="Center"
-                           Opacity="0.9"/>
-            </StackPanel>
+                <!-- 文本层 -->
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <TextBlock Name="AppNameTextBlock"
+                               Text="Lyxie"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,10"/>
+
+                    <TextBlock Name="ClickToStartTextBlock"
+                               Text="点击开始对话"
+                               FontSize="16"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               HorizontalAlignment="Center"
+                               Opacity="0.9"/>
+                </StackPanel>
+            </Grid>
         </Button>
 
         <!-- 浮动工具面板 - 响应式布局 -->
@@ -321,7 +349,7 @@
                               Margin="0,6,0,0"/>
             </Grid>
         </Border>
-        </Grid>
-    </Border>
+    </Grid>
+</Border>
 
 </UserControl>

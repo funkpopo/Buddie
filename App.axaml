@@ -27,22 +27,28 @@
 
                     <!-- 按钮颜色 -->
                     <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#2D2D30"/>
-                    <Color x:Key="ButtonBackgroundGradientStartColor">#2D2D30</Color>
-                    <Color x:Key="ButtonBackgroundGradientEndColor">#3C3C3C</Color>
+                    <Color x:Key="ButtonBackgroundGradientStartColor">#3C3C3C</Color>
+                    <Color x:Key="ButtonBackgroundGradientEndColor">#2D2D30</Color>
                     <SolidColorBrush x:Key="ButtonBorderBrush" Color="#404040"/>
                     <Color x:Key="ButtonBorderGradientStartColor">#404040</Color>
                     <Color x:Key="ButtonBorderGradientEndColor">#505050</Color>
 
                     <!-- 按钮悬停状态 -->
                     <SolidColorBrush x:Key="ButtonHoverBackgroundBrush" Color="#3C3C3C"/>
-                    <Color x:Key="ButtonHoverGradientStartColor">#3E3E42</Color>
-                    <Color x:Key="ButtonHoverGradientEndColor">#4A4A4E</Color>
+                    <Color x:Key="ButtonHoverGradientStartColor">#4A4A4E</Color>
+                    <Color x:Key="ButtonHoverGradientEndColor">#3E3E42</Color>
                     <Color x:Key="ButtonHoverBorderGradientStartColor">#505050</Color>
                     <Color x:Key="ButtonHoverBorderGradientEndColor">#606060</Color>
 
                     <!-- 按钮按下状态 - 使用主题蓝色的深色变体 -->
                     <Color x:Key="ButtonPressedGradientStartColor">#1E3A5F</Color>
                     <Color x:Key="ButtonPressedGradientEndColor">#2A4A6B</Color>
+
+                    <!-- 半球按钮立体效果颜色 -->
+                    <Color x:Key="ButtonShadowColor">#252526</Color>
+                    <Color x:Key="ButtonDeepShadowColor">#1E1E1E</Color>
+                    <Color x:Key="ButtonHighlightColor">#30FFFFFF</Color>
+                    <Color x:Key="ButtonMidHighlightColor">#15FFFFFF</Color>
 
                     <!-- 文本颜色 -->
                     <SolidColorBrush x:Key="PrimaryTextBrush" Color="#E0E0E0"/>
@@ -102,6 +108,12 @@
                     <!-- 按钮按下状态 - 使用主题色的深色变体 -->
                     <Color x:Key="ButtonPressedGradientStartColor">#D6E8F5</Color>
                     <Color x:Key="ButtonPressedGradientEndColor">#C2D9ED</Color>
+
+                    <!-- 半球按钮立体效果颜色 -->
+                    <Color x:Key="ButtonShadowColor">#C0C0C0</Color>
+                    <Color x:Key="ButtonDeepShadowColor">#A0A0A0</Color>
+                    <Color x:Key="ButtonHighlightColor">#50FFFFFF</Color>
+                    <Color x:Key="ButtonMidHighlightColor">#25FFFFFF</Color>
 
                     <!-- 文本颜色 -->
                     <SolidColorBrush x:Key="PrimaryTextBrush" Color="#2D2D30"/>
