@@ -52,7 +52,7 @@ public static class AnimationHelper
             }
         };
 
-        await animation.RunAsync(scaleTransform);
+        await animation.RunAsync(target);
     }
 
     /// <summary>
@@ -91,7 +91,7 @@ public static class AnimationHelper
             }
         };
 
-        await animation.RunAsync(rotateTransform);
+        await animation.RunAsync(target);
     }
 
     /// <summary>
@@ -182,7 +182,7 @@ public static class AnimationHelper
             }
         };
 
-        await animation.RunAsync(transformGroup);
+        await animation.RunAsync(target);
     }
 
     /// <summary>
@@ -279,7 +279,7 @@ public static class AnimationHelper
             }
         };
 
-        await animation.RunAsync(translateTransform);
+        await animation.RunAsync(target);
     }
 
     /// <summary>
@@ -349,5 +349,237 @@ public static class AnimationHelper
         };
 
         await animation.RunAsync(target);
+    }
+
+    /// <summary>
+    /// 创建平移动画
+    /// </summary>
+    /// <param name="target">目标控件</param>
+    /// <param name="fromX">起始X坐标</param>
+    /// <param name="toX">结束X坐标</param>
+    /// <param name="fromY">起始Y坐标</param>
+    /// <param name="toY">结束Y坐标</param>
+    /// <param name="duration">持续时间</param>
+    /// <param name="easing">缓动函数</param>
+    public static async Task CreateTranslateAnimation(Control target, 
+        double fromX, double toX, double fromY, double toY,
+        TimeSpan duration, Easing? easing = null)
+    {
+        easing ??= new CubicEaseOut();
+
+        var translateTransform = target.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        target.RenderTransform = translateTransform;
+
+        var animation = new Animation
+        {
+            Duration = duration,
+            Easing = easing,
+            FillMode = FillMode.Forward,
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0d),
+                    Setters = { 
+                        new Setter(TranslateTransform.XProperty, fromX),
+                        new Setter(TranslateTransform.YProperty, fromY)
+                    }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1d),
+                    Setters = { 
+                        new Setter(TranslateTransform.XProperty, toX),
+                        new Setter(TranslateTransform.YProperty, toY)
+                    }
+                }
+            }
+        };
+
+        await animation.RunAsync(target);
+    }
+
+    /// <summary>
+    /// 创建页面切换组合动画（包含平移和模糊效果）
+    /// </summary>
+    /// <param name="exitingView">退出的视图</param>
+    /// <param name="enteringView">进入的视图</param>
+    /// <param name="exitFromY">退出视图的起始Y坐标</param>
+    /// <param name="exitToY">退出视图的结束Y坐标</param>
+    /// <param name="enterFromY">进入视图的起始Y坐标</param>
+    /// <param name="enterToY">进入视图的结束Y坐标</param>
+    /// <param name="duration">持续时间</param>
+    /// <param name="withBlur">是否包含模糊效果</param>
+    public static async Task CreatePageTransitionAnimation(
+        Control exitingView, Control enteringView,
+        double exitFromY, double exitToY,
+        double enterFromY, double enterToY,
+        TimeSpan duration, bool withBlur = true)
+    {
+        var easing = new CubicEaseOut();
+        
+        // 确保视图有Transform
+        var exitingTransform = exitingView.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        var enteringTransform = enteringView.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        exitingView.RenderTransform = exitingTransform;
+        enteringView.RenderTransform = enteringTransform;
+
+        // 设置初始位置
+        exitingTransform.Y = exitFromY;
+        enteringTransform.Y = enterFromY;
+
+        // 创建退出动画
+        var exitAnimation = new Animation
+        {
+            Duration = duration,
+            Easing = easing,
+            FillMode = FillMode.Forward,
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0d),
+                    Setters = { new Setter(TranslateTransform.YProperty, exitFromY) }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1d),
+                    Setters = { new Setter(TranslateTransform.YProperty, exitToY) }
+                }
+            }
+        };
+
+        // 创建进入动画
+        var enterAnimation = new Animation
+        {
+            Duration = duration,
+            Easing = easing,
+            FillMode = FillMode.Forward,
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0d),
+                    Setters = { new Setter(TranslateTransform.YProperty, enterFromY) }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1d),
+                    Setters = { new Setter(TranslateTransform.YProperty, enterToY) }
+                }
+            }
+        };
+
+        // 如果需要模糊效果，为进入视图添加透明度动画
+        Task? blurTask = null;
+        if (withBlur && enteringView is Border border)
+        {
+            // 创建模糊效果动画（使用透明度模拟）
+            var blurAnimation = new Animation
+            {
+                Duration = duration,
+                Easing = easing,
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0d),
+                        Setters = { new Setter(Visual.OpacityProperty, 0.3) }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1d),
+                        Setters = { new Setter(Visual.OpacityProperty, 1.0) }
+                    }
+                }
+            };
+            blurTask = blurAnimation.RunAsync(border);
+        }
+
+        // 并行运行所有动画
+        var tasks = new[] { 
+            exitAnimation.RunAsync(exitingView),
+            enterAnimation.RunAsync(enteringView)
+        };
+        
+        if (blurTask != null)
+        {
+            await Task.WhenAll(tasks[0], tasks[1], blurTask);
+        }
+        else
+        {
+            await Task.WhenAll(tasks);
+        }
+    }
+
+    /// <summary>
+    /// 创建横向滑动切换动画
+    /// </summary>
+    /// <param name="exitingView">退出的视图</param>
+    /// <param name="enteringView">进入的视图</param>
+    /// <param name="slideDirection">滑动方向（1为右滑，-1为左滑）</param>
+    /// <param name="distance">滑动距离</param>
+    /// <param name="duration">持续时间</param>
+    public static async Task CreateSlideTransitionAnimation(
+        Control exitingView, Control enteringView,
+        int slideDirection, double distance, TimeSpan duration)
+    {
+        var easing = new CubicEaseOut();
+        
+        // 确保视图有Transform
+        var exitingTransform = exitingView.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        var enteringTransform = enteringView.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        exitingView.RenderTransform = exitingTransform;
+        enteringView.RenderTransform = enteringTransform;
+
+        // 设置初始位置
+        enteringTransform.X = -distance * slideDirection;
+
+        // 创建动画
+        var exitAnimation = new Animation
+        {
+            Duration = duration,
+            Easing = easing,
+            FillMode = FillMode.Forward,
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0d),
+                    Setters = { new Setter(TranslateTransform.XProperty, 0.0) }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1d),
+                    Setters = { new Setter(TranslateTransform.XProperty, distance * slideDirection) }
+                }
+            }
+        };
+
+        var enterAnimation = new Animation
+        {
+            Duration = duration,
+            Easing = easing,
+            FillMode = FillMode.Forward,
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0d),
+                    Setters = { new Setter(TranslateTransform.XProperty, -distance * slideDirection) }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1d),
+                    Setters = { new Setter(TranslateTransform.XProperty, 0.0) }
+                }
+            }
+        };
+
+        // 并行运行动画
+        await Task.WhenAll(
+            exitAnimation.RunAsync(exitingView),
+            enterAnimation.RunAsync(enteringView)
+        );
     }
 }

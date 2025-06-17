@@ -7,6 +7,7 @@ using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Lyxie_desktop.Utils;
 
 namespace Lyxie_desktop;
 
@@ -153,53 +154,64 @@ public partial class MainWindow : Window
 
         if (welcomeView != null && mainView != null)
         {
-            // 获取Transform对象
-            var welcomeTransform = welcomeView.RenderTransform as TranslateTransform;
-            var mainTransform = mainView.RenderTransform as TranslateTransform;
-
-            // 获取MainView中的Border用于Blur效果
-            var mainViewBorder = mainView.FindControl<Border>("MainViewBorder");
-
-            if (welcomeTransform != null && mainTransform != null && mainViewBorder != null)
+            try
             {
-                // 现代流畅动画实现：使用缓动函数和高帧率
-                const int steps = 60; // 60fps效果，更流畅
-                const int totalDuration = 1000; // 毫秒，更流畅的过渡
-                const int stepDelay = totalDuration / steps;
-                const double maxBlurRadius = 15.0; // 最大模糊半径
+                // 获取Transform对象
+                var welcomeTransform = welcomeView.RenderTransform as TranslateTransform;
+                var mainTransform = mainView.RenderTransform as TranslateTransform;
 
-                for (int i = 0; i <= steps; i++)
+                if (welcomeTransform != null && mainTransform != null)
                 {
-                    double progress = (double)i / steps;
-
-                    // 使用缓出三次方缓动函数 (ease-out cubic) - 现代UI常用
-                    double easedProgress = 1.0 - Math.Pow(1.0 - progress, 3.0);
-
-                    // 欢迎界面向上移动，带有轻微的超调效果
-                    double welcomeOffset = -760.0 * easedProgress;
-                    welcomeTransform.Y = welcomeOffset;
-
-                    // 主界面从下方移动到中央，使用相同的缓动
-                    double mainOffset = 760.0 * (1.0 - easedProgress);
-                    mainTransform.Y = mainOffset;
-
-                    // Blur效果：从最大模糊半径逐渐减少到0（从模糊到清晰）
-                    double blurRadius = maxBlurRadius * (1.0 - easedProgress);
-                    var boxShadow = new BoxShadow
-                    {
-                        IsInset = true,
-                        OffsetX = 0,
-                        OffsetY = 0,
-                        Blur = blurRadius,
-                        Spread = 0,
-                        Color = Colors.Black
-                    };
-                    mainViewBorder.BoxShadow = new BoxShadows(boxShadow);
-
-                    if (i < steps)
-                    {
-                        await Task.Delay(stepDelay);
-                    }
+                    // 确保初始位置正确
+                    welcomeTransform.Y = 0;
+                    mainTransform.Y = 760;
+                    
+                    // 使用并行动画
+                    var tasks = new List<Task>();
+                    
+                    // 欢迎页面向上移动
+                    tasks.Add(AnimationHelper.CreateTranslateAnimation(
+                        welcomeView, 0, 0, 0, -760,
+                        TimeSpan.FromMilliseconds(800)
+                    ));
+                    
+                    // 主页面从下向上移动
+                    tasks.Add(AnimationHelper.CreateTranslateAnimation(
+                        mainView, 0, 0, 760, 0,
+                        TimeSpan.FromMilliseconds(800)
+                    ));
+                    
+                    // 同时运行两个动画
+                    await Task.WhenAll(tasks);
+                    
+                    // 确保最终位置正确
+                    welcomeTransform.Y = -760;
+                    mainTransform.Y = 0;
+                }
+                else
+                {
+                    // 如果Transform不存在，创建一个简单的淡入淡出效果
+                    welcomeView.Opacity = 1.0;
+                    mainView.Opacity = 0.0;
+                    mainView.IsVisible = true;
+                    
+                    await AnimationHelper.CreateOpacityAnimation(welcomeView, 1.0, 0.0, TimeSpan.FromMilliseconds(300));
+                    await AnimationHelper.CreateOpacityAnimation(mainView, 0.0, 1.0, TimeSpan.FromMilliseconds(300));
+                    
+                    welcomeView.IsVisible = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                // 如果动画出错，直接显示主界面
+                Console.WriteLine($"Animation error: {ex.Message}");
+                welcomeView.IsVisible = false;
+                mainView.IsVisible = true;
+                
+                var mainTransform = mainView.RenderTransform as TranslateTransform;
+                if (mainTransform != null)
+                {
+                    mainTransform.Y = 0;
                 }
             }
         }
@@ -295,47 +307,46 @@ public partial class MainWindow : Window
         {
             _isAnimating = true;
 
-            // 确保设置界面可见
-            settingsView.IsVisible = true;
-            settingsView.Opacity = 1.0;
-
-            // 获取Transform对象，如果不存在则创建
-            var mainTransform = mainView.RenderTransform as TranslateTransform ?? new TranslateTransform();
-            var settingsTransform = settingsView.RenderTransform as TranslateTransform ?? new TranslateTransform();
-            
-            // 确保Transform已设置
-            if (mainView.RenderTransform == null) mainView.RenderTransform = mainTransform;
-            if (settingsView.RenderTransform == null) settingsView.RenderTransform = settingsTransform;
-
-            if (mainTransform != null && settingsTransform != null)
+            try
             {
-                // 使用与现有动画相同的参数
-                const int steps = 60; // 60fps效果，更流畅
-                const int totalDuration = 1000; // 毫秒，更流畅的过渡
-                const int stepDelay = totalDuration / steps;
+                // 确保设置界面可见
+                settingsView.IsVisible = true;
+                settingsView.Opacity = 1.0;
 
-                // 确保设置界面从正确的位置开始
-                settingsTransform.X = -this.Width;
-
-                for (int i = 0; i <= steps; i++)
+                // 获取Transform对象
+                var settingsTransform = settingsView.RenderTransform as TranslateTransform;
+                
+                if (settingsTransform != null)
                 {
-                    double progress = (double)i / steps;
-
-                    // 使用缓出三次方缓动函数 (ease-out cubic)
-                    double easedProgress = 1.0 - Math.Pow(1.0 - progress, 3.0);
-
-                    // 设置界面从左侧移动到中央，完全遮挡主界面
-                    // 从-1280移动到0（完全可见）
-                    double settingsOffset = -this.Width * (1.0 - easedProgress);
-                    settingsTransform.X = settingsOffset;
-
-                    // 主界面保持在原位置，被设置界面遮挡
-                    mainTransform.X = 0;
-
-                    if (i < steps)
-                    {
-                        await Task.Delay(stepDelay);
-                    }
+                    // 确保初始位置正确
+                    settingsTransform.X = -this.Width;
+                    settingsTransform.Y = 0;
+                    
+                    // 使用平移动画，从左侧滑入
+                    await AnimationHelper.CreateTranslateAnimation(
+                        settingsView, -this.Width, 0, 0, 0,
+                        TimeSpan.FromMilliseconds(600)
+                    );
+                    
+                    // 确保最终位置正确
+                    settingsTransform.X = 0;
+                    settingsTransform.Y = 0;
+                }
+                else
+                {
+                    // 如果Transform不存在，使用简单的淡入效果
+                    settingsView.Opacity = 0.0;
+                    await AnimationHelper.CreateOpacityAnimation(settingsView, 0.0, 1.0, TimeSpan.FromMilliseconds(300));
+                }
+            }
+            catch (Exception ex)
+            {
+                // 如果动画出错，直接显示设置界面
+                Console.WriteLine($"Settings animation error: {ex.Message}");
+                var settingsTransform = settingsView.RenderTransform as TranslateTransform;
+                if (settingsTransform != null)
+                {
+                    settingsTransform.X = 0;
                 }
             }
 
@@ -352,45 +363,43 @@ public partial class MainWindow : Window
         {
             _isAnimating = true;
 
-            // 获取Transform对象，如果不存在则创建
-            var mainTransform = mainView.RenderTransform as TranslateTransform ?? new TranslateTransform();
-            var settingsTransform = settingsView.RenderTransform as TranslateTransform ?? new TranslateTransform();
-            
-            // 确保Transform已设置
-            if (mainView.RenderTransform == null) mainView.RenderTransform = mainTransform;
-            if (settingsView.RenderTransform == null) settingsView.RenderTransform = settingsTransform;
-
-            if (mainTransform != null && settingsTransform != null)
+            try
             {
-                // 使用与现有动画相同的参数
-                const int steps = 60; // 60fps效果，更流畅
-                const int totalDuration = 1000; // 毫秒，更流畅的过渡
-                const int stepDelay = totalDuration / steps;
-
-                for (int i = 0; i <= steps; i++)
+                // 获取Transform对象
+                var settingsTransform = settingsView.RenderTransform as TranslateTransform;
+                
+                if (settingsTransform != null)
                 {
-                    double progress = (double)i / steps;
-
-                    // 使用缓出三次方缓动函数 (ease-out cubic)
-                    double easedProgress = 1.0 - Math.Pow(1.0 - progress, 3.0);
-
-                    // 设置界面向左移动隐藏
-                    // 从0移动到-1280（完全隐藏）
-                    double settingsOffset = -this.Width * easedProgress;
-                    settingsTransform.X = settingsOffset;
-
-                    // 主界面保持在原位置
-                    mainTransform.X = 0;
-
-                    if (i < steps)
-                    {
-                        await Task.Delay(stepDelay);
-                    }
+                    // 确保初始位置正确
+                    settingsTransform.X = 0;
+                    
+                    // 使用平移动画，向左侧滑出
+                    await AnimationHelper.CreateTranslateAnimation(
+                        settingsView, 0, -this.Width, 0, 0,
+                        TimeSpan.FromMilliseconds(600)
+                    );
+                    
+                    // 确保最终位置正确
+                    settingsTransform.X = -this.Width;
+                    settingsTransform.Y = 0;
+                }
+                else
+                {
+                    // 如果Transform不存在，使用简单的淡出效果
+                    await AnimationHelper.CreateOpacityAnimation(settingsView, 1.0, 0.0, TimeSpan.FromMilliseconds(300));
+                    settingsView.IsVisible = false;
                 }
             }
-
-            // 动画完成后，可以选择隐藏设置界面以节省资源（可选）
-            // settingsView.IsVisible = false;
+            catch (Exception ex)
+            {
+                // 如果动画出错，直接隐藏设置界面
+                Console.WriteLine($"Back animation error: {ex.Message}");
+                var settingsTransform = settingsView.RenderTransform as TranslateTransform;
+                if (settingsTransform != null)
+                {
+                    settingsTransform.X = -this.Width;
+                }
+            }
 
             _isAnimating = false;
         }
