@@ -16,6 +16,9 @@ public partial class App : Application
 
     // 全局语言服务实例
     public static LanguageService LanguageService { get; private set; } = new LanguageService();
+    
+    // 全局应用程序设置
+    public static AppSettings Settings { get; private set; } = new AppSettings();
 
     public override void Initialize()
     {
@@ -52,6 +55,9 @@ public partial class App : Application
 
                 if (settings != null)
                 {
+                    // 保存到静态Settings属性
+                    Settings = settings;
+                    
                     // 应用主题设置
                     var themeMode = ThemeService.GetThemeModeFromIndex(settings.ThemeIndex);
                     ThemeService.InitializeTheme(themeMode);
@@ -74,6 +80,30 @@ public partial class App : Application
             Console.WriteLine($"Failed to load settings: {ex.Message}");
             ThemeService.InitializeTheme(ThemeMode.System);
             LanguageService.SetLanguage(Language.SimplifiedChinese);
+        }
+    }
+    
+    // 保存设置
+    public static void SaveSettings()
+    {
+        try
+        {
+            // 设置文件路径
+            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var appFolder = Path.Combine(appDataPath, "Lyxie");
+            Directory.CreateDirectory(appFolder);
+            var settingsPath = Path.Combine(appFolder, "settings.json");
+            
+            // 序列化设置并写入文件
+            var json = JsonSerializer.Serialize(Settings, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+            File.WriteAllText(settingsPath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to save settings: {ex.Message}");
         }
     }
 }

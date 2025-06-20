@@ -247,16 +247,34 @@
                 CornerRadius="8"
                 BoxShadow="0 4 12 0 #40000000"
                 Opacity="0"
+                IsHitTestVisible="True"
+                ZIndex="10"
                 IsVisible="False">
 
-            <Grid Margin="12">
+            <Grid Margin="15">
                 <!-- 定义行：标题 + 三个开关行 -->
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>  <!-- 标题行 -->
-                    <RowDefinition Height="Auto"/>  <!-- TTS开关 -->
-                    <RowDefinition Height="Auto"/>  <!-- 开发功能1 -->
-                    <RowDefinition Height="Auto"/>  <!-- 开发功能2 -->
+                    <RowDefinition Height="Auto" MinHeight="30"/>  <!-- 标题行 -->
+                    <RowDefinition Height="Auto" MinHeight="36"/>  <!-- TTS开关 -->
+                    <RowDefinition Height="Auto" MinHeight="36"/>  <!-- 开发功能1 -->
+                    <RowDefinition Height="Auto" MinHeight="36"/>  <!-- 开发功能2 -->
                 </Grid.RowDefinitions>
+                
+                <!-- 样式定义：确保ToggleSwitch可以正确接收点击事件 -->
+                <Grid.Styles>
+                    <Style Selector="ToggleSwitch">
+                        <Setter Property="IsHitTestVisible" Value="True"/>
+                    </Style>
+                    <Style Selector="ToggleSwitch /template/ Border#OuterBorder">
+                        <Setter Property="IsHitTestVisible" Value="True"/>
+                        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
+                        <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}"/>
+                    </Style>
+                    <Style Selector="ToggleSwitch /template/ Thumb#Thumb">
+                        <Setter Property="IsHitTestVisible" Value="True"/>
+                    </Style>
+                </Grid.Styles>
 
                 <!-- 定义列：图标、文本、开关 -->
                 <Grid.ColumnDefinitions>
@@ -271,7 +289,7 @@
                            FontSize="14"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource PrimaryTextBrush}"
-                           Margin="0,0,0,8"
+                           Margin="0,0,0,12"
                            HorizontalAlignment="Left"/>
 
                 <!-- TTS开关行 -->
@@ -281,19 +299,23 @@
                                             Height="16"
                                             Foreground="{DynamicResource SecondaryIconBrush}"
                                             VerticalAlignment="Center"
-                                            Margin="0,0,8,0"/>
+                                            Margin="0,4,8,4"/>
                 <TextBlock Grid.Row="1" Grid.Column="1"
                            Text="TTS"
                            FontSize="12"
                            Foreground="{DynamicResource SecondaryTextBrush}"
                            VerticalAlignment="Center"
-                           Margin="0,0,8,0"/>
+                           Margin="0,4,8,4"/>
                 <ToggleSwitch Grid.Row="1" Grid.Column="2"
                               Name="TTSToggle"
                               OffContent=""
                               OnContent=""
-                              Width="40"
-                              VerticalAlignment="Center"/>
+                              Width="46"
+                              Height="28"
+                              IsHitTestVisible="True"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Right"
+                              Margin="0,4,0,4"/>
 
                 <!-- 开发功能1开关行 -->
                 <materialIcons:MaterialIcon Grid.Row="2" Grid.Column="0"
@@ -302,20 +324,23 @@
                                             Height="16"
                                             Foreground="{DynamicResource SecondaryIconBrush}"
                                             VerticalAlignment="Center"
-                                            Margin="0,6,8,0"/>
+                                            Margin="0,8,8,4"/>
                 <TextBlock Grid.Row="2" Grid.Column="1"
                            Text="开发功能1"
                            FontSize="12"
                            Foreground="{DynamicResource SecondaryTextBrush}"
                            VerticalAlignment="Center"
-                           Margin="0,6,8,0"/>
+                           Margin="0,8,8,4"/>
                 <ToggleSwitch Grid.Row="2" Grid.Column="2"
                               Name="Dev1Toggle"
                               OffContent=""
                               OnContent=""
-                              Width="40"
+                              Width="46"
+                              Height="28"
+                              IsHitTestVisible="True" 
                               VerticalAlignment="Center"
-                              Margin="0,6,0,0"/>
+                              HorizontalAlignment="Right"
+                              Margin="0,8,0,4"/>
 
                 <!-- 开发功能2开关行 -->
                 <materialIcons:MaterialIcon Grid.Row="3" Grid.Column="0"
@@ -324,20 +349,23 @@
                                             Height="16"
                                             Foreground="{DynamicResource SecondaryIconBrush}"
                                             VerticalAlignment="Center"
-                                            Margin="0,6,8,0"/>
+                                            Margin="0,8,8,4"/>
                 <TextBlock Grid.Row="3" Grid.Column="1"
                            Text="开发功能2"
                            FontSize="12"
                            Foreground="{DynamicResource SecondaryTextBrush}"
                            VerticalAlignment="Center"
-                           Margin="0,6,8,0"/>
+                           Margin="0,8,8,4"/>
                 <ToggleSwitch Grid.Row="3" Grid.Column="2"
                               Name="Dev2Toggle"
                               OffContent=""
                               OnContent=""
-                              Width="40"
+                              Width="46"
+                              Height="28"
+                              IsHitTestVisible="True"
                               VerticalAlignment="Center"
-                              Margin="0,6,0,0"/>
+                              HorizontalAlignment="Right"
+                              Margin="0,8,0,4"/>
             </Grid>
         </Border>
     </Grid>

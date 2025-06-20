@@ -5,6 +5,8 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Styling;
 using Avalonia.Media;
+using Avalonia.Layout;
+using Avalonia.VisualTree;
 using Lyxie_desktop.Controls;
 using Lyxie_desktop.Utils;
 using System;
@@ -64,6 +66,9 @@ public partial class MainView : UserControl
             toolButton.Click += OnToolButtonClick;
         }
 
+        // 初始化工具面板开关状态
+        InitializeToolToggles();
+
         // 为开关添加事件
         var ttsToggle = this.FindControl<ToggleSwitch>("TTSToggle");
         if (ttsToggle != null)
@@ -92,6 +97,23 @@ public partial class MainView : UserControl
         // 测试渐变旋转功能
         TestGradientRotation.TestBasicRotation();
         TestGradientRotation.TestAttachedProperty();
+    }
+    
+    // 初始化工具面板开关状态
+    private void InitializeToolToggles()
+    {
+        var ttsToggle = this.FindControl<ToggleSwitch>("TTSToggle");
+        var dev1Toggle = this.FindControl<ToggleSwitch>("Dev1Toggle");
+        var dev2Toggle = this.FindControl<ToggleSwitch>("Dev2Toggle");
+        
+        if (ttsToggle != null)
+            ttsToggle.IsChecked = App.Settings.EnableTTS;
+            
+        if (dev1Toggle != null)
+            dev1Toggle.IsChecked = App.Settings.EnableDev1;
+            
+        if (dev2Toggle != null)
+            dev2Toggle.IsChecked = App.Settings.EnableDev2;
     }
     
     private async void OnMainButtonClick(object? sender, RoutedEventArgs e)
@@ -220,6 +242,11 @@ public partial class MainView : UserControl
     {
         if (_isAnimating) return;
 
+        var toolPanel = this.FindControl<Border>("ToolPanel");
+        if (toolPanel == null) return;
+
+        _isAnimating = true;
+
         if (_isToolPanelVisible)
         {
             await HideToolPanel();
@@ -228,6 +255,8 @@ public partial class MainView : UserControl
         {
             await ShowToolPanel();
         }
+
+        _isAnimating = false;
     }
 
     private void OnLanguageChanged(object? sender, Services.Language language)
@@ -258,15 +287,15 @@ public partial class MainView : UserControl
         var toolPanel = this.FindControl<Border>("ToolPanel");
         if (toolPanel == null) return;
 
-        _isAnimating = true;
         _isToolPanelVisible = true;
 
-        // 显示面板
+        // 确保面板是可见的
         toolPanel.IsVisible = true;
-
+        toolPanel.IsHitTestVisible = true; // 确保可以接收点击事件
+        
         // 淡入动画 - 优化响应速度
         const int steps = 10;
-        const int totalDuration = 50;  // 从300ms减少到150ms，提升响应速度
+        const int totalDuration = 150;  // 增加持续时间，使动画更平滑
         const int stepDelay = totalDuration / steps;
 
         for (int i = 0; i <= steps; i++)
@@ -281,8 +310,18 @@ public partial class MainView : UserControl
                 await Task.Delay(stepDelay);
             }
         }
-
-        _isAnimating = false;
+        
+        // 确保最终不透明度为1
+        toolPanel.Opacity = 1.0;
+        
+        // 确保所有开关可点击
+        var ttsToggle = this.FindControl<ToggleSwitch>("TTSToggle");
+        var dev1Toggle = this.FindControl<ToggleSwitch>("Dev1Toggle");
+        var dev2Toggle = this.FindControl<ToggleSwitch>("Dev2Toggle");
+        
+        if (ttsToggle != null) ttsToggle.IsHitTestVisible = true;
+        if (dev1Toggle != null) dev1Toggle.IsHitTestVisible = true;
+        if (dev2Toggle != null) dev2Toggle.IsHitTestVisible = true;
     }
 
     private async Task HideToolPanel()
@@ -290,12 +329,11 @@ public partial class MainView : UserControl
         var toolPanel = this.FindControl<Border>("ToolPanel");
         if (toolPanel == null) return;
 
-        _isAnimating = true;
         _isToolPanelVisible = false;
 
         // 淡出动画 - 优化响应速度
         const int steps = 10;
-        const int totalDuration = 50;  // 从300ms减少到150ms，提升响应速度
+        const int totalDuration = 150;  // 增加持续时间，使动画更平滑
         const int stepDelay = totalDuration / steps;
 
         for (int i = 0; i <= steps; i++)
@@ -310,16 +348,21 @@ public partial class MainView : UserControl
                 await Task.Delay(stepDelay);
             }
         }
+        
+        // 确保最终不透明度为0
+        toolPanel.Opacity = 0.0;
 
         // 隐藏面板
         toolPanel.IsVisible = false;
-        _isAnimating = false;
     }
 
     private void OnTTSToggled(object? sender, RoutedEventArgs e)
     {
         if (sender is ToggleSwitch toggle)
         {
+            App.Settings.EnableTTS = toggle.IsChecked ?? false;
+            App.SaveSettings();
+            
             // TODO: 实现TTS功能切换
             System.Diagnostics.Debug.WriteLine($"TTS开关状态: {toggle.IsChecked}");
         }
@@ -329,6 +372,9 @@ public partial class MainView : UserControl
     {
         if (sender is ToggleSwitch toggle)
         {
+            App.Settings.EnableDev1 = toggle.IsChecked ?? false;
+            App.SaveSettings();
+            
             // TODO: 实现开发功能1切换
             System.Diagnostics.Debug.WriteLine($"开发功能1开关状态: {toggle.IsChecked}");
         }
@@ -338,6 +384,9 @@ public partial class MainView : UserControl
     {
         if (sender is ToggleSwitch toggle)
         {
+            App.Settings.EnableDev2 = toggle.IsChecked ?? false;
+            App.SaveSettings();
+            
             // TODO: 实现开发功能2切换
             System.Diagnostics.Debug.WriteLine($"开发功能2开关状态: {toggle.IsChecked}");
         }

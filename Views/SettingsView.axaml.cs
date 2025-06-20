@@ -45,6 +45,11 @@ public class AppSettings
     public int LanguageIndex { get; set; } = 0;
     public List<LlmApiConfig> LlmApiConfigs { get; set; } = new List<LlmApiConfig>();
     public int ActiveLlmConfigIndex { get; set; } = 0;
+    
+    // 工具设置相关属性
+    public bool EnableTTS { get; set; } = false;
+    public bool EnableDev1 { get; set; } = false; 
+    public bool EnableDev2 { get; set; } = false;
 
     // 确保LlmApiConfigs不为null
     public void EnsureConfigsInitialized()

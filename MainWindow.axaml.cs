@@ -8,6 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lyxie_desktop.Utils;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 
 namespace Lyxie_desktop;
 
