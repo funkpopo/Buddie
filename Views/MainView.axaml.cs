@@ -7,10 +7,12 @@ using Avalonia.Styling;
 using Avalonia.Media;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
+using Avalonia;
 using Lyxie_desktop.Controls;
 using Lyxie_desktop.Utils;
 using System;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Lyxie_desktop.Views;
 
@@ -33,6 +35,9 @@ public partial class MainView : UserControl
     
     // 光晕动画状态
     private bool _isGlowAnimating = false;
+
+    // 对话界面状态
+    private bool _isChatVisible = false;
 
     public MainView()
     {
@@ -94,6 +99,9 @@ public partial class MainView : UserControl
         // 初始化界面文本
         UpdateInterfaceTexts();
 
+        // 初始化对话界面
+        InitializeChatInterface();
+
         // 测试渐变旋转功能
         TestGradientRotation.TestBasicRotation();
         TestGradientRotation.TestAttachedProperty();
@@ -123,24 +131,11 @@ public partial class MainView : UserControl
         // 通知词云按钮被按下
         _wordCloudControl?.SetButtonState(false, true);
 
-        // 执行点击动画
-        await PerformClickAnimation();
+        // 执行对话界面转换动画
+        await ShowChatInterface();
 
         // 恢复词云状态
         _wordCloudControl?.SetButtonState(false, false);
-
-        // 测试边框动画 - 如果还没有启动，则启动边框动画
-        if (!_isBorderAnimationRunning)
-        {
-            var borderContainer = this.FindControl<Border>("BorderContainer");
-            if (borderContainer?.BorderBrush is LinearGradientBrush)
-            {
-                StartBorderRotationAnimation(borderContainer);
-            }
-        }
-
-        // TODO: 实现AI对话功能
-        // 这里可以添加打开对话窗口或切换到对话界面的逻辑
     }
 
     private void OnMainButtonPointerEntered(object? sender, Avalonia.Input.PointerEventArgs e)
@@ -587,6 +582,422 @@ public partial class MainView : UserControl
         }
 
         _isAnimating = false;
+    }
+
+    #endregion
+
+    private void InitializeChatInterface()
+    {
+        // 绑定返回按钮事件
+        var chatBackButton = this.FindControl<Button>("ChatBackButton");
+        if (chatBackButton != null)
+        {
+            chatBackButton.Click += OnChatBackButtonClick;
+        }
+
+        // 绑定发送按钮事件
+        var sendButton = this.FindControl<Button>("SendButton");
+        if (sendButton != null)
+        {
+            sendButton.Click += OnSendButtonClick;
+        }
+
+        // 绑定语音输入按钮事件
+        var voiceInputButton = this.FindControl<Button>("VoiceInputButton");
+        if (voiceInputButton != null)
+        {
+            voiceInputButton.Click += OnVoiceInputButtonClick;
+        }
+
+        // 绑定输入框回车事件
+        var messageInput = this.FindControl<TextBox>("MessageInput");
+        if (messageInput != null)
+        {
+            messageInput.KeyDown += OnMessageInputKeyDown;
+        }
+
+        // 初始化消息列表
+        var messageList = this.FindControl<StackPanel>("MessageList");
+        // StackPanel不需要ItemsSource设置
+    }
+
+    #region 对话界面动画和交互
+
+    /// <summary>
+    /// 显示对话界面的动画
+    /// </summary>
+    private async Task ShowChatInterface()
+    {
+        if (_isAnimating || _isChatVisible) return;
+        _isAnimating = true;
+
+        var chatContainer = this.FindControl<Grid>("ChatContainer");
+        var mainButton = this.FindControl<Button>("MainCircleButton");
+        var borderContainer = this.FindControl<Border>("BorderContainer");
+        var chatInputArea = this.FindControl<Border>("ChatInputArea");
+        var chatHistoryArea = this.FindControl<Border>("ChatHistoryArea");
+        var glowElements = new[] { "OuterGlow", "MiddleGlow", "InnerGlow" }
+            .Select(name => this.FindControl<Border>(name))
+            .Where(b => b != null);
+
+        if (chatContainer == null || mainButton == null || borderContainer == null || chatInputArea == null || chatHistoryArea == null)
+        {
+            _isAnimating = false;
+            return;
+        }
+
+        // 显示对话容器
+        chatContainer.IsVisible = true;
+
+        // 第一步：圆形按钮收缩并向下移动（300ms）
+        var buttonAnimation = Task.Run(async () =>
+        {
+            const int steps = 20;
+            const int duration = 300;
+            const int stepDelay = duration / steps;
+
+            double startSize = 600;
+            double endSize = 80;
+            double startY = 0;
+            double endY = this.Bounds.Height - 100; // 移动到底部
+
+            for (int i = 0; i <= steps; i++)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    double progress = (double)i / steps;
+                    double easedProgress = 1 - Math.Pow(1 - progress, 3); // EaseOutCubic
+
+                    // 缩小按钮
+                    double currentSize = startSize + (endSize - startSize) * easedProgress;
+                    mainButton.Width = currentSize;
+                    mainButton.Height = currentSize;
+                    mainButton.CornerRadius = new CornerRadius(currentSize / 2);
+
+                    borderContainer.Width = currentSize + 12;
+                    borderContainer.Height = currentSize + 12;
+                    borderContainer.CornerRadius = new CornerRadius((currentSize + 12) / 2);
+
+                    // 移动按钮
+                    var transform = mainButton.RenderTransform as TranslateTransform;
+                    if (transform == null)
+                    {
+                        transform = new TranslateTransform();
+                        mainButton.RenderTransform = transform;
+                    }
+                    transform.Y = startY + (endY - startY) * easedProgress;
+
+                    borderContainer.RenderTransform = transform;
+
+                    // 淡出文字
+                    var textElements = mainButton.GetVisualDescendants()
+                        .OfType<TextBlock>()
+                        .ToList();
+                    foreach (var text in textElements)
+                    {
+                        text.Opacity = 1 - easedProgress;
+                    }
+                });
+
+                if (i < steps) await Task.Delay(stepDelay);
+            }
+        });
+
+        // 同时淡出光晕和词云
+        var fadeOutTask = Task.Run(async () =>
+        {
+            const int steps = 20;
+            const int duration = 300;
+            const int stepDelay = duration / steps;
+
+            for (int i = 0; i <= steps; i++)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    double opacity = 1 - (double)i / steps;
+
+                    foreach (var glow in glowElements)
+                    {
+                        if (glow != null)
+                            glow.Opacity = opacity * 0.25; // 原始透明度的比例
+                    }
+
+                    if (_wordCloudControl != null)
+                    {
+                        _wordCloudControl.Opacity = opacity;
+                    }
+                });
+
+                if (i < steps) await Task.Delay(stepDelay);
+            }
+        });
+
+        await Task.WhenAll(buttonAnimation, fadeOutTask);
+
+        // 隐藏主按钮和边框
+        mainButton.IsVisible = false;
+        borderContainer.IsVisible = false;
+
+        // 第二步：显示输入区域（200ms）
+        chatInputArea.Height = 80;
+        chatContainer.Opacity = 1;
+
+        // 第三步：展开对话历史区域（400ms）
+        const int expandSteps = 30;
+        const int expandDuration = 400;
+        const int expandStepDelay = expandDuration / expandSteps;
+
+        chatHistoryArea.Opacity = 0;
+        for (int i = 0; i <= expandSteps; i++)
+        {
+            double progress = (double)i / expandSteps;
+            double easedProgress = 1 - Math.Pow(1 - progress, 3); // EaseOutCubic
+
+            chatHistoryArea.Opacity = easedProgress;
+
+            if (i < expandSteps) await Task.Delay(expandStepDelay);
+        }
+
+        _isChatVisible = true;
+        _isAnimating = false;
+
+        // 聚焦到输入框
+        var messageInput = this.FindControl<TextBox>("MessageInput");
+        messageInput?.Focus();
+        
+        // 添加一条测试消息
+        var testBubble = new MessageBubble();
+        testBubble.SetMessage("欢迎使用Lyxie！请输入您的问题。", false, "Lyxie");
+        
+        var messageList = this.FindControl<StackPanel>("MessageList");
+        if (messageList != null)
+        {
+            // 先添加一个简单的TextBlock测试
+            var testText = new TextBlock
+            {
+                Text = "这是一个测试文本",
+                Background = Brushes.Yellow,
+                Padding = new Thickness(10),
+                Margin = new Thickness(5)
+            };
+            messageList.Children.Add(testText);
+            
+            messageList.Children.Add(testBubble);
+            System.Diagnostics.Debug.WriteLine($"添加欢迎消息到StackPanel，子元素数量: {messageList.Children.Count}");
+        }
+    }
+
+    /// <summary>
+    /// 隐藏对话界面的动画
+    /// </summary>
+    private async Task HideChatInterface()
+    {
+        if (_isAnimating || !_isChatVisible) return;
+        _isAnimating = true;
+
+        var chatContainer = this.FindControl<Grid>("ChatContainer");
+        var mainButton = this.FindControl<Button>("MainCircleButton");
+        var borderContainer = this.FindControl<Border>("BorderContainer");
+        var chatInputArea = this.FindControl<Border>("ChatInputArea");
+        var chatHistoryArea = this.FindControl<Border>("ChatHistoryArea");
+        var glowElements = new[] { "OuterGlow", "MiddleGlow", "InnerGlow" }
+            .Select(name => this.FindControl<Border>(name))
+            .Where(b => b != null);
+
+        if (chatContainer == null || mainButton == null || borderContainer == null) 
+        {
+            _isAnimating = false;
+            return;
+        }
+
+        // 反向动画：先收缩对话历史区域
+        const int collapseSteps = 20;
+        const int collapseDuration = 300;
+        const int collapseStepDelay = collapseDuration / collapseSteps;
+
+        for (int i = collapseSteps; i >= 0; i--)
+        {
+            double progress = (double)i / collapseSteps;
+            if (chatHistoryArea != null)
+                chatHistoryArea.Opacity = progress;
+
+            if (i > 0) await Task.Delay(collapseStepDelay);
+        }
+
+        // 显示主按钮和边框
+        mainButton.IsVisible = true;
+        borderContainer.IsVisible = true;
+
+        // 反向动画：按钮放大并移回中心
+        var expandTask = Task.Run(async () =>
+        {
+            const int steps = 20;
+            const int duration = 300;
+            const int stepDelay = duration / steps;
+
+            for (int i = steps; i >= 0; i--)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    double progress = (double)i / steps;
+                    double easedProgress = 1 - Math.Pow(1 - progress, 3);
+
+                    // 放大按钮
+                    double currentSize = 600 - (600 - 80) * easedProgress;
+                    mainButton.Width = currentSize;
+                    mainButton.Height = currentSize;
+                    mainButton.CornerRadius = new CornerRadius(currentSize / 2);
+
+                    borderContainer.Width = currentSize + 12;
+                    borderContainer.Height = currentSize + 12;
+                    borderContainer.CornerRadius = new CornerRadius((currentSize + 12) / 2);
+
+                    // 移动按钮
+                    var transform = mainButton.RenderTransform as TranslateTransform;
+                    if (transform != null)
+                    {
+                        transform.Y = (this.Bounds.Height - 100) * easedProgress;
+                    }
+
+                    // 淡入文字
+                    var textElements = mainButton.GetVisualDescendants()
+                        .OfType<TextBlock>()
+                        .ToList();
+                    foreach (var text in textElements)
+                    {
+                        text.Opacity = 1 - easedProgress;
+                    }
+                });
+
+                if (i > 0) await Task.Delay(stepDelay);
+            }
+        });
+
+        // 同时淡入光晕和词云
+        var fadeInTask = Task.Run(async () =>
+        {
+            const int steps = 20;
+            const int duration = 300;
+            const int stepDelay = duration / steps;
+
+            for (int i = 0; i <= steps; i++)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    double opacity = (double)i / steps;
+
+                    foreach (var glow in glowElements)
+                    {
+                        if (glow != null)
+                            glow.Opacity = opacity * 0.25; // 原始透明度的比例
+                    }
+
+                    if (_wordCloudControl != null)
+                    {
+                        _wordCloudControl.Opacity = opacity;
+                    }
+                });
+
+                if (i < steps) await Task.Delay(stepDelay);
+            }
+        });
+
+        await Task.WhenAll(expandTask, fadeInTask);
+
+        // 隐藏对话容器
+        if (chatContainer != null)
+        {
+            chatContainer.Opacity = 0;
+            chatContainer.IsVisible = false;
+        }
+        if (chatInputArea != null)
+            chatInputArea.Height = 0;
+
+        _isChatVisible = false;
+        _isAnimating = false;
+    }
+
+    private async void OnChatBackButtonClick(object? sender, RoutedEventArgs e)
+    {
+        await HideChatInterface();
+    }
+
+    private void OnSendButtonClick(object? sender, RoutedEventArgs e)
+    {
+        SendMessage();
+    }
+
+    private void OnVoiceInputButtonClick(object? sender, RoutedEventArgs e)
+    {
+        // TODO: 实现语音输入功能
+        System.Diagnostics.Debug.WriteLine("语音输入按钮被点击");
+    }
+
+    private void OnMessageInputKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key == Avalonia.Input.Key.Enter && 
+            !e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift))
+        {
+            e.Handled = true;
+            SendMessage();
+        }
+    }
+
+    private void SendMessage()
+    {
+        var messageInput = this.FindControl<TextBox>("MessageInput");
+        var messageList = this.FindControl<StackPanel>("MessageList");
+        var messageScrollViewer = this.FindControl<ScrollViewer>("MessageScrollViewer");
+        
+        if (messageInput == null || messageList == null) return;
+        
+        string message = messageInput.Text?.Trim() ?? "";
+        if (string.IsNullOrEmpty(message)) return;
+
+        System.Diagnostics.Debug.WriteLine($"发送消息: {message}");
+        System.Diagnostics.Debug.WriteLine($"当前消息数量: {messageList.Children.Count}");
+
+        // 创建用户消息气泡
+        var userBubble = new MessageBubble();
+        userBubble.SetMessage(message, true, "您");
+        
+        // 添加到消息列表
+        if (messageList != null)
+        {
+            messageList.Children.Add(userBubble);
+            System.Diagnostics.Debug.WriteLine($"添加用户消息后子元素数量: {messageList.Children.Count}");
+        }
+        
+        // 清空输入框
+        messageInput.Text = "";
+        
+        // 强制刷新UI
+        Dispatcher.UIThread.Post(() =>
+        {
+            messageScrollViewer?.ScrollToEnd();
+        }, DispatcherPriority.Background);
+        
+        // 模拟AI回复（延迟1秒）
+        Dispatcher.UIThread.Post(async () =>
+        {
+            await Task.Delay(1000);
+            
+            // 创建AI回复气泡
+            var aiBubble = new MessageBubble();
+            aiBubble.SetMessage($"收到您的消息：\"{message}\"\n\n这是一个模拟的AI回复。实际功能需要集成AI服务。", false, "Lyxie");
+            
+            if (messageList != null)
+            {
+                messageList.Children.Add(aiBubble);
+                System.Diagnostics.Debug.WriteLine($"AI回复后子元素数量: {messageList.Children.Count}");
+            }
+            
+            // 再次滚动到底部
+            Dispatcher.UIThread.Post(() =>
+            {
+                messageScrollViewer?.ScrollToEnd();
+            }, DispatcherPriority.Background);
+        });
     }
 
     #endregion

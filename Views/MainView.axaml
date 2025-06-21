@@ -368,6 +368,141 @@
                               Margin="0,8,0,4"/>
             </Grid>
         </Border>
+
+        <!-- AI对话界面容器 -->
+        <Grid Name="ChatContainer"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              IsVisible="False"
+              Opacity="0"
+              ZIndex="15">
+            
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>        <!-- 对话历史区域 -->
+                <RowDefinition Height="Auto"/>     <!-- 输入区域 -->
+            </Grid.RowDefinitions>
+
+            <!-- 对话历史区域 -->
+            <Border Grid.Row="0"
+                    Name="ChatHistoryArea"
+                    Background="{DynamicResource ChatBackgroundBrush}"
+                    CornerRadius="12,12,0,0"
+                    Margin="20,20,20,0"
+                    BoxShadow="0 2 10 0 #20000000">
+                
+                <!-- 顶部工具栏 -->
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- 标题栏 -->
+                    <Border Grid.Row="0"
+                            Background="{DynamicResource ChatHeaderBackgroundBrush}"
+                            CornerRadius="12,12,0,0"
+                            Height="50">
+                        <Grid>
+                            <TextBlock Text="AI 助手"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            
+                            <!-- 返回按钮 -->
+                            <Button Name="ChatBackButton"
+                                    Width="40"
+                                    Height="40"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Margin="5"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Cursor="Hand">
+                                <materialIcons:MaterialIcon Kind="ArrowBack"
+                                                            Width="24"
+                                                            Height="24"
+                                                            Foreground="{DynamicResource IconBrush}"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- 消息列表 -->
+                    <ScrollViewer Grid.Row="1"
+                                  Name="MessageScrollViewer"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel Name="MessageList"
+                                    Margin="15"
+                                    Spacing="10">
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- 输入区域 -->
+            <Border Grid.Row="1"
+                    Name="ChatInputArea"
+                    Background="{DynamicResource ChatInputBackgroundBrush}"
+                    CornerRadius="0,0,12,12"
+                    Margin="20,0,20,20"
+                    BoxShadow="0 -2 10 0 #20000000"
+                    Height="0"
+                    VerticalAlignment="Bottom">
+                
+                <Grid Margin="15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>       <!-- 输入框 -->
+                        <ColumnDefinition Width="Auto"/>    <!-- 语音按钮 -->
+                        <ColumnDefinition Width="Auto"/>    <!-- 发送按钮 -->
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- 输入框 -->
+                    <TextBox Grid.Column="0"
+                             Name="MessageInput"
+                             Watermark="输入您的消息..."
+                             FontSize="14"
+                             MinHeight="40"
+                             MaxHeight="120"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="False"
+                             VerticalContentAlignment="Center"
+                             Margin="0,0,10,0"/>
+                    
+                    <!-- 语音输入按钮 -->
+                    <Button Grid.Column="1"
+                            Name="VoiceInputButton"
+                            Width="40"
+                            Height="40"
+                            Background="{DynamicResource SecondaryButtonBackgroundBrush}"
+                            BorderThickness="0"
+                            CornerRadius="20"
+                            Cursor="Hand"
+                            Margin="0,0,10,0">
+                        <materialIcons:MaterialIcon Kind="Microphone"
+                                                    Width="24"
+                                                    Height="24"
+                                                    Foreground="{DynamicResource IconBrush}"/>
+                    </Button>
+                    
+                    <!-- 发送按钮 -->
+                    <Button Grid.Column="2"
+                            Name="SendButton"
+                            Width="40"
+                            Height="40"
+                            Background="{DynamicResource PrimaryButtonBackgroundBrush}"
+                            BorderThickness="0"
+                            CornerRadius="20"
+                            Cursor="Hand">
+                        <materialIcons:MaterialIcon Kind="Send"
+                                                    Width="24"
+                                                    Height="24"
+                                                    Foreground="{DynamicResource ButtonTextBrush}"/>
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Border>
 

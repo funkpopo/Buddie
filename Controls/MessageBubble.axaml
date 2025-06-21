@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="100"
+             x:Class="Lyxie_desktop.Controls.MessageBubble"
+             MinHeight="50"
+             Background="Transparent">
+
+    <Border Name="BubbleBorder"
+            CornerRadius="12"
+            Padding="15,10"
+            MaxWidth="600"
+            MinHeight="40"
+            HorizontalAlignment="Left"
+            Background="LightBlue"
+            BorderBrush="Blue"
+            BorderThickness="1">
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- 发送者名称 -->
+            <TextBlock Grid.Row="0"
+                       Name="SenderText"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,5"
+                       Foreground="Black"
+                       IsVisible="True"
+                       Text="发送者"/>
+            
+            <!-- 消息内容 -->
+            <TextBlock Grid.Row="1"
+                       Name="MessageText"
+                       TextWrapping="Wrap"
+                       FontSize="14"
+                       Foreground="Black"
+                       Text="消息内容"/>
+        </Grid>
+    </Border>
+
+</UserControl> 

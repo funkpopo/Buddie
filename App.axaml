@@ -109,6 +109,18 @@
 
                     <!-- 词云文字颜色 -->
                     <SolidColorBrush x:Key="WordCloudTextBrush" Color="#80FFFFFF"/>
+
+                    <!-- 对话界面颜色 -->
+                    <SolidColorBrush x:Key="ChatBackgroundBrush" Color="#252526"/>
+                    <SolidColorBrush x:Key="ChatHeaderBackgroundBrush" Color="#2D2D30"/>
+                    <SolidColorBrush x:Key="ChatInputBackgroundBrush" Color="#2D2D30"/>
+                    <SolidColorBrush x:Key="PrimaryButtonBackgroundBrush" Color="#0078D4"/>
+                    <SolidColorBrush x:Key="SecondaryButtonBackgroundBrush" Color="#404040"/>
+                    <SolidColorBrush x:Key="ButtonTextBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="UserMessageBackgroundBrush" Color="#0078D4"/>
+                    <SolidColorBrush x:Key="UserMessageTextBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="AiMessageBackgroundBrush" Color="#3C3C3C"/>
+                    <SolidColorBrush x:Key="AiMessageTextBrush" Color="#E0E0E0"/>
                 </ResourceDictionary>
 
                 <!-- 浅色主题 -->
@@ -206,6 +218,18 @@
 
                     <!-- 词云文字颜色 -->
                     <SolidColorBrush x:Key="WordCloudTextBrush" Color="#60000000"/>
+
+                    <!-- 对话界面颜色 -->
+                    <SolidColorBrush x:Key="ChatBackgroundBrush" Color="#FAFAFA"/>
+                    <SolidColorBrush x:Key="ChatHeaderBackgroundBrush" Color="#F0F0F0"/>
+                    <SolidColorBrush x:Key="ChatInputBackgroundBrush" Color="#F0F0F0"/>
+                    <SolidColorBrush x:Key="PrimaryButtonBackgroundBrush" Color="#0078D4"/>
+                    <SolidColorBrush x:Key="SecondaryButtonBackgroundBrush" Color="#E0E0E0"/>
+                    <SolidColorBrush x:Key="ButtonTextBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="UserMessageBackgroundBrush" Color="#0078D4"/>
+                    <SolidColorBrush x:Key="UserMessageTextBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="AiMessageBackgroundBrush" Color="#E8E8E8"/>
+                    <SolidColorBrush x:Key="AiMessageTextBrush" Color="#2D2D30"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
