@@ -10,9 +10,14 @@ using Avalonia.VisualTree;
 using Avalonia;
 using Lyxie_desktop.Controls;
 using Lyxie_desktop.Utils;
+using Lyxie_desktop.Services;
 using System;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Text.Json;
+using System.Net.Http;
+using System.Text;
+using Newtonsoft.Json.Linq;
 
 namespace Lyxie_desktop.Views;
 
@@ -588,34 +593,40 @@ public partial class MainView : UserControl
 
     private void InitializeChatInterface()
     {
-        // 绑定返回按钮事件
+        // 获取对话界面相关控件
         var chatBackButton = this.FindControl<Button>("ChatBackButton");
+        var chatSettingsButton = this.FindControl<Button>("ChatSettingsButton");
+        var sendButton = this.FindControl<Button>("SendButton");
+        var voiceInputButton = this.FindControl<Button>("VoiceInputButton");
+        var messageInput = this.FindControl<TextBox>("MessageInput");
+        
+        // 绑定事件处理
         if (chatBackButton != null)
         {
             chatBackButton.Click += OnChatBackButtonClick;
         }
-
-        // 绑定发送按钮事件
-        var sendButton = this.FindControl<Button>("SendButton");
+        
+        // 绑定设置按钮点击事件
+        if (chatSettingsButton != null)
+        {
+            chatSettingsButton.Click += OnChatSettingsButtonClick;
+        }
+        
         if (sendButton != null)
         {
             sendButton.Click += OnSendButtonClick;
         }
-
-        // 绑定语音输入按钮事件
-        var voiceInputButton = this.FindControl<Button>("VoiceInputButton");
+        
         if (voiceInputButton != null)
         {
             voiceInputButton.Click += OnVoiceInputButtonClick;
         }
-
-        // 绑定输入框回车事件
-        var messageInput = this.FindControl<TextBox>("MessageInput");
+        
         if (messageInput != null)
         {
             messageInput.KeyDown += OnMessageInputKeyDown;
         }
-
+        
         // 初始化消息列表
         var messageList = this.FindControl<StackPanel>("MessageList");
         // StackPanel不需要ItemsSource设置
@@ -764,12 +775,6 @@ public partial class MainView : UserControl
         // 聚焦到输入框
         var messageInput = this.FindControl<TextBox>("MessageInput");
         messageInput?.Focus();
-        
-        // 添加一条测试消息
-        var testBubble = new MessageBubble();
-        testBubble.SetMessage("欢迎使用Lyxie！请输入您的问题。", false, "Lyxie");
-        
-        var messageList = this.FindControl<StackPanel>("MessageList");
     }
 
     /// <summary>
@@ -904,7 +909,14 @@ public partial class MainView : UserControl
 
     private async void OnChatBackButtonClick(object? sender, RoutedEventArgs e)
     {
+        // 隐藏对话界面，返回到主界面
         await HideChatInterface();
+    }
+
+    private void OnChatSettingsButtonClick(object? sender, RoutedEventArgs e)
+    {
+        // 触发设置界面请求事件
+        SettingsRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnSendButtonClick(object? sender, RoutedEventArgs e)
@@ -928,7 +940,7 @@ public partial class MainView : UserControl
         }
     }
 
-    private void SendMessage()
+    private async void SendMessage()
     {
         var messageInput = this.FindControl<TextBox>("MessageInput");
         var messageList = this.FindControl<StackPanel>("MessageList");
@@ -940,7 +952,6 @@ public partial class MainView : UserControl
         if (string.IsNullOrEmpty(message)) return;
 
         System.Diagnostics.Debug.WriteLine($"发送消息: {message}");
-        System.Diagnostics.Debug.WriteLine($"当前消息数量: {messageList.Children.Count}");
 
         // 创建用户消息气泡
         var userBubble = new MessageBubble();
@@ -950,39 +961,185 @@ public partial class MainView : UserControl
         if (messageList != null)
         {
             messageList.Children.Add(userBubble);
-            System.Diagnostics.Debug.WriteLine($"添加用户消息后子元素数量: {messageList.Children.Count}");
         }
         
         // 清空输入框
         messageInput.Text = "";
         
-        // 强制刷新UI
+        // 强制刷新UI，滚动到底部
         Dispatcher.UIThread.Post(() =>
         {
             messageScrollViewer?.ScrollToEnd();
         }, DispatcherPriority.Background);
         
-        // 模拟AI回复（延迟1秒）
-        Dispatcher.UIThread.Post(async () =>
+        // 显示一个正在输入的消息
+        var typingBubble = new MessageBubble();
+        typingBubble.SetMessage("正在思考...", false, "Lyxie");
+        
+        if (messageList != null)
         {
-            await Task.Delay(1000);
-            
-            // 创建AI回复气泡
-            var aiBubble = new MessageBubble();
-            aiBubble.SetMessage($"收到您的消息：\"{message}\"\n\n这是一个模拟的AI回复。实际功能需要集成AI服务。", false, "Lyxie");
-            
-            if (messageList != null)
-            {
-                messageList.Children.Add(aiBubble);
-                System.Diagnostics.Debug.WriteLine($"AI回复后子元素数量: {messageList.Children.Count}");
-            }
-            
+            messageList.Children.Add(typingBubble);
             // 再次滚动到底部
             Dispatcher.UIThread.Post(() =>
             {
                 messageScrollViewer?.ScrollToEnd();
             }, DispatcherPriority.Background);
-        });
+        }
+        
+        try
+        {
+            // 获取当前激活的LLM API配置
+            if (App.Settings.LlmApiConfigs == null || App.Settings.LlmApiConfigs.Count == 0)
+            {
+                // 没有配置API，替换为错误提示
+                if (messageList != null && messageList.Children.Contains(typingBubble))
+                {
+                    messageList.Children.Remove(typingBubble);
+                }
+                
+                var errorBubble = new MessageBubble();
+                errorBubble.SetMessage("错误：未配置LLM API。请先在设置中添加API配置。", false, "系统");
+                if (messageList != null) {
+                    messageList.Children.Add(errorBubble);
+                }
+                
+                // 滚动到底部
+                Dispatcher.UIThread.Post(() =>
+                {
+                    messageScrollViewer?.ScrollToEnd();
+                }, DispatcherPriority.Background);
+                return;
+            }
+
+            var activeConfigIndex = App.Settings.ActiveLlmConfigIndex;
+            if (activeConfigIndex < 0 || activeConfigIndex >= App.Settings.LlmApiConfigs.Count)
+            {
+                activeConfigIndex = 0; // 默认使用第一个配置
+            }
+
+            var config = App.Settings.LlmApiConfigs[activeConfigIndex];
+            
+            // 使用HttpClient发送API请求
+            using (var client = new HttpClient())
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+                
+                // 构建请求消息
+                var requestData = new
+                {
+                    model = config.ModelName,
+                    messages = new[]
+                    {
+                        new { role = "user", content = message }
+                    },
+                    temperature = config.Temperature,
+                    max_tokens = config.MaxTokens
+                };
+                
+                // 转换为JSON
+                var jsonContent = JsonSerializer.Serialize(requestData);
+                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+                
+                // 发送请求
+                System.Diagnostics.Debug.WriteLine($"发送API请求到: {config.ApiUrl}");
+                
+                var response = await client.PostAsync(config.ApiUrl, content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+                
+                System.Diagnostics.Debug.WriteLine($"API响应: {responseContent}");
+                
+                // 移除"正在思考"气泡
+                if (messageList != null && messageList.Children.Contains(typingBubble))
+                {
+                    messageList.Children.Remove(typingBubble);
+                }
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    // 解析API响应
+                    var responseJson = JObject.Parse(responseContent);
+                    string aiMessage = "";
+                    
+                    // 提取回复消息（处理不同的API返回格式）
+                    try
+                    {
+                        if (responseJson["choices"] is JArray choices && choices.Count > 0)
+                        {
+                            JToken firstChoice = choices[0];
+                            if (firstChoice != null)
+                            {
+                                JToken? messageToken = firstChoice["message"];
+                                if (messageToken != null && messageToken["content"] != null)
+                                {
+                                    // OpenAI格式
+                                    aiMessage = messageToken["content"]?.ToString() ?? "";
+                                }
+                                else if (firstChoice["text"] != null)
+                                {
+                                    // 一些API可能直接返回文本
+                                    aiMessage = firstChoice["text"]?.ToString() ?? "";
+                                }
+                                else if (firstChoice["content"] != null)
+                                {
+                                    // 其他可能的格式
+                                    aiMessage = firstChoice["content"]?.ToString() ?? "";
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"解析API响应出错: {ex.Message}");
+                        aiMessage = "对不起，我无法解析API的响应。请检查API格式是否正确。";
+                    }
+                    
+                    if (string.IsNullOrEmpty(aiMessage))
+                    {
+                        aiMessage = "对不起，API返回的响应为空或格式错误。";
+                    }
+                    
+                    // 显示AI回复
+                    var aiBubble = new MessageBubble();
+                    aiBubble.SetMessage(aiMessage, false, "Lyxie");
+                    if (messageList != null) {
+                        messageList.Children.Add(aiBubble);
+                    }
+                }
+                else
+                {
+                    // 显示错误信息
+                    var errorBubble = new MessageBubble();
+                    errorBubble.SetMessage($"API错误：{response.StatusCode}\n{responseContent}", false, "错误");
+                    if (messageList != null) {
+                        messageList.Children.Add(errorBubble);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // 移除"正在思考"气泡
+            if (messageList != null && messageList.Children.Contains(typingBubble))
+            {
+                messageList.Children.Remove(typingBubble);
+            }
+            
+            // 显示异常信息
+            var errorBubble = new MessageBubble();
+            errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
+            if (messageList != null) {
+                messageList.Children.Add(errorBubble);
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"发送消息异常: {ex}");
+        }
+        
+        // 最后再滚动到底部
+        Dispatcher.UIThread.Post(() =>
+        {
+            messageScrollViewer?.ScrollToEnd();
+        }, DispatcherPriority.Background);
     }
 
     #endregion

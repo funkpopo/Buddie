@@ -425,6 +425,22 @@
                                                             Height="24"
                                                             Foreground="{DynamicResource IconBrush}"/>
                             </Button>
+                            
+                            <!-- 设置按钮 -->
+                            <Button Name="ChatSettingsButton"
+                                    Width="40"
+                                    Height="40"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Margin="5"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Cursor="Hand">
+                                <materialIcons:MaterialIcon Kind="Settings"
+                                                            Width="24"
+                                                            Height="24"
+                                                            Foreground="{DynamicResource IconBrush}"/>
+                            </Button>
                         </Grid>
                     </Border>
                     
