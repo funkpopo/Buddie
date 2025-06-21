@@ -403,12 +403,23 @@
                             CornerRadius="12,12,0,0"
                             Height="50">
                         <Grid>
-                            <TextBlock Text="AI 助手"
-                                       FontSize="16"
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <!-- 标题和API信息 -->
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Orientation="Vertical">
+                                <TextBlock Name="ChatTitleText"
+                                           Text="Lyxie"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Name="ChatApiInfoText"
+                                           Text="未配置 API"
+                                           FontSize="11"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           Opacity="0.8"/>
+                            </StackPanel>
                             
                             <!-- 返回按钮 -->
                             <Button Name="ChatBackButton"

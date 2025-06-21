@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Markdown.Avalonia;
 
 namespace Lyxie_desktop.Controls;
 
@@ -11,9 +12,10 @@ public partial class MessageBubble : UserControl
         InitializeComponent();
     }
 
-    public void SetMessage(string message, bool isUser, string? senderName = null)
+    public void SetMessage(string message, bool isUser, string? senderName = null, bool useMarkdown = false)
     {
         var messageText = this.FindControl<TextBlock>("MessageText");
+        var messageMarkdown = this.FindControl<MarkdownScrollViewer>("MessageMarkdown");
         var senderText = this.FindControl<TextBlock>("SenderText");
         var bubbleBorder = this.FindControl<Border>("BubbleBorder");
 
@@ -27,37 +29,66 @@ public partial class MessageBubble : UserControl
         {
             senderText.Text = senderName;
             senderText.IsVisible = true;
-            System.Diagnostics.Debug.WriteLine($"设置发送者: {senderName}");
+        }
+        else if (senderText != null)
+        {
+            senderText.IsVisible = false;
         }
 
+        // 根据消息类型和useMarkdown参数决定显示方式
+        if (messageText != null && messageMarkdown != null)
+        {
+            if (!isUser && useMarkdown)
+            {
+                // AI消息且需要Markdown渲染
+                messageText.IsVisible = false;
+                messageMarkdown.IsVisible = true;
+                messageMarkdown.Markdown = message;
+            }
+            else
+            {
+                // 用户消息或普通文本
+                messageText.IsVisible = true;
+                messageMarkdown.IsVisible = false;
+                messageText.Text = message;
+            }
+        }
+
+        // 设置气泡样式
         if (bubbleBorder != null)
         {
             if (isUser)
             {
-                // 用户消息 - 右对齐，蓝色背景
+                // 用户消息样式
                 bubbleBorder.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
-                bubbleBorder.Background = Brushes.LightBlue;
-                
-                if (messageText != null)
-                    messageText.Foreground = Brushes.Black;
-                
-                if (senderText != null)
-                    senderText.Foreground = Brushes.Black;
+                bubbleBorder.SetValue(Border.BackgroundProperty, this.FindResource("UserMessageBackgroundBrush"));
+                bubbleBorder.SetValue(Border.BorderBrushProperty, this.FindResource("UserMessageBackgroundBrush"));
             }
             else
             {
-                // AI消息 - 左对齐，灰色背景
+                // AI消息样式
                 bubbleBorder.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
-                bubbleBorder.Background = Brushes.LightGray;
-                
-                if (messageText != null)
-                    messageText.Foreground = Brushes.Black;
-                
-                if (senderText != null)
-                    senderText.Foreground = Brushes.Black;
+                bubbleBorder.SetValue(Border.BackgroundProperty, this.FindResource("AiMessageBackgroundBrush"));
+                bubbleBorder.SetValue(Border.BorderBrushProperty, this.FindResource("AiMessageBackgroundBrush"));
             }
+        }
+
+        // 设置文本颜色
+        if (isUser)
+        {
+            if (messageText != null)
+                messageText.SetValue(TextBlock.ForegroundProperty, this.FindResource("UserMessageTextBrush"));
             
-            System.Diagnostics.Debug.WriteLine($"设置气泡样式: isUser={isUser}");
+            if (senderText != null)
+                senderText.SetValue(TextBlock.ForegroundProperty, this.FindResource("SecondaryTextBrush"));
+        }
+        else
+        {
+            if (messageText != null)
+                messageText.SetValue(TextBlock.ForegroundProperty, this.FindResource("AiMessageTextBrush"));
+            
+            if (senderText != null)
+                senderText.SetValue(TextBlock.ForegroundProperty, this.FindResource("SecondaryTextBrush"));
         }
     }
 } 

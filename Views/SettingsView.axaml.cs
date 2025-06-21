@@ -75,6 +75,9 @@ public partial class SettingsView : UserControl
     // 事件：字体大小改变
     public event EventHandler<double>? FontSizeChanged;
 
+    // 事件：LLM API配置改变
+    public event EventHandler? LlmApiConfigChanged;
+
     private AppSettings _settings;
     private readonly string _settingsPath;
     private LlmApiConfig? _currentEditingConfig;
@@ -202,11 +205,26 @@ public partial class SettingsView : UserControl
     {
         try
         {
+            // 同步到App.Settings
+            App.Settings.FontSizeLevel = _settings.FontSizeLevel;
+            App.Settings.ThemeIndex = _settings.ThemeIndex;
+            App.Settings.LanguageIndex = _settings.LanguageIndex;
+            App.Settings.LlmApiConfigs = _settings.LlmApiConfigs;
+            App.Settings.ActiveLlmConfigIndex = _settings.ActiveLlmConfigIndex;
+            App.Settings.EnableTTS = _settings.EnableTTS;
+            App.Settings.EnableDev1 = _settings.EnableDev1;
+            App.Settings.EnableDev2 = _settings.EnableDev2;
+            
             var json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions
             {
                 WriteIndented = true
             });
             File.WriteAllText(_settingsPath, json);
+            
+            // 同时调用App的保存方法确保一致性
+            App.SaveSettings();
+            
+            System.Diagnostics.Debug.WriteLine("设置已保存并同步到App.Settings");
         }
         catch (Exception ex)
         {
@@ -976,6 +994,9 @@ public partial class SettingsView : UserControl
             
             // 更新UI
             UpdateLlmApiConfigList();
+            
+            // 触发配置变更事件
+            LlmApiConfigChanged?.Invoke(this, EventArgs.Empty);
         }
     }
     
@@ -1020,6 +1041,9 @@ public partial class SettingsView : UserControl
         
         // 更新UI
         UpdateLlmApiConfigList();
+        
+        // 触发配置变更事件
+        LlmApiConfigChanged?.Invoke(this, EventArgs.Empty);
         
         // 显示保存成功提示
         var saveStatusTextBlock = this.FindControl<TextBlock>("SaveStatusTextBlock");

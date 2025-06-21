@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="100"
              x:Class="Lyxie_desktop.Controls.MessageBubble"
              MinHeight="50"
@@ -13,34 +14,32 @@
             MaxWidth="600"
             MinHeight="40"
             HorizontalAlignment="Left"
-            Background="LightBlue"
-            BorderBrush="Blue"
+            Background="{DynamicResource AiMessageBackgroundBrush}"
+            BorderBrush="{DynamicResource AiMessageBackgroundBrush}"
             BorderThickness="1">
         
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            
-            <!-- 发送者名称 -->
-            <TextBlock Grid.Row="0"
-                       Name="SenderText"
+        <StackPanel Orientation="Vertical" Spacing="5">
+            <!-- 发送者标签 -->
+            <TextBlock Name="SenderText"
+                       Text="AI"
                        FontSize="12"
                        FontWeight="SemiBold"
-                       Margin="0,0,0,5"
-                       Foreground="Black"
-                       IsVisible="True"
-                       Text="发送者"/>
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       IsVisible="True"/>
             
-            <!-- 消息内容 -->
-            <TextBlock Grid.Row="1"
-                       Name="MessageText"
-                       TextWrapping="Wrap"
+            <!-- 普通文本消息 -->
+            <TextBlock Name="MessageText"
+                       Text="This is a sample message"
                        FontSize="14"
-                       Foreground="Black"
-                       Text="消息内容"/>
-        </Grid>
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource AiMessageTextBrush}"
+                       IsVisible="True"/>
+            
+            <!-- Markdown消息 -->
+            <md:MarkdownScrollViewer Name="MessageMarkdown"
+                                     Markdown=""
+                                     IsVisible="False"/>
+        </StackPanel>
     </Border>
 
 </UserControl> 

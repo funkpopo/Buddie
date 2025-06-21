@@ -12,6 +12,7 @@ using Lyxie_desktop.Controls;
 using Lyxie_desktop.Utils;
 using Lyxie_desktop.Services;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Text.Json;
@@ -106,6 +107,9 @@ public partial class MainView : UserControl
 
         // 初始化对话界面
         InitializeChatInterface();
+        
+        // 初始化LLM API配置显示
+        RefreshLlmApiConfig();
 
         // 测试渐变旋转功能
         TestGradientRotation.TestBasicRotation();
@@ -630,9 +634,117 @@ public partial class MainView : UserControl
         // 初始化消息列表
         var messageList = this.FindControl<StackPanel>("MessageList");
         // StackPanel不需要ItemsSource设置
+
+        // 初始化标题信息
+        UpdateChatTitle();
+    }
+
+    /// <summary>
+    /// 更新对话界面标题，显示当前LLM API信息
+    /// </summary>
+    public void UpdateChatTitle()
+    {
+        var titleText = this.FindControl<TextBlock>("ChatTitleText");
+        var apiInfoText = this.FindControl<TextBlock>("ChatApiInfoText");
+
+        if (titleText != null)
+        {
+            titleText.Text = "Lyxie";
+        }
+
+        if (apiInfoText != null)
+        {
+            // 检查是否有LLM API配置
+            if (App.Settings.LlmApiConfigs == null || App.Settings.LlmApiConfigs.Count == 0)
+            {
+                apiInfoText.Text = App.LanguageService.CurrentLanguage == Services.Language.SimplifiedChinese 
+                    ? "未配置 API" 
+                    : "No API Configured";
+                return;
+            }
+
+            var activeConfigIndex = App.Settings.ActiveLlmConfigIndex;
+            if (activeConfigIndex < 0 || activeConfigIndex >= App.Settings.LlmApiConfigs.Count)
+            {
+                activeConfigIndex = 0; // 默认使用第一个配置
+                App.Settings.ActiveLlmConfigIndex = 0;
+                App.SaveSettings();
+            }
+
+            var config = App.Settings.LlmApiConfigs[activeConfigIndex];
+            
+            // 格式化API信息显示
+            string modelInfo = config.ModelName ?? "未知模型";
+            string configName = !string.IsNullOrEmpty(config.Name) ? config.Name : "默认配置";
+            
+            // 提取API提供商信息
+            string provider = "未知";
+            if (!string.IsNullOrEmpty(config.ApiUrl))
+            {
+                if (config.ApiUrl.Contains("openai.com"))
+                    provider = "OpenAI";
+                else if (config.ApiUrl.Contains("anthropic.com"))
+                    provider = "Anthropic";
+                else if (config.ApiUrl.Contains("google.com") || config.ApiUrl.Contains("googleapis.com"))
+                    provider = "Google";
+                else if (config.ApiUrl.Contains("azure.com"))
+                    provider = "Azure";
+                else if (config.ApiUrl.Contains("cohere.ai"))
+                    provider = "Cohere";
+                else if (config.ApiUrl.Contains("localhost") || config.ApiUrl.Contains("127.0.0.1"))
+                    provider = "本地";
+                else
+                {
+                    // 尝试从URL中提取域名
+                    try
+                    {
+                        var uri = new Uri(config.ApiUrl);
+                        provider = uri.Host.Replace("api.", "").Replace("www.", "");
+                    }
+                    catch
+                    {
+                        provider = "自定义";
+                    }
+                }
+            }
+
+            // 显示格式：配置名称 - 模型名 (提供商)
+            apiInfoText.Text = $"{configName} - {modelInfo} ({provider})";
+            
+            System.Diagnostics.Debug.WriteLine($"更新API信息显示: {apiInfoText.Text}");
+        }
     }
 
     #region 对话界面动画和交互
+
+    /// <summary>
+    /// 刷新LLM API配置信息
+    /// </summary>
+    public void RefreshLlmApiConfig()
+    {
+        System.Diagnostics.Debug.WriteLine("刷新LLM API配置信息");
+        
+        // 确保配置已初始化
+        if (App.Settings.LlmApiConfigs == null)
+        {
+            App.Settings.LlmApiConfigs = new List<Views.LlmApiConfig>();
+        }
+        
+        // 验证活跃配置索引
+        if (App.Settings.LlmApiConfigs.Count > 0)
+        {
+            if (App.Settings.ActiveLlmConfigIndex < 0 || App.Settings.ActiveLlmConfigIndex >= App.Settings.LlmApiConfigs.Count)
+            {
+                App.Settings.ActiveLlmConfigIndex = 0;
+                App.SaveSettings();
+            }
+        }
+        
+        // 触发标题更新
+        UpdateChatTitle();
+        
+        System.Diagnostics.Debug.WriteLine($"当前LLM配置数量: {App.Settings.LlmApiConfigs.Count}, 激活索引: {App.Settings.ActiveLlmConfigIndex}");
+    }
 
     /// <summary>
     /// 显示对话界面的动画
@@ -972,13 +1084,13 @@ public partial class MainView : UserControl
             messageScrollViewer?.ScrollToEnd();
         }, DispatcherPriority.Background);
         
-        // 显示一个正在输入的消息
-        var typingBubble = new MessageBubble();
-        typingBubble.SetMessage("正在思考...", false, "Lyxie");
+        // 显示一个正在输入的动画指示器
+        var typingIndicator = new TypingIndicator();
+        typingIndicator.SetSender("Lyxie");
         
         if (messageList != null)
         {
-            messageList.Children.Add(typingBubble);
+            messageList.Children.Add(typingIndicator);
             // 再次滚动到底部
             Dispatcher.UIThread.Post(() =>
             {
@@ -988,13 +1100,13 @@ public partial class MainView : UserControl
         
         try
         {
-            // 获取当前激活的LLM API配置
+            // 获取当前激活的LLM API配置（实时读取最新配置）
             if (App.Settings.LlmApiConfigs == null || App.Settings.LlmApiConfigs.Count == 0)
             {
                 // 没有配置API，替换为错误提示
-                if (messageList != null && messageList.Children.Contains(typingBubble))
+                if (messageList != null && messageList.Children.Contains(typingIndicator))
                 {
-                    messageList.Children.Remove(typingBubble);
+                    messageList.Children.Remove(typingIndicator);
                 }
                 
                 var errorBubble = new MessageBubble();
@@ -1015,9 +1127,13 @@ public partial class MainView : UserControl
             if (activeConfigIndex < 0 || activeConfigIndex >= App.Settings.LlmApiConfigs.Count)
             {
                 activeConfigIndex = 0; // 默认使用第一个配置
+                App.Settings.ActiveLlmConfigIndex = 0; // 更新App.Settings
+                App.SaveSettings(); // 保存更新后的设置
             }
 
             var config = App.Settings.LlmApiConfigs[activeConfigIndex];
+            
+            System.Diagnostics.Debug.WriteLine($"使用LLM配置: {config.Name} ({config.ModelName}) - {config.ApiUrl}");
             
             // 使用HttpClient发送API请求
             using (var client = new HttpClient())
@@ -1050,9 +1166,9 @@ public partial class MainView : UserControl
                 System.Diagnostics.Debug.WriteLine($"API响应: {responseContent}");
                 
                 // 移除"正在思考"气泡
-                if (messageList != null && messageList.Children.Contains(typingBubble))
+                if (messageList != null && messageList.Children.Contains(typingIndicator))
                 {
-                    messageList.Children.Remove(typingBubble);
+                    messageList.Children.Remove(typingIndicator);
                 }
                 
                 if (response.IsSuccessStatusCode)
@@ -1099,9 +1215,9 @@ public partial class MainView : UserControl
                         aiMessage = "对不起，API返回的响应为空或格式错误。";
                     }
                     
-                    // 显示AI回复
+                    // 显示AI回复（启用Markdown渲染）
                     var aiBubble = new MessageBubble();
-                    aiBubble.SetMessage(aiMessage, false, "Lyxie");
+                    aiBubble.SetMessage(aiMessage, false, "Lyxie", true); // 最后一个参数为true启用Markdown
                     if (messageList != null) {
                         messageList.Children.Add(aiBubble);
                     }
@@ -1120,9 +1236,9 @@ public partial class MainView : UserControl
         catch (Exception ex)
         {
             // 移除"正在思考"气泡
-            if (messageList != null && messageList.Children.Contains(typingBubble))
+            if (messageList != null && messageList.Children.Contains(typingIndicator))
             {
-                messageList.Children.Remove(typingBubble);
+                messageList.Children.Remove(typingIndicator);
             }
             
             // 显示异常信息

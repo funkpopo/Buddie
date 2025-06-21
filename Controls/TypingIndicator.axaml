@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="100"
+             x:Class="Lyxie_desktop.Controls.TypingIndicator"
+             MinHeight="50"
+             Background="Transparent">
+
+    <Border Name="IndicatorBorder"
+            CornerRadius="12"
+            Padding="15,10"
+            MaxWidth="600"
+            MinHeight="40"
+            HorizontalAlignment="Left"
+            Background="{DynamicResource AiMessageBackgroundBrush}"
+            BorderBrush="{DynamicResource AiMessageBackgroundBrush}"
+            BorderThickness="1">
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- 发送者名称 -->
+            <TextBlock Grid.Row="0"
+                       Name="SenderText"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,5"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       IsVisible="True"
+                       Text="Lyxie"/>
+            
+            <!-- 动画点容器 -->
+            <StackPanel Grid.Row="1"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center">
+                
+                <!-- 三个动画点 -->
+                <Ellipse Name="Dot1"
+                         Width="8"
+                         Height="8"
+                         Fill="{DynamicResource AiMessageTextBrush}"
+                         Margin="0,0,4,0"
+                         Opacity="0.3"/>
+                
+                <Ellipse Name="Dot2"
+                         Width="8"
+                         Height="8"
+                         Fill="{DynamicResource AiMessageTextBrush}"
+                         Margin="0,0,4,0"
+                         Opacity="0.3"/>
+                
+                <Ellipse Name="Dot3"
+                         Width="8"
+                         Height="8"
+                         Fill="{DynamicResource AiMessageTextBrush}"
+                         Opacity="0.3"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+
+</UserControl> 

@@ -57,6 +57,7 @@ public partial class MainWindow : Window
         {
             settingsView.BackToMainRequested += OnBackToMainRequested;
             settingsView.FontSizeChanged += OnFontSizeChanged;
+            settingsView.LlmApiConfigChanged += OnLlmApiConfigChanged;
 
             // 应用初始字体大小
             ApplyFontSize(settingsView.GetCurrentFontSize());
@@ -234,6 +235,17 @@ public partial class MainWindow : Window
     private void OnFontSizeChanged(object? sender, double fontSize)
     {
         ApplyFontSize(fontSize);
+    }
+
+    private void OnLlmApiConfigChanged(object? sender, EventArgs e)
+    {
+        // 通知MainView更新LLM API配置和标题
+        var mainView = this.FindControl<Views.MainView>("MainView");
+        if (mainView != null)
+        {
+            mainView.RefreshLlmApiConfig();
+            mainView.UpdateChatTitle();
+        }
     }
 
     private void ApplyFontSize(double fontSize)
