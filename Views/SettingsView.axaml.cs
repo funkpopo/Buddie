@@ -80,9 +80,13 @@ public partial class SettingsView : UserControl
     private LlmApiConfig? _currentEditingConfig;
     private bool _isAddingNewConfig = false;
     private bool _isEditingConfig = false; // 控制配置详情区域的可见性
+    private readonly LlmApiService _llmApiService;
 
     public SettingsView()
     {
+        // 初始化LLM API服务
+        _llmApiService = new LlmApiService();
+        
         // 设置文件路径
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var appFolder = Path.Combine(appDataPath, "Lyxie");
@@ -336,78 +340,78 @@ public partial class SettingsView : UserControl
 
         // 更新标题
         var titleTextBlock = this.FindControl<TextBlock>("TitleTextBlock");
-        if (titleTextBlock != null)
+        if (titleTextBlock != null && languageService != null)
         {
             titleTextBlock.Text = languageService.GetText("Settings");
         }
 
         // 更新外观卡片
         var appearanceTitle = this.FindControl<TextBlock>("AppearanceTitle");
-        if (appearanceTitle != null)
+        if (appearanceTitle != null && languageService != null)
         {
             appearanceTitle.Text = languageService.GetText("Appearance");
         }
 
         var themeLabel = this.FindControl<TextBlock>("ThemeLabel");
-        if (themeLabel != null)
+        if (themeLabel != null && languageService != null)
         {
             themeLabel.Text = languageService.GetText("Theme");
         }
 
         // 更新语言卡片
         var languageTitle = this.FindControl<TextBlock>("LanguageTitle");
-        if (languageTitle != null)
+        if (languageTitle != null && languageService != null)
         {
             languageTitle.Text = languageService.GetText("Language");
         }
 
         var languageLabel = this.FindControl<TextBlock>("LanguageLabel");
-        if (languageLabel != null)
+        if (languageLabel != null && languageService != null)
         {
             languageLabel.Text = languageService.GetText("InterfaceLanguage");
         }
 
         // 更新字体卡片
         var fontTitle = this.FindControl<TextBlock>("FontTitle");
-        if (fontTitle != null)
+        if (fontTitle != null && languageService != null)
         {
             fontTitle.Text = languageService.GetText("Font");
         }
 
         var fontSizeLabel = this.FindControl<TextBlock>("FontSizeLabel");
-        if (fontSizeLabel != null)
+        if (fontSizeLabel != null && languageService != null)
         {
             fontSizeLabel.Text = languageService.GetText("FontSize");
         }
 
         // 更新关于卡片
         var aboutTitle = this.FindControl<TextBlock>("AboutTitle");
-        if (aboutTitle != null)
+        if (aboutTitle != null && languageService != null)
         {
             aboutTitle.Text = languageService.GetText("About");
         }
 
         var versionText = this.FindControl<TextBlock>("VersionText");
-        if (versionText != null)
+        if (versionText != null && languageService != null)
         {
             versionText.Text = languageService.GetText("Version");
         }
 
         var descriptionText = this.FindControl<TextBlock>("DescriptionText");
-        if (descriptionText != null)
+        if (descriptionText != null && languageService != null)
         {
             descriptionText.Text = languageService.GetText("Description");
         }
         
         // 更新LLM API设置卡片
         var llmApiSettingsTitle = this.FindControl<TextBlock>("LlmApiSettingsTitle");
-        if (llmApiSettingsTitle != null)
+        if (llmApiSettingsTitle != null && languageService != null)
         {
             llmApiSettingsTitle.Text = languageService.GetText("LLMAPISettings");
         }
         
         var addLlmConfigButton = this.FindControl<Button>("AddLlmConfigButton");
-        if (addLlmConfigButton != null)
+        if (addLlmConfigButton != null && languageService != null)
         {
             addLlmConfigButton.Content = languageService.GetText("AddNewConfig");
         }
@@ -429,8 +433,36 @@ public partial class SettingsView : UserControl
         {
             saveStatusTextBlock.Text = languageService.GetText("ConfigSaved");
         }
+        
+        // 更新测试API按钮
+        var testApiButton = this.FindControl<Button>("TestApiButton");
+        if (testApiButton != null && testApiButton.IsEnabled && languageService != null)
+        {
+            testApiButton.Content = languageService.GetText("TestAPI");
+        }
+        
+        // 更新测试状态文本
+        var testStatusTextBlock = this.FindControl<TextBlock>("TestStatusTextBlock");
+        if (testStatusTextBlock != null && testStatusTextBlock.IsVisible && !string.IsNullOrEmpty(testStatusTextBlock.Text) && languageService != null)
+        {
+            var otherLanguage = languageService.CurrentLanguage == Language.SimplifiedChinese ? Language.English : Language.SimplifiedChinese;
+            
+            // 根据当前状态更新
+            if (testStatusTextBlock.Text == LanguageService.GetText("Testing", otherLanguage))
+            {
+                testStatusTextBlock.Text = languageService.GetText("Testing");
+            }
+            else if (testStatusTextBlock.Text == LanguageService.GetText("TestSuccess", otherLanguage))
+            {
+                testStatusTextBlock.Text = languageService.GetText("TestSuccess");
+            }
+            else if (testStatusTextBlock.Text == LanguageService.GetText("TestFailed", otherLanguage))
+            {
+                testStatusTextBlock.Text = languageService.GetText("TestFailed");
+            }
+        }
 
-        // 更新字体大小按钮
+        // 更新字体大小按钮文本
         UpdateFontSizeButtonTexts();
 
         // 更新主题和语言下拉框选项（仅在需要时）
@@ -528,6 +560,13 @@ public partial class SettingsView : UserControl
         if (cancelConfigButton != null)
         {
             cancelConfigButton.Click += OnCancelLlmConfigClick;
+        }
+        
+        // 设置API测试按钮点击事件
+        var testApiButton = this.FindControl<Button>("TestApiButton");
+        if (testApiButton != null)
+        {
+            testApiButton.Click += OnTestApiButtonClick;
         }
         
         // 设置温度滑块值变更事件
@@ -724,6 +763,137 @@ public partial class SettingsView : UserControl
         if (saveConfigButton != null)
         {
             saveConfigButton.Content = App.LanguageService.GetText("SaveConfig");
+        }
+        
+        // 重置测试状态
+        ResetTestStatusUI();
+    }
+    
+    // 重置测试状态UI
+    private void ResetTestStatusUI()
+    {
+        var testStatusTextBlock = this.FindControl<TextBlock>("TestStatusTextBlock");
+        var testErrorTextBlock = this.FindControl<TextBlock>("TestErrorTextBlock");
+        var testApiButton = this.FindControl<Button>("TestApiButton");
+        
+        if (testStatusTextBlock != null)
+        {
+            testStatusTextBlock.IsVisible = false;
+        }
+        
+        if (testErrorTextBlock != null)
+        {
+            testErrorTextBlock.IsVisible = false;
+        }
+        
+        if (testApiButton != null)
+        {
+            testApiButton.IsEnabled = true;
+            testApiButton.Content = App.LanguageService.GetText("TestAPI");
+        }
+    }
+    
+    // 测试API按钮点击事件
+    private async void OnTestApiButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (_currentEditingConfig == null) return;
+        
+        // 获取临时配置值
+        var tempConfig = new LlmApiConfig
+        {
+            Name = _currentEditingConfig.Name,
+            ApiUrl = _currentEditingConfig.ApiUrl,
+            ApiKey = _currentEditingConfig.ApiKey,
+            ModelName = _currentEditingConfig.ModelName,
+            Temperature = _currentEditingConfig.Temperature,
+            MaxTokens = _currentEditingConfig.MaxTokens
+        };
+        
+        // 从UI获取当前编辑的配置值（可能未保存）
+        var apiUrlTextBox = this.FindControl<TextBox>("ApiUrlTextBox");
+        var apiKeyTextBox = this.FindControl<TextBox>("ApiKeyTextBox");
+        var modelNameTextBox = this.FindControl<TextBox>("ModelNameTextBox");
+        var temperatureSlider = this.FindControl<Slider>("TemperatureSlider");
+        var maxTokensNumericUpDown = this.FindControl<NumericUpDown>("MaxTokensNumericUpDown");
+        
+        if (apiUrlTextBox != null) tempConfig.ApiUrl = apiUrlTextBox.Text ?? "";
+        if (apiKeyTextBox != null) tempConfig.ApiKey = apiKeyTextBox.Text ?? "";
+        if (modelNameTextBox != null) tempConfig.ModelName = modelNameTextBox.Text ?? "";
+        if (temperatureSlider != null) tempConfig.Temperature = (float)temperatureSlider.Value;
+        if (maxTokensNumericUpDown != null && maxTokensNumericUpDown.Value.HasValue) tempConfig.MaxTokens = (int)maxTokensNumericUpDown.Value.Value;
+        
+        // 获取UI元素
+        var testStatusTextBlock = this.FindControl<TextBlock>("TestStatusTextBlock");
+        var testErrorTextBlock = this.FindControl<TextBlock>("TestErrorTextBlock");
+        var testApiButton = this.FindControl<Button>("TestApiButton");
+        
+        if (testApiButton != null)
+        {
+            testApiButton.IsEnabled = false;
+            testApiButton.Content = App.LanguageService.GetText("Testing");
+        }
+        
+        if (testStatusTextBlock != null)
+        {
+            testStatusTextBlock.Text = App.LanguageService.GetText("Testing");
+            testStatusTextBlock.Foreground = new SolidColorBrush(Color.Parse("#808080"));
+            testStatusTextBlock.IsVisible = true;
+        }
+        
+        if (testErrorTextBlock != null)
+        {
+            testErrorTextBlock.IsVisible = false;
+        }
+        
+        try
+        {
+            // 使用LlmApiService测试API
+            var (success, message) = await _llmApiService.TestApiAsync(tempConfig);
+            
+            if (testStatusTextBlock != null)
+            {
+                testStatusTextBlock.Text = success 
+                    ? App.LanguageService.GetText("TestSuccess") 
+                    : App.LanguageService.GetText("TestFailed");
+                
+                testStatusTextBlock.Foreground = new SolidColorBrush(Color.Parse(success ? "#4CAF50" : "#F44336"));
+            }
+            
+            if (testErrorTextBlock != null)
+            {
+                if (!success)
+                {
+                    testErrorTextBlock.Text = message;
+                    testErrorTextBlock.IsVisible = true;
+                }
+                else
+                {
+                    testErrorTextBlock.IsVisible = false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (testStatusTextBlock != null)
+            {
+                testStatusTextBlock.Text = App.LanguageService.GetText("TestFailed");
+                testStatusTextBlock.Foreground = new SolidColorBrush(Color.Parse("#F44336"));
+            }
+            
+            if (testErrorTextBlock != null)
+            {
+                var errorFormat = App.LanguageService.GetText("TestError");
+                testErrorTextBlock.Text = string.Format(errorFormat, ex.Message ?? "Unknown error");
+                testErrorTextBlock.IsVisible = true;
+            }
+        }
+        finally
+        {
+            if (testApiButton != null)
+            {
+                testApiButton.IsEnabled = true;
+                testApiButton.Content = App.LanguageService.GetText("TestAPI");
+            }
         }
     }
     

@@ -770,21 +770,6 @@ public partial class MainView : UserControl
         testBubble.SetMessage("欢迎使用Lyxie！请输入您的问题。", false, "Lyxie");
         
         var messageList = this.FindControl<StackPanel>("MessageList");
-        if (messageList != null)
-        {
-            // 先添加一个简单的TextBlock测试
-            var testText = new TextBlock
-            {
-                Text = "这是一个测试文本",
-                Background = Brushes.Yellow,
-                Padding = new Thickness(10),
-                Margin = new Thickness(5)
-            };
-            messageList.Children.Add(testText);
-            
-            messageList.Children.Add(testBubble);
-            System.Diagnostics.Debug.WriteLine($"添加欢迎消息到StackPanel，子元素数量: {messageList.Children.Count}");
-        }
     }
 
     /// <summary>

@@ -105,7 +105,14 @@ public class LanguageService
             ["Active"] = "当前使用",
             ["ActivateConfig"] = "设为当前使用",
             ["Custom"] = "自定义",
-            ["CancelConfig"] = "取消"
+            ["CancelConfig"] = "取消",
+            
+            // API测试相关
+            ["TestAPI"] = "测试 API",
+            ["Testing"] = "正在测试...",
+            ["TestSuccess"] = "连接成功",
+            ["TestFailed"] = "连接失败",
+            ["TestError"] = "错误: {0}"
         },
         
         [Language.English] = new Dictionary<string, string>
@@ -158,7 +165,14 @@ public class LanguageService
             ["Active"] = "Active",
             ["ActivateConfig"] = "Set as Active",
             ["Custom"] = "Custom",
-            ["CancelConfig"] = "Cancel"
+            ["CancelConfig"] = "Cancel",
+            
+            // API测试相关
+            ["TestAPI"] = "Test API",
+            ["Testing"] = "Testing...",
+            ["TestSuccess"] = "Connection successful",
+            ["TestFailed"] = "Connection failed",
+            ["TestError"] = "Error: {0}"
         }
     };
 

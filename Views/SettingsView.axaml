@@ -406,6 +406,40 @@
                                                    Maximum="999999999"
                                                    Increment="100"/>
                                 </StackPanel>
+                                
+                                <!-- API 测试按钮和结果 -->
+                                <StackPanel Spacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Button Name="TestApiButton"
+                                                Content="测试 API"
+                                                HorizontalAlignment="Left"
+                                                Padding="15,8"
+                                                Background="{DynamicResource ButtonBackgroundBrush}"
+                                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                                BorderBrush="{DynamicResource ButtonBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Cursor="Hand">
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover">
+                                                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                        
+                                        <TextBlock Name="TestStatusTextBlock"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="14"
+                                                   IsVisible="False"/>
+                                    </StackPanel>
+                                    
+                                    <TextBlock Name="TestErrorTextBlock"
+                                               TextWrapping="Wrap"
+                                               MaxWidth="450"
+                                               Foreground="#E57373"
+                                               FontSize="12"
+                                               IsVisible="False"/>
+                                </StackPanel>
 
                                 <!-- 保存按钮 -->
                                 <StackPanel Orientation="Horizontal" Spacing="10">
