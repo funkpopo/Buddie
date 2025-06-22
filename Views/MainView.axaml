@@ -522,7 +522,8 @@
                             BorderThickness="0"
                             CornerRadius="20"
                             Cursor="Hand">
-                        <materialIcons:MaterialIcon Kind="Send"
+                        <materialIcons:MaterialIcon x:Name="SendButtonIcon"
+                                                    Kind="Send"
                                                     Width="24"
                                                     Height="24"
                                                     Foreground="{DynamicResource ButtonTextBrush}"/>

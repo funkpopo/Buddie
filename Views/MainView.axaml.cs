@@ -20,6 +20,9 @@ using System.Net.Http;
 using System.Text;
 using Newtonsoft.Json.Linq;
 using System.Diagnostics;
+using System.Threading;
+using Material.Icons;
+using Material.Icons.Avalonia;
 
 namespace Lyxie_desktop.Views;
 
@@ -45,6 +48,7 @@ public partial class MainView : UserControl
 
     // 对话界面状态
     private bool _isChatVisible = false;
+    private CancellationTokenSource? _cancellationTokenSource;
 
     public MainView()
     {
@@ -1041,11 +1045,41 @@ public partial class MainView : UserControl
 
     private void OnMessageInputKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
-        if (e.Key == Avalonia.Input.Key.Enter && 
+        if (_cancellationTokenSource != null) return; // 如果正在发送，则不处理回车
+
+        if (e.Key == Avalonia.Input.Key.Enter &&
             !e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift))
         {
             e.Handled = true;
             SendMessage();
+        }
+    }
+
+    private void OnStopButtonClick(object? sender, RoutedEventArgs e)
+    {
+        _cancellationTokenSource?.Cancel();
+    }
+
+    private void UpdateSendButtonState(bool isSending)
+    {
+        var sendButton = this.FindControl<Button>("SendButton");
+        var sendButtonIcon = this.FindControl<MaterialIcon>("SendButtonIcon");
+
+        if (sendButton == null || sendButtonIcon == null) return;
+
+        if (isSending)
+        {
+            sendButtonIcon.Kind = MaterialIconKind.Stop;
+            sendButtonIcon.Foreground = Brushes.Red;
+            sendButton.Click -= OnSendButtonClick;
+            sendButton.Click += OnStopButtonClick;
+        }
+        else
+        {
+            sendButtonIcon.Kind = MaterialIconKind.Send;
+            sendButtonIcon.Foreground = (IBrush?)Application.Current?.FindResource("ButtonTextBrush") ?? Brushes.White;
+            sendButton.Click -= OnStopButtonClick;
+            sendButton.Click += OnSendButtonClick;
         }
     }
 
@@ -1060,17 +1094,17 @@ public partial class MainView : UserControl
         string message = messageInput.Text?.Trim() ?? "";
         if (string.IsNullOrEmpty(message)) return;
 
+        // 设置为发送中状态
+        _cancellationTokenSource = new CancellationTokenSource();
+        UpdateSendButtonState(isSending: true);
+
         System.Diagnostics.Debug.WriteLine($"发送消息: {message}");
 
         // 创建用户消息气泡
         var userBubble = new MessageBubble();
         userBubble.SetMessage(message, true, "您");
         
-        // 添加到消息列表
-        if (messageList != null)
-        {
-            messageList.Children.Add(userBubble);
-        }
+        messageList.Children.Add(userBubble);
         
         // 清空输入框
         messageInput.Text = "";
@@ -1085,38 +1119,25 @@ public partial class MainView : UserControl
         var typingIndicator = new TypingIndicator();
         typingIndicator.SetSender("Lyxie");
         
-        if (messageList != null)
+        messageList.Children.Add(typingIndicator);
+        // 再次滚动到底部
+        Dispatcher.UIThread.Post(() =>
         {
-            messageList.Children.Add(typingIndicator);
-            // 再次滚动到底部
-            Dispatcher.UIThread.Post(() =>
-            {
-                messageScrollViewer?.ScrollToEnd();
-            }, DispatcherPriority.Background);
-        }
+            messageScrollViewer?.ScrollToEnd();
+        }, DispatcherPriority.Background);
         
         try
         {
             // 获取当前激活的LLM API配置（实时读取最新配置）
             if (App.Settings.LlmApiConfigs == null || App.Settings.LlmApiConfigs.Count == 0)
             {
-                // 没有配置API，替换为错误提示
-                if (messageList != null && messageList.Children.Contains(typingIndicator))
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     messageList.Children.Remove(typingIndicator);
-                }
-                
-                var errorBubble = new MessageBubble();
-                errorBubble.SetMessage("错误：未配置LLM API。请先在设置中添加API配置。", false, "系统");
-                if (messageList != null) {
+                    var errorBubble = new MessageBubble();
+                    errorBubble.SetMessage("错误：未配置LLM API。请先在设置中添加API配置。", false, "系统");
                     messageList.Children.Add(errorBubble);
-                }
-                
-                // 滚动到底部
-                Dispatcher.UIThread.Post(() =>
-                {
-                    messageScrollViewer?.ScrollToEnd();
-                }, DispatcherPriority.Background);
+                });
                 return;
             }
 
@@ -1157,7 +1178,7 @@ public partial class MainView : UserControl
                 // 发送请求
                 System.Diagnostics.Debug.WriteLine($"发送API请求到: {config.ApiUrl}");
                 
-                var response = await client.PostAsync(config.ApiUrl, content);
+                var response = await client.PostAsync(config.ApiUrl, content, _cancellationTokenSource.Token);
                 var responseContent = await response.Content.ReadAsStringAsync();
                 
                 System.Diagnostics.Debug.WriteLine($"API响应: {responseContent}");
@@ -1165,10 +1186,7 @@ public partial class MainView : UserControl
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     // 移除"正在思考"气泡
-                    if (messageList != null && messageList.Children.Contains(typingIndicator))
-                    {
-                        messageList.Children.Remove(typingIndicator);
-                    }
+                    messageList.Children.Remove(typingIndicator);
 
                     if (response.IsSuccessStatusCode)
                     {
@@ -1217,44 +1235,52 @@ public partial class MainView : UserControl
                         // 显示AI回复（启用Markdown渲染）
                         var aiBubble = new MessageBubble();
                         aiBubble.SetMessage(aiMessage, false, "Lyxie", true); // 最后一个参数为true启用Markdown
-                        if (messageList != null)
-                        {
-                            messageList.Children.Add(aiBubble);
-                        }
+                        messageList.Children.Add(aiBubble);
                     }
                     else
                     {
                         // 显示错误信息
                         var errorBubble = new MessageBubble();
                         errorBubble.SetMessage($"API错误：{response.StatusCode}\n{responseContent}", false, "错误");
-                        if (messageList != null)
-                        {
-                            messageList.Children.Add(errorBubble);
-                        }
+                        messageList.Children.Add(errorBubble);
                     }
                 });
             }
+        }
+        catch (OperationCanceledException)
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                // 请求被用户取消
+                System.Diagnostics.Debug.WriteLine("请求被用户取消。");
+                messageList.Children.Remove(typingIndicator);
+                var cancelledBubble = new MessageBubble();
+                cancelledBubble.SetMessage("消息请求已取消。", false, "系统");
+                messageList.Children.Add(cancelledBubble);
+            });
         }
         catch (Exception ex)
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 // 移除"正在思考"气泡
-                if (messageList != null && messageList.Children.Contains(typingIndicator))
-                {
-                    messageList.Children.Remove(typingIndicator);
-                }
+                messageList.Children.Remove(typingIndicator);
 
                 // 显示异常信息
                 var errorBubble = new MessageBubble();
                 errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
-                if (messageList != null)
-                {
-                    messageList.Children.Add(errorBubble);
-                }
+                messageList.Children.Add(errorBubble);
+                
             });
             
             System.Diagnostics.Debug.WriteLine($"发送消息异常: {ex}");
+        }
+        finally
+        {
+            // 恢复按钮状态
+            UpdateSendButtonState(isSending: false);
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null;
         }
         
         // 最后再滚动到底部
