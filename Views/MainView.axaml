@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
-             xmlns:utils="clr-namespace:Lyxie_desktop.Utils"
+             xmlns:helpers="clr-namespace:Lyxie_desktop.Helpers"
              mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="760"
              x:Class="Lyxie_desktop.Views.MainView">
 
@@ -162,7 +162,7 @@
                     CornerRadius="306"
                     Background="Transparent"
                     BorderThickness="6"
-                    utils:LinearGradientBrushHelper.RotateAngle="0">
+                    helpers:LinearGradientBrushHelper.RotateAngle="0">
                 <Border.BorderBrush>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#8ddcff" Offset="0"/>
@@ -181,7 +181,7 @@
                         BorderThickness="0"
                         Background="Transparent"
                         Cursor="Hand"
-                        utils:LinearGradientBrushHelper.RotateAngle="0">
+                        helpers:LinearGradientBrushHelper.RotateAngle="0">
                     
                     <!-- 隐藏的边框渐变，用于动画系统 -->
                     <Button.BorderBrush>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Lyxie_desktop.Interfaces;
 
 namespace Lyxie_desktop.Services;
 
@@ -11,7 +12,7 @@ public enum Language
 }
 
 // 语言服务类
-public class LanguageService
+public class LanguageService : ILanguageService
 {
     // 语言变更事件
     public event EventHandler<Language>? LanguageChanged;

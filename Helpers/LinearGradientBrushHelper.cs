@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using System;
 
-namespace Lyxie_desktop.Utils;
+namespace Lyxie_desktop.Helpers;
 
 /// <summary>
 /// 线性渐变的画刷帮助类，支持角度旋转

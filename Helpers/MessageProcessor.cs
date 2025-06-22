@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace Lyxie_desktop.Utils;
+namespace Lyxie_desktop.Helpers;
 
 /// <summary>
 /// 消息预处理工具类，用于处理think标签和其他特殊格式

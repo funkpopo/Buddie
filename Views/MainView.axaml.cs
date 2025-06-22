@@ -9,7 +9,7 @@ using Avalonia.Layout;
 using Avalonia.VisualTree;
 using Avalonia;
 using Lyxie_desktop.Controls;
-using Lyxie_desktop.Utils;
+using Lyxie_desktop.Helpers;
 using Lyxie_desktop.Services;
 using System;
 using System.Collections.Generic;
@@ -19,6 +19,7 @@ using System.Text.Json;
 using System.Net.Http;
 using System.Text;
 using Newtonsoft.Json.Linq;
+using System.Diagnostics;
 
 namespace Lyxie_desktop.Views;
 
@@ -110,10 +111,6 @@ public partial class MainView : UserControl
         
         // 初始化LLM API配置显示
         RefreshLlmApiConfig();
-
-        // 测试渐变旋转功能
-        TestGradientRotation.TestBasicRotation();
-        TestGradientRotation.TestAttachedProperty();
     }
     
     // 初始化工具面板开关状态
@@ -1165,88 +1162,97 @@ public partial class MainView : UserControl
                 
                 System.Diagnostics.Debug.WriteLine($"API响应: {responseContent}");
                 
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    // 移除"正在思考"气泡
+                    if (messageList != null && messageList.Children.Contains(typingIndicator))
+                    {
+                        messageList.Children.Remove(typingIndicator);
+                    }
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        // 解析API响应
+                        var responseJson = JObject.Parse(responseContent);
+                        string aiMessage = "";
+
+                        // 提取回复消息（处理不同的API返回格式）
+                        try
+                        {
+                            if (responseJson["choices"] is JArray choices && choices.Count > 0)
+                            {
+                                JToken firstChoice = choices[0];
+                                if (firstChoice != null)
+                                {
+                                    JToken? messageToken = firstChoice["message"];
+                                    if (messageToken != null && messageToken["content"] != null)
+                                    {
+                                        // OpenAI格式
+                                        aiMessage = messageToken["content"]?.ToString() ?? "";
+                                    }
+                                    else if (firstChoice["text"] != null)
+                                    {
+                                        // 一些API可能直接返回文本
+                                        aiMessage = firstChoice["text"]?.ToString() ?? "";
+                                    }
+                                    else if (firstChoice["content"] != null)
+                                    {
+                                        // 其他可能的格式
+                                        aiMessage = firstChoice["content"]?.ToString() ?? "";
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"解析API响应出错: {ex.Message}");
+                            aiMessage = "对不起，我无法解析API的响应。请检查API格式是否正确。";
+                        }
+
+                        if (string.IsNullOrEmpty(aiMessage))
+                        {
+                            aiMessage = "对不起，API返回的响应为空或格式错误。";
+                        }
+
+                        // 显示AI回复（启用Markdown渲染）
+                        var aiBubble = new MessageBubble();
+                        aiBubble.SetMessage(aiMessage, false, "Lyxie", true); // 最后一个参数为true启用Markdown
+                        if (messageList != null)
+                        {
+                            messageList.Children.Add(aiBubble);
+                        }
+                    }
+                    else
+                    {
+                        // 显示错误信息
+                        var errorBubble = new MessageBubble();
+                        errorBubble.SetMessage($"API错误：{response.StatusCode}\n{responseContent}", false, "错误");
+                        if (messageList != null)
+                        {
+                            messageList.Children.Add(errorBubble);
+                        }
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
                 // 移除"正在思考"气泡
                 if (messageList != null && messageList.Children.Contains(typingIndicator))
                 {
                     messageList.Children.Remove(typingIndicator);
                 }
-                
-                if (response.IsSuccessStatusCode)
+
+                // 显示异常信息
+                var errorBubble = new MessageBubble();
+                errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
+                if (messageList != null)
                 {
-                    // 解析API响应
-                    var responseJson = JObject.Parse(responseContent);
-                    string aiMessage = "";
-                    
-                    // 提取回复消息（处理不同的API返回格式）
-                    try
-                    {
-                        if (responseJson["choices"] is JArray choices && choices.Count > 0)
-                        {
-                            JToken firstChoice = choices[0];
-                            if (firstChoice != null)
-                            {
-                                JToken? messageToken = firstChoice["message"];
-                                if (messageToken != null && messageToken["content"] != null)
-                                {
-                                    // OpenAI格式
-                                    aiMessage = messageToken["content"]?.ToString() ?? "";
-                                }
-                                else if (firstChoice["text"] != null)
-                                {
-                                    // 一些API可能直接返回文本
-                                    aiMessage = firstChoice["text"]?.ToString() ?? "";
-                                }
-                                else if (firstChoice["content"] != null)
-                                {
-                                    // 其他可能的格式
-                                    aiMessage = firstChoice["content"]?.ToString() ?? "";
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"解析API响应出错: {ex.Message}");
-                        aiMessage = "对不起，我无法解析API的响应。请检查API格式是否正确。";
-                    }
-                    
-                    if (string.IsNullOrEmpty(aiMessage))
-                    {
-                        aiMessage = "对不起，API返回的响应为空或格式错误。";
-                    }
-                    
-                    // 显示AI回复（启用Markdown渲染）
-                    var aiBubble = new MessageBubble();
-                    aiBubble.SetMessage(aiMessage, false, "Lyxie", true); // 最后一个参数为true启用Markdown
-                    if (messageList != null) {
-                        messageList.Children.Add(aiBubble);
-                    }
+                    messageList.Children.Add(errorBubble);
                 }
-                else
-                {
-                    // 显示错误信息
-                    var errorBubble = new MessageBubble();
-                    errorBubble.SetMessage($"API错误：{response.StatusCode}\n{responseContent}", false, "错误");
-                    if (messageList != null) {
-                        messageList.Children.Add(errorBubble);
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            // 移除"正在思考"气泡
-            if (messageList != null && messageList.Children.Contains(typingIndicator))
-            {
-                messageList.Children.Remove(typingIndicator);
-            }
-            
-            // 显示异常信息
-            var errorBubble = new MessageBubble();
-            errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
-            if (messageList != null) {
-                messageList.Children.Add(errorBubble);
-            }
+            });
             
             System.Diagnostics.Debug.WriteLine($"发送消息异常: {ex}");
         }

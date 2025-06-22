@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Markdown.Avalonia;
-using Lyxie_desktop.Utils;
+using Lyxie_desktop.Helpers;
 
 namespace Lyxie_desktop.Controls;
 

@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Media;
 using Avalonia.Threading;
-using Lyxie_desktop.Utils;
+using Lyxie_desktop.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;

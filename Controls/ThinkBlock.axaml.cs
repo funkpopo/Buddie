@@ -9,7 +9,8 @@ using Material.Icons;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Lyxie_desktop.Utils;
+using Lyxie_desktop.Helpers;
+using System.Timers;
 
 namespace Lyxie_desktop.Controls;
 

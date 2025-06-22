@@ -4,10 +4,11 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Lyxie_desktop.Views; // 添加对LlmApiConfig所在命名空间的引用
+using Lyxie_desktop.Interfaces;
 
 namespace Lyxie_desktop.Services
 {
-    public class LlmApiService
+    public class LlmApiService : ILlmApiService
     {
         private readonly HttpClient _httpClient;
 

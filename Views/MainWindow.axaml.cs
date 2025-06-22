@@ -7,11 +7,11 @@ using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Lyxie_desktop.Utils;
+using Lyxie_desktop.Helpers;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-namespace Lyxie_desktop;
+namespace Lyxie_desktop.Views;
 
 public partial class MainWindow : Window
 {

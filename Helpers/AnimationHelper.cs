@@ -7,7 +7,7 @@ using Avalonia.Styling;
 using System;
 using System.Threading.Tasks;
 
-namespace Lyxie_desktop.Utils;
+namespace Lyxie_desktop.Helpers;
 
 /// <summary>
 /// 动画辅助工具类，提供常用的动画效果

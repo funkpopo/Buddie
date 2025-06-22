@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Styling;
 using System;
+using Lyxie_desktop.Interfaces;
 
 namespace Lyxie_desktop.Services;
 
@@ -13,7 +14,7 @@ public enum ThemeMode
 }
 
 // 主题服务类
-public class ThemeService
+public class ThemeService : IThemeService
 {
     // 主题变更事件
     public event EventHandler<ThemeMode>? ThemeChanged;
