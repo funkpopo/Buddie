@@ -27,6 +27,13 @@
                        Foreground="{DynamicResource SecondaryTextBrush}"
                        IsVisible="True"/>
             
+            <!-- Think内容容器 -->
+            <StackPanel Name="ThinkBlockContainer"
+                        Orientation="Vertical"
+                        Spacing="12"
+                        IsVisible="False"
+                        Margin="0,0,0,8"/>
+            
             <!-- 普通文本消息 -->
             <TextBlock Name="MessageText"
                        Text="This is a sample message"

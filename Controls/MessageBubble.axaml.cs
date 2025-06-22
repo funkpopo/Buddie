@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Markdown.Avalonia;
+using Lyxie_desktop.Utils;
 
 namespace Lyxie_desktop.Controls;
 
@@ -18,11 +19,40 @@ public partial class MessageBubble : UserControl
         var messageMarkdown = this.FindControl<MarkdownScrollViewer>("MessageMarkdown");
         var senderText = this.FindControl<TextBlock>("SenderText");
         var bubbleBorder = this.FindControl<Border>("BubbleBorder");
+        var thinkBlockContainer = this.FindControl<StackPanel>("ThinkBlockContainer");
+
+        // 处理think标签（仅对AI消息处理）
+        string displayMessage = message;
+        if (!isUser && MessageProcessor.HasThinkTags(message))
+        {
+            var processResult = MessageProcessor.ProcessThinkTags(message);
+            displayMessage = processResult.CleanedMessage;
+            
+            // 创建think blocks
+            if (processResult.HasThinkContent && thinkBlockContainer != null)
+            {
+                thinkBlockContainer.Children.Clear();
+                thinkBlockContainer.IsVisible = true;
+                
+                foreach (var thinkContent in processResult.ThinkBlocks)
+                {
+                    var thinkBlock = new ThinkBlock();
+                    thinkBlock.SetThinkContent(thinkContent);
+                    thinkBlockContainer.Children.Add(thinkBlock);
+                }
+            }
+        }
+        else if (thinkBlockContainer != null)
+        {
+            // 隐藏think容器
+            thinkBlockContainer.IsVisible = false;
+            thinkBlockContainer.Children.Clear();
+        }
 
         if (messageText != null)
         {
-            messageText.Text = message;
-            System.Diagnostics.Debug.WriteLine($"设置消息文本: {message}");
+            messageText.Text = displayMessage;
+            System.Diagnostics.Debug.WriteLine($"设置消息文本: {displayMessage}");
         }
 
         if (senderText != null && !string.IsNullOrEmpty(senderName))
@@ -43,14 +73,14 @@ public partial class MessageBubble : UserControl
                 // AI消息且需要Markdown渲染
                 messageText.IsVisible = false;
                 messageMarkdown.IsVisible = true;
-                messageMarkdown.Markdown = message;
+                messageMarkdown.Markdown = displayMessage; // 使用处理后的消息
             }
             else
             {
                 // 用户消息或普通文本
                 messageText.IsVisible = true;
                 messageMarkdown.IsVisible = false;
-                messageText.Text = message;
+                messageText.Text = displayMessage; // 使用处理后的消息
             }
         }
 

@@ -1,0 +1,128 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="100"
+             x:Class="Lyxie_desktop.Controls.ThinkBlock"
+             Background="Transparent">
+
+    <Border Name="ThinkBlockBorder"
+            CornerRadius="8"
+            Padding="12,10"
+            Margin="0,4,0,12"
+            Background="{DynamicResource ThinkBlockBackgroundBrush}"
+            BorderBrush="{DynamicResource ThinkBlockBorderBrush}"
+            BorderThickness="1">
+        
+        <StackPanel Orientation="Vertical" Spacing="10">
+            <!-- 标题栏和折叠按钮 -->
+            <Button Name="ToggleButton"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="4,6"
+                    Cursor="Hand"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    CornerRadius="4">
+                
+                <!-- 按钮悬停效果 -->
+                <Button.Styles>
+                    <Style Selector="Button:pointerover">
+                        <Setter Property="Background" Value="{DynamicResource ThinkBlockContentBackgroundBrush}"/>
+                    </Style>
+                </Button.Styles>
+                
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto" MaxWidth="180"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- 折叠/展开图标 -->
+                    <materialIcons:MaterialIcon Grid.Column="0"
+                                                Name="ToggleIcon"
+                                                Kind="ChevronRight"
+                                                Width="16"
+                                                Height="16"
+                                                Foreground="{DynamicResource ThinkBlockIconBrush}"
+                                                VerticalAlignment="Center"
+                                                Margin="0,0,8,0"/>
+                    
+                    <!-- 标题文本 -->
+                    <StackPanel Grid.Column="1" 
+                                Orientation="Horizontal" 
+                                VerticalAlignment="Center"
+                                Spacing="8">
+                        <TextBlock Name="TitleText"
+                                   Text="💭 思考过程"
+                                   FontSize="12"
+                                   FontWeight="Medium"
+                                   Foreground="{DynamicResource ThinkBlockTitleBrush}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Name="CollapseIndicator"
+                                   Text="[已折叠]"
+                                   FontSize="10"
+                                   Foreground="{DynamicResource ThinkBlockPreviewBrush}"
+                                   VerticalAlignment="Center"
+                                   Opacity="0.6"/>
+                    </StackPanel>
+                    
+                    <!-- 内容预览（折叠时显示） -->
+                    <Border Grid.Column="2"
+                            Background="Transparent"
+                            CornerRadius="3"
+                            Padding="6,2"
+                            MaxWidth="160"
+                            HorizontalAlignment="Right">
+                        <TextBlock Name="PreviewText"
+                                   Text=""
+                                   FontSize="10"
+                                   Foreground="{DynamicResource ThinkBlockPreviewBrush}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap"
+                                   MaxLines="1"
+                                   Opacity="0.8"
+                                   FontStyle="Italic"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+                </Grid>
+            </Button>
+            
+            <!-- 可折叠的内容区域 -->
+            <Border Name="ContentBorder"
+                    IsVisible="False"
+                    Background="{DynamicResource ThinkBlockContentBackgroundBrush}"
+                    CornerRadius="6"
+                    Padding="16"
+                    BorderBrush="{DynamicResource ThinkBlockContentBorderBrush}"
+                    BorderThickness="1"
+                    Margin="0,4,0,0">
+                
+                <ScrollViewer Name="ContentScrollViewer"
+                              MaxHeight="400"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto"
+                              Padding="0"
+                              Margin="0">
+                    
+                    <SelectableTextBlock Name="ContentText"
+                                        Text=""
+                                        FontSize="13"
+                                        FontFamily="Segoe UI"
+                                        TextWrapping="Wrap"
+                                        Foreground="{DynamicResource ThinkBlockContentTextBrush}"
+                                        LineHeight="20"
+                                        Margin="0"
+                                        Padding="0"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Top"
+                                        IsHitTestVisible="True"/>
+                </ScrollViewer>
+            </Border>
+        </StackPanel>
+    </Border>
+
+</UserControl> 

@@ -121,6 +121,16 @@
                     <SolidColorBrush x:Key="UserMessageTextBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="AiMessageBackgroundBrush" Color="#3C3C3C"/>
                     <SolidColorBrush x:Key="AiMessageTextBrush" Color="#E0E0E0"/>
+                    
+                    <!-- ThinkBlock颜色 -->
+                    <SolidColorBrush x:Key="ThinkBlockBackgroundBrush" Color="#2A2A2C"/>
+                    <SolidColorBrush x:Key="ThinkBlockBorderBrush" Color="#404040"/>
+                    <SolidColorBrush x:Key="ThinkBlockTitleBrush" Color="#C0C0C0"/>
+                    <SolidColorBrush x:Key="ThinkBlockIconBrush" Color="#B0B0B0"/>
+                    <SolidColorBrush x:Key="ThinkBlockPreviewBrush" Color="#909090"/>
+                    <SolidColorBrush x:Key="ThinkBlockContentBackgroundBrush" Color="#222224"/>
+                    <SolidColorBrush x:Key="ThinkBlockContentBorderBrush" Color="#383838"/>
+                    <SolidColorBrush x:Key="ThinkBlockContentTextBrush" Color="#D0D0D0"/>
                 </ResourceDictionary>
 
                 <!-- 浅色主题 -->
@@ -230,6 +240,16 @@
                     <SolidColorBrush x:Key="UserMessageTextBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="AiMessageBackgroundBrush" Color="#E8E8E8"/>
                     <SolidColorBrush x:Key="AiMessageTextBrush" Color="#2D2D30"/>
+                    
+                    <!-- ThinkBlock颜色 -->
+                    <SolidColorBrush x:Key="ThinkBlockBackgroundBrush" Color="#F5F5F7"/>
+                    <SolidColorBrush x:Key="ThinkBlockBorderBrush" Color="#D0D0D0"/>
+                    <SolidColorBrush x:Key="ThinkBlockTitleBrush" Color="#404040"/>
+                    <SolidColorBrush x:Key="ThinkBlockIconBrush" Color="#606060"/>
+                    <SolidColorBrush x:Key="ThinkBlockPreviewBrush" Color="#808080"/>
+                    <SolidColorBrush x:Key="ThinkBlockContentBackgroundBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="ThinkBlockContentBorderBrush" Color="#E0E0E0"/>
+                    <SolidColorBrush x:Key="ThinkBlockContentTextBrush" Color="#2D2D30"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
