@@ -5,6 +5,7 @@ using Avalonia.Controls.Documents;
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
+using Lyxie_desktop.Controls;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,7 +51,7 @@ public static class MarkdownRenderer
         catch (Exception ex)
         {
             // 如果解析失败，显示原始文本
-            var errorText = new TextBlock
+            var errorText = new SelectableTextBlock
             {
                 Text = markdownText,
                 TextWrapping = TextWrapping.Wrap,
@@ -77,7 +78,7 @@ public static class MarkdownRenderer
         };
     }
 
-    private static TextBlock RenderHeading(HeadingBlock heading)
+    private static SelectableTextBlock RenderHeading(HeadingBlock heading)
     {
         var text = ExtractInlineText(heading.Inline);
         var fontSize = heading.Level switch
@@ -90,7 +91,7 @@ public static class MarkdownRenderer
             _ => 12
         };
 
-        return new TextBlock
+        return new SelectableTextBlock
         {
             Text = text,
             FontSize = fontSize,
@@ -104,13 +105,13 @@ public static class MarkdownRenderer
     {
         if (paragraph?.Inline == null)
         {
-            return new TextBlock { Text = "", TextWrapping = TextWrapping.Wrap };
+            return new SelectableTextBlock { Text = "", TextWrapping = TextWrapping.Wrap };
         }
 
         // 对于段落，我们提取纯文本并应用基本格式
         var text = ExtractInlineText(paragraph.Inline);
         
-        return new TextBlock
+        return new SelectableTextBlock
         {
             Text = text,
             TextWrapping = TextWrapping.Wrap,
@@ -138,7 +139,7 @@ public static class MarkdownRenderer
             };
 
             // 列表标记
-            var marker = new TextBlock
+            var marker = new SelectableTextBlock
             {
                 Text = list.IsOrdered ? $"{index}." : "•",
                 VerticalAlignment = VerticalAlignment.Top,
@@ -176,27 +177,15 @@ public static class MarkdownRenderer
             ? fenced.Lines.ToString() 
             : codeBlock.Lines.ToString();
 
-        var border = new Border
-        {
-            Background = Brush.Parse("#F8F8F8"),
-            BorderBrush = Brush.Parse("#E1E4E8"),
-            BorderThickness = new Avalonia.Thickness(1),
-            CornerRadius = new Avalonia.CornerRadius(4),
-            Padding = new Avalonia.Thickness(12),
-            Margin = new Avalonia.Thickness(0, 0, 0, 8)
-        };
+        var language = codeBlock is FencedCodeBlock fencedBlock 
+            ? fencedBlock.Info ?? string.Empty 
+            : string.Empty;
 
-        var textBlock = new TextBlock
-        {
-            Text = text,
-            FontFamily = new FontFamily("Consolas, 'Courier New', monospace"),
-            FontSize = 13,
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = Brush.Parse("#24292E")
-        };
-
-        border.Child = textBlock;
-        return border;
+        // 使用新的代码块控件
+        var codeBlockControl = new CodeBlockControl();
+        codeBlockControl.SetCodeContent(text, language);
+        
+        return codeBlockControl;
     }
 
     private static Control RenderQuote(QuoteBlock quote)
@@ -222,7 +211,7 @@ public static class MarkdownRenderer
             if (control != null)
             {
                 // 为引用内容设置特殊样式
-                if (control is TextBlock tb)
+                if (control is SelectableTextBlock tb)
                 {
                     tb.Foreground = Brush.Parse("#6A737D");
                     tb.FontStyle = FontStyle.Italic;

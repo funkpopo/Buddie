@@ -131,6 +131,22 @@
                     <SolidColorBrush x:Key="ThinkBlockContentBackgroundBrush" Color="#222224"/>
                     <SolidColorBrush x:Key="ThinkBlockContentBorderBrush" Color="#383838"/>
                     <SolidColorBrush x:Key="ThinkBlockContentTextBrush" Color="#D0D0D0"/>
+                    
+                    <!-- 文本选择颜色 -->
+                    <SolidColorBrush x:Key="TextSelectionHighlightBrush" Color="#FF0078D4"/>
+                    <SolidColorBrush x:Key="InactiveSelectionHighlightBrush" Color="#80404040"/>
+                    
+                    <!-- 代码块主题颜色 -->
+                    <SolidColorBrush x:Key="CodeBlockBackgroundBrush" Color="#1E1E1E"/>
+                    <SolidColorBrush x:Key="CodeBlockBorderBrush" Color="#404040"/>
+                    <SolidColorBrush x:Key="CodeBlockTextBrush" Color="#D4D4D4"/>
+                    <SolidColorBrush x:Key="CodeBlockHeaderBrush" Color="#2D2D30"/>
+                    
+                    <!-- 复制按钮颜色 -->
+                    <SolidColorBrush x:Key="CopyButtonBackgroundBrush" Color="#404040"/>
+                    <SolidColorBrush x:Key="CopyButtonHoverBrush" Color="#505050"/>
+                    <SolidColorBrush x:Key="CopyButtonTextBrush" Color="#E0E0E0"/>
+                    <SolidColorBrush x:Key="CopySuccessBrush" Color="#4CAF50"/>
                 </ResourceDictionary>
 
                 <!-- 浅色主题 -->
@@ -250,6 +266,22 @@
                     <SolidColorBrush x:Key="ThinkBlockContentBackgroundBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="ThinkBlockContentBorderBrush" Color="#E0E0E0"/>
                     <SolidColorBrush x:Key="ThinkBlockContentTextBrush" Color="#2D2D30"/>
+                    
+                    <!-- 文本选择颜色 -->
+                    <SolidColorBrush x:Key="TextSelectionHighlightBrush" Color="#FF0078D4"/>
+                    <SolidColorBrush x:Key="InactiveSelectionHighlightBrush" Color="#80D0D0D0"/>
+                    
+                    <!-- 代码块主题颜色 -->
+                    <SolidColorBrush x:Key="CodeBlockBackgroundBrush" Color="#F8F8F8"/>
+                    <SolidColorBrush x:Key="CodeBlockBorderBrush" Color="#E1E4E8"/>
+                    <SolidColorBrush x:Key="CodeBlockTextBrush" Color="#24292E"/>
+                    <SolidColorBrush x:Key="CodeBlockHeaderBrush" Color="#F0F0F0"/>
+                    
+                    <!-- 复制按钮颜色 -->
+                    <SolidColorBrush x:Key="CopyButtonBackgroundBrush" Color="#E0E0E0"/>
+                    <SolidColorBrush x:Key="CopyButtonHoverBrush" Color="#D0D0D0"/>
+                    <SolidColorBrush x:Key="CopyButtonTextBrush" Color="#2D2D30"/>
+                    <SolidColorBrush x:Key="CopySuccessBrush" Color="#4CAF50"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

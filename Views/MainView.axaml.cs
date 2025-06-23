@@ -1218,12 +1218,27 @@ public partial class MainView : UserControl
                 {
                     if (aiBubble != null && messageList.Children.Contains(aiBubble))
                     {
-                        messageList.Children.Remove(aiBubble);
+                        // 尝试保留已有内容并完成Markdown渲染
+                        try
+                        {
+                            aiBubble.CompleteStreamingAndEnableMarkdown();
+                            System.Diagnostics.Debug.WriteLine("流式请求失败，但保留了已有内容并完成Markdown渲染");
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"完成Markdown渲染时出错: {ex.Message}");
+                            // 如果Markdown渲染也失败，则移除aiBubble
+                            messageList.Children.Remove(aiBubble);
+                        }
                     }
                     
-                    var errorBubble = new MessageBubble();
-                    errorBubble.SetMessage("无法启动流式请求，请检查API配置。", false, "错误");
-                    messageList.Children.Add(errorBubble);
+                    // 如果aiBubble中没有内容或处理失败，显示错误提示
+                    if (aiBubble == null || !messageList.Children.Contains(aiBubble))
+                    {
+                        var errorBubble = new MessageBubble();
+                        errorBubble.SetMessage("无法启动流式请求，请检查API配置。", false, "错误");
+                        messageList.Children.Add(errorBubble);
+                    }
                 });
             }
         }
@@ -1235,27 +1250,71 @@ public partial class MainView : UserControl
                 System.Diagnostics.Debug.WriteLine("请求被用户取消。");
                 if (aiBubble != null && messageList.Children.Contains(aiBubble))
                 {
-                    messageList.Children.Remove(aiBubble);
+                    // 尝试保留已有内容并完成Markdown渲染
+                    try
+                    {
+                        aiBubble.CompleteStreamingAndEnableMarkdown();
+                        System.Diagnostics.Debug.WriteLine("请求被取消，但保留了已有内容并完成Markdown渲染");
+                        
+                        // 添加取消提示（如果有内容则不替换，只添加提示）
+                        var cancelledBubble = new MessageBubble();
+                        cancelledBubble.SetMessage("（流式传输已被用户中止）", false, "系统");
+                        messageList.Children.Add(cancelledBubble);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"完成Markdown渲染时出错: {ex.Message}");
+                        // 如果Markdown渲染失败，则移除aiBubble并显示取消消息
+                        messageList.Children.Remove(aiBubble);
+                        var cancelledBubble = new MessageBubble();
+                        cancelledBubble.SetMessage("消息请求已取消。", false, "系统");
+                        messageList.Children.Add(cancelledBubble);
+                    }
                 }
-                var cancelledBubble = new MessageBubble();
-                cancelledBubble.SetMessage("消息请求已取消。", false, "系统");
-                messageList.Children.Add(cancelledBubble);
+                else
+                {
+                    var cancelledBubble = new MessageBubble();
+                    cancelledBubble.SetMessage("消息请求已取消。", false, "系统");
+                    messageList.Children.Add(cancelledBubble);
+                }
             });
         }
         catch (Exception ex)
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                // 移除可能存在的AI气泡
+                // 尝试保留已有内容
                 if (aiBubble != null && messageList.Children.Contains(aiBubble))
                 {
-                    messageList.Children.Remove(aiBubble);
+                    try
+                    {
+                        aiBubble.CompleteStreamingAndEnableMarkdown();
+                        System.Diagnostics.Debug.WriteLine("发生异常，但保留了已有内容并完成Markdown渲染");
+                        
+                        // 添加错误提示
+                        var errorBubble = new MessageBubble();
+                        errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
+                        messageList.Children.Add(errorBubble);
+                    }
+                    catch (Exception renderEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"完成Markdown渲染时出错: {renderEx.Message}");
+                        // 如果Markdown渲染失败，则移除aiBubble
+                        messageList.Children.Remove(aiBubble);
+                        
+                        // 显示异常信息
+                        var errorBubble = new MessageBubble();
+                        errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
+                        messageList.Children.Add(errorBubble);
+                    }
                 }
-
-                // 显示异常信息
-                var errorBubble = new MessageBubble();
-                errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
-                messageList.Children.Add(errorBubble);
+                else
+                {
+                    // 显示异常信息
+                    var errorBubble = new MessageBubble();
+                    errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
+                    messageList.Children.Add(errorBubble);
+                }
             });
             
             System.Diagnostics.Debug.WriteLine($"发送消息异常: {ex}");

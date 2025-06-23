@@ -29,7 +29,7 @@ public partial class MessageBubble : UserControl
         _isUser = isUser;
         _senderName = senderName;
         
-        var messageText = this.FindControl<TextBlock>("MessageText");
+        var messageText = this.FindControl<SelectableTextBlock>("MessageText");
         var markdownContainer = this.FindControl<ScrollViewer>("MarkdownContainer");
         var senderText = this.FindControl<TextBlock>("SenderText");
         var bubbleBorder = this.FindControl<Border>("BubbleBorder");
@@ -110,7 +110,7 @@ public partial class MessageBubble : UserControl
         _senderName = senderName;
         _contentBuilder.Clear();
 
-        var messageText = this.FindControl<TextBlock>("MessageText");
+        var messageText = this.FindControl<SelectableTextBlock>("MessageText");
         var markdownContainer = this.FindControl<ScrollViewer>("MarkdownContainer");
         var senderText = this.FindControl<TextBlock>("SenderText");
         var thinkBlockContainer = this.FindControl<StackPanel>("ThinkBlockContainer");
@@ -161,7 +161,7 @@ public partial class MessageBubble : UserControl
         {
             try
             {
-                var messageText = this.FindControl<TextBlock>("MessageText");
+                var messageText = this.FindControl<SelectableTextBlock>("MessageText");
                 if (messageText != null && messageText.IsVisible)
                 {
                     messageText.Text = _contentBuilder.ToString();
@@ -179,10 +179,12 @@ public partial class MessageBubble : UserControl
     /// </summary>
     public void CompleteStreamingAndEnableMarkdown()
     {
-        if (!_isStreamingMode || _isUser) return;
+        if (_isUser) return; // 用户消息不需要Markdown渲染
 
         var fullContent = _contentBuilder.ToString();
         _isStreamingMode = false;
+        
+        // 即使没有内容也要处理，避免空白消息气泡
 
         // 在UI线程中处理最终渲染
         Dispatcher.UIThread.Post(() =>
@@ -214,19 +216,22 @@ public partial class MessageBubble : UserControl
                 }
 
                 // 使用新的Markdown渲染器
-                var messageText = this.FindControl<TextBlock>("MessageText");
+                var messageText = this.FindControl<SelectableTextBlock>("MessageText");
                 var markdownContainer = this.FindControl<ScrollViewer>("MarkdownContainer");
                 
                 if (messageText != null && markdownContainer != null)
                 {
+                    // 决定要渲染的内容：如果processedContent为空或只有空白，则使用原始内容
+                    var contentToRender = string.IsNullOrWhiteSpace(processedContent) ? fullContent : processedContent;
+                    
                     // 启用Markdown渲染
                     messageText.IsVisible = false;
                     markdownContainer.IsVisible = true;
                     
-                    var markdownPanel = MarkdownRenderer.RenderToPanel(processedContent);
+                    var markdownPanel = MarkdownRenderer.RenderToPanel(contentToRender);
                     markdownContainer.Content = markdownPanel;
                     
-                    System.Diagnostics.Debug.WriteLine("流式接收完成，启用Markdig渲染");
+                    System.Diagnostics.Debug.WriteLine($"流式接收完成，启用Markdig渲染。原始长度: {fullContent.Length}, 处理后长度: {processedContent.Length}, 渲染内容长度: {contentToRender.Length}");
                 }
             }
             catch (Exception ex)
@@ -234,7 +239,7 @@ public partial class MessageBubble : UserControl
                 System.Diagnostics.Debug.WriteLine($"完成流式渲染时出错: {ex.Message}");
                 
                 // 如果Markdown渲染失败，回退到文本显示
-                var messageText = this.FindControl<TextBlock>("MessageText");
+                var messageText = this.FindControl<SelectableTextBlock>("MessageText");
                 var markdownContainer = this.FindControl<ScrollViewer>("MarkdownContainer");
                 
                 if (messageText != null && markdownContainer != null)
@@ -253,7 +258,7 @@ public partial class MessageBubble : UserControl
     private void SetBubbleStyle(bool isUser)
     {
         var bubbleBorder = this.FindControl<Border>("BubbleBorder");
-        var messageText = this.FindControl<TextBlock>("MessageText");
+        var messageText = this.FindControl<SelectableTextBlock>("MessageText");
         var senderText = this.FindControl<TextBlock>("SenderText");
 
         if (bubbleBorder != null)
@@ -278,7 +283,7 @@ public partial class MessageBubble : UserControl
         if (isUser)
         {
             if (messageText != null)
-                messageText.SetValue(TextBlock.ForegroundProperty, this.FindResource("UserMessageTextBrush"));
+                messageText.SetValue(SelectableTextBlock.ForegroundProperty, this.FindResource("UserMessageTextBrush"));
             
             if (senderText != null)
                 senderText.SetValue(TextBlock.ForegroundProperty, this.FindResource("SecondaryTextBrush"));
@@ -286,7 +291,7 @@ public partial class MessageBubble : UserControl
         else
         {
             if (messageText != null)
-                messageText.SetValue(TextBlock.ForegroundProperty, this.FindResource("AiMessageTextBrush"));
+                messageText.SetValue(SelectableTextBlock.ForegroundProperty, this.FindResource("AiMessageTextBrush"));
             
             if (senderText != null)
                 senderText.SetValue(TextBlock.ForegroundProperty, this.FindResource("SecondaryTextBrush"));
