@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="100"
              x:Class="Lyxie_desktop.Controls.MessageBubble"
              MinHeight="50"
@@ -42,10 +41,14 @@
                        Foreground="{DynamicResource AiMessageTextBrush}"
                        IsVisible="True"/>
             
-            <!-- Markdown消息 -->
-            <md:MarkdownScrollViewer Name="MessageMarkdown"
-                                     Markdown=""
-                                     IsVisible="False"/>
+            <!-- Markdown消息容器 -->
+            <ScrollViewer Name="MarkdownContainer"
+                          IsVisible="False"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          MaxHeight="400">
+                <!-- Markdown内容将通过代码动态添加 -->
+            </ScrollViewer>
         </StackPanel>
     </Border>
 

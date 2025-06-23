@@ -11,6 +11,7 @@ using Avalonia;
 using Lyxie_desktop.Controls;
 using Lyxie_desktop.Helpers;
 using Lyxie_desktop.Services;
+using Lyxie_desktop.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -1058,6 +1059,7 @@ public partial class MainView : UserControl
     private void OnStopButtonClick(object? sender, RoutedEventArgs e)
     {
         _cancellationTokenSource?.Cancel();
+        System.Diagnostics.Debug.WriteLine("用户请求停止流式传输");
     }
 
     private void UpdateSendButtonState(bool isSending)
@@ -1077,7 +1079,16 @@ public partial class MainView : UserControl
         else
         {
             sendButtonIcon.Kind = MaterialIconKind.Send;
-            sendButtonIcon.Foreground = (IBrush?)Application.Current?.FindResource("ButtonTextBrush") ?? Brushes.White;
+            // 安全地获取资源，如果失败则使用默认颜色
+            try
+            {
+                var buttonTextBrush = Application.Current?.FindResource("ButtonTextBrush");
+                sendButtonIcon.Foreground = (buttonTextBrush as IBrush) ?? Brushes.White;
+            }
+            catch
+            {
+                sendButtonIcon.Foreground = Brushes.White;
+            }
             sendButton.Click -= OnStopButtonClick;
             sendButton.Click += OnSendButtonClick;
         }
@@ -1115,16 +1126,8 @@ public partial class MainView : UserControl
             messageScrollViewer?.ScrollToEnd();
         }, DispatcherPriority.Background);
         
-        // 显示一个正在输入的动画指示器
-        var typingIndicator = new TypingIndicator();
-        typingIndicator.SetSender("Lyxie");
-        
-        messageList.Children.Add(typingIndicator);
-        // 再次滚动到底部
-        Dispatcher.UIThread.Post(() =>
-        {
-            messageScrollViewer?.ScrollToEnd();
-        }, DispatcherPriority.Background);
+        // 创建AI回复的流式消息气泡
+        MessageBubble? aiBubble = null;
         
         try
         {
@@ -1133,7 +1136,6 @@ public partial class MainView : UserControl
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    messageList.Children.Remove(typingIndicator);
                     var errorBubble = new MessageBubble();
                     errorBubble.SetMessage("错误：未配置LLM API。请先在设置中添加API配置。", false, "系统");
                     messageList.Children.Add(errorBubble);
@@ -1152,98 +1154,76 @@ public partial class MainView : UserControl
             var config = App.Settings.LlmApiConfigs[activeConfigIndex];
             
             System.Diagnostics.Debug.WriteLine($"使用LLM配置: {config.Name} ({config.ModelName}) - {config.ApiUrl}");
-            
-            // 使用HttpClient发送API请求
-            using (var client = new HttpClient())
+
+            // 在UI线程中创建AI消息气泡并初始化为流式模式
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                client.Timeout = TimeSpan.FromSeconds(30);
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
-                
-                // 构建请求消息
-                var requestData = new
+                aiBubble = new MessageBubble();
+                aiBubble.InitializeStreamingMessage(false, "Lyxie");
+                messageList.Children.Add(aiBubble);
+                messageScrollViewer?.ScrollToEnd();
+            });
+
+            // 使用LLM API服务发送流式请求
+            var apiService = new LlmApiService();
+            
+            var success = await apiService.SendStreamingMessageAsync(
+                config,
+                message,
+                onDataReceived: (content, isComplete) =>
                 {
-                    model = config.ModelName,
-                    messages = new[]
+                    if (aiBubble != null)
                     {
-                        new { role = "user", content = message }
-                    },
-                    temperature = config.Temperature,
-                    max_tokens = config.MaxTokens
-                };
-                
-                // 转换为JSON
-                var jsonContent = JsonSerializer.Serialize(requestData);
-                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-                
-                // 发送请求
-                System.Diagnostics.Debug.WriteLine($"发送API请求到: {config.ApiUrl}");
-                
-                var response = await client.PostAsync(config.ApiUrl, content, _cancellationTokenSource.Token);
-                var responseContent = await response.Content.ReadAsStringAsync();
-                
-                System.Diagnostics.Debug.WriteLine($"API响应: {responseContent}");
-                
+                        if (isComplete)
+                        {
+                            // 流式接收完成，启用Markdown渲染
+                            aiBubble.CompleteStreamingAndEnableMarkdown();
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                messageScrollViewer?.ScrollToEnd();
+                            });
+                        }
+                        else if (!string.IsNullOrEmpty(content))
+                        {
+                            // 追加内容
+                            aiBubble.AppendContent(content);
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                messageScrollViewer?.ScrollToEnd();
+                            });
+                        }
+                    }
+                },
+                onError: (error) =>
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (aiBubble != null && messageList.Children.Contains(aiBubble))
+                        {
+                            messageList.Children.Remove(aiBubble);
+                        }
+                        
+                        var errorBubble = new MessageBubble();
+                        errorBubble.SetMessage($"流式请求错误：{error}", false, "错误");
+                        messageList.Children.Add(errorBubble);
+                        messageScrollViewer?.ScrollToEnd();
+                    });
+                },
+                _cancellationTokenSource.Token
+            );
+
+            if (!success)
+            {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    // 移除"正在思考"气泡
-                    messageList.Children.Remove(typingIndicator);
-
-                    if (response.IsSuccessStatusCode)
+                    if (aiBubble != null && messageList.Children.Contains(aiBubble))
                     {
-                        // 解析API响应
-                        var responseJson = JObject.Parse(responseContent);
-                        string aiMessage = "";
-
-                        // 提取回复消息（处理不同的API返回格式）
-                        try
-                        {
-                            if (responseJson["choices"] is JArray choices && choices.Count > 0)
-                            {
-                                JToken firstChoice = choices[0];
-                                if (firstChoice != null)
-                                {
-                                    JToken? messageToken = firstChoice["message"];
-                                    if (messageToken != null && messageToken["content"] != null)
-                                    {
-                                        // OpenAI格式
-                                        aiMessage = messageToken["content"]?.ToString() ?? "";
-                                    }
-                                    else if (firstChoice["text"] != null)
-                                    {
-                                        // 一些API可能直接返回文本
-                                        aiMessage = firstChoice["text"]?.ToString() ?? "";
-                                    }
-                                    else if (firstChoice["content"] != null)
-                                    {
-                                        // 其他可能的格式
-                                        aiMessage = firstChoice["content"]?.ToString() ?? "";
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"解析API响应出错: {ex.Message}");
-                            aiMessage = "对不起，我无法解析API的响应。请检查API格式是否正确。";
-                        }
-
-                        if (string.IsNullOrEmpty(aiMessage))
-                        {
-                            aiMessage = "对不起，API返回的响应为空或格式错误。";
-                        }
-
-                        // 显示AI回复（启用Markdown渲染）
-                        var aiBubble = new MessageBubble();
-                        aiBubble.SetMessage(aiMessage, false, "Lyxie", true); // 最后一个参数为true启用Markdown
-                        messageList.Children.Add(aiBubble);
+                        messageList.Children.Remove(aiBubble);
                     }
-                    else
-                    {
-                        // 显示错误信息
-                        var errorBubble = new MessageBubble();
-                        errorBubble.SetMessage($"API错误：{response.StatusCode}\n{responseContent}", false, "错误");
-                        messageList.Children.Add(errorBubble);
-                    }
+                    
+                    var errorBubble = new MessageBubble();
+                    errorBubble.SetMessage("无法启动流式请求，请检查API配置。", false, "错误");
+                    messageList.Children.Add(errorBubble);
                 });
             }
         }
@@ -1253,7 +1233,10 @@ public partial class MainView : UserControl
             {
                 // 请求被用户取消
                 System.Diagnostics.Debug.WriteLine("请求被用户取消。");
-                messageList.Children.Remove(typingIndicator);
+                if (aiBubble != null && messageList.Children.Contains(aiBubble))
+                {
+                    messageList.Children.Remove(aiBubble);
+                }
                 var cancelledBubble = new MessageBubble();
                 cancelledBubble.SetMessage("消息请求已取消。", false, "系统");
                 messageList.Children.Add(cancelledBubble);
@@ -1263,14 +1246,16 @@ public partial class MainView : UserControl
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                // 移除"正在思考"气泡
-                messageList.Children.Remove(typingIndicator);
+                // 移除可能存在的AI气泡
+                if (aiBubble != null && messageList.Children.Contains(aiBubble))
+                {
+                    messageList.Children.Remove(aiBubble);
+                }
 
                 // 显示异常信息
                 var errorBubble = new MessageBubble();
                 errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
                 messageList.Children.Add(errorBubble);
-                
             });
             
             System.Diagnostics.Debug.WriteLine($"发送消息异常: {ex}");
