@@ -1037,6 +1037,9 @@ public partial class MainView : UserControl
 
     private async void OnChatBackButtonClick(object? sender, RoutedEventArgs e)
     {
+        // 停止TTS播放
+        _ttsApiService?.Stop();
+        
         // 隐藏对话界面，返回到主界面
         await HideChatInterface();
     }
@@ -1476,7 +1479,15 @@ public partial class MainView : UserControl
     {
         if (string.IsNullOrEmpty(text))
             return string.Empty;
-            
+
+        // 检查并移除 <think>...</think> 标签及其内容，只保留之后的部分
+        const string thinkTag = "</think>";
+        int thinkTagIndex = text.IndexOf(thinkTag, StringComparison.OrdinalIgnoreCase);
+        if (thinkTagIndex != -1)
+        {
+            text = text.Substring(thinkTagIndex + thinkTag.Length);
+        }
+
         // 移除Markdown格式标记
         var cleanText = text;
         

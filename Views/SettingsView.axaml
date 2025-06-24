@@ -59,39 +59,20 @@
                            HorizontalAlignment="Center"
                            Margin="0,0,0,20"/>
 
-                <!-- 三个设置卡片在同一行 -->
-                <Grid ColumnDefinitions="*,20,*,20,*">
-                    <!-- 外观设置 -->
-                    <Border Grid.Column="0"
-                            Background="{DynamicResource CardBackgroundBrush}"
-                            BorderBrush="{DynamicResource CardBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20">
+                <!-- 使用网格布局优化空间（三列） -->
+                <Grid ColumnDefinitions="*,20,*,20,*" RowDefinitions="Auto,Auto">
+                    
+                    <!-- 第一行 -->
+                    <!-- 外观 -->
+                    <Border Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
                         <StackPanel Spacing="15">
-                            <TextBlock Name="AppearanceTitle"
-                                       Text="外观"
-                                       FontSize="18"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
-
+                            <TextBlock Text="外观" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <StackPanel Spacing="10">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <materialIcons:MaterialIcon Kind="Palette"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{DynamicResource SecondaryIconBrush}"
-                                                                VerticalAlignment="Center"/>
-                                    <TextBlock Name="ThemeLabel"
-                                               Text="主题"
-                                               FontSize="14"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                               VerticalAlignment="Center"/>
+                                    <materialIcons:MaterialIcon Kind="Palette" Width="20" Height="20" Foreground="{DynamicResource SecondaryIconBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="主题" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <ComboBox Name="ThemeComboBox"
-                                          Width="150"
-                                          HorizontalAlignment="Left"
-                                          SelectedIndex="0">
+                                <ComboBox Name="ThemeComboBox" Width="150" HorizontalAlignment="Left" SelectedIndex="0">
                                     <ComboBoxItem Content="深色模式"/>
                                     <ComboBoxItem Content="浅色模式"/>
                                     <ComboBoxItem Content="跟随系统"/>
@@ -100,37 +81,16 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- 语言设置 -->
-                    <Border Grid.Column="2"
-                            Background="{DynamicResource CardBackgroundBrush}"
-                            BorderBrush="{DynamicResource CardBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20">
+                    <!-- 语言 -->
+                    <Border Grid.Row="0" Grid.Column="2" VerticalAlignment="Top" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
                         <StackPanel Spacing="15">
-                            <TextBlock Name="LanguageTitle"
-                                       Text="语言"
-                                       FontSize="18"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
-
+                            <TextBlock Text="语言" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <StackPanel Spacing="10">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <materialIcons:MaterialIcon Kind="Translate"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{DynamicResource SecondaryIconBrush}"
-                                                                VerticalAlignment="Center"/>
-                                    <TextBlock Name="LanguageLabel"
-                                               Text="界面语言"
-                                               FontSize="14"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                               VerticalAlignment="Center"/>
+                                    <materialIcons:MaterialIcon Kind="Translate" Width="20" Height="20" Foreground="{DynamicResource SecondaryIconBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="界面语言" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <ComboBox Name="LanguageComboBox"
-                                          Width="150"
-                                          HorizontalAlignment="Left"
-                                          SelectedIndex="0">
+                                <ComboBox Name="LanguageComboBox" Width="150" HorizontalAlignment="Left" SelectedIndex="0">
                                     <ComboBoxItem Content="简体中文"/>
                                     <ComboBoxItem Content="English"/>
                                 </ComboBox>
@@ -138,663 +98,250 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- 字体设置 -->
-                    <Border Grid.Column="4"
-                            Background="{DynamicResource CardBackgroundBrush}"
-                            BorderBrush="{DynamicResource CardBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20">
+                    <!-- 字体 -->
+                    <Border Grid.Row="0" Grid.Column="4" VerticalAlignment="Top" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
                         <StackPanel Spacing="15">
-                            <TextBlock Name="FontTitle"
-                                       Text="字体"
-                                       FontSize="18"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
-
+                            <TextBlock Text="字体" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <StackPanel Spacing="15">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <materialIcons:MaterialIcon Kind="FormatSize"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{DynamicResource SecondaryIconBrush}"
-                                                                VerticalAlignment="Center"/>
-                                    <TextBlock Name="FontSizeLabel"
-                                               Text="字体大小"
-                                               FontSize="14"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                               VerticalAlignment="Center"/>
+                                    <materialIcons:MaterialIcon Kind="FormatSize" Width="20" Height="20" Foreground="{DynamicResource SecondaryIconBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="字体大小" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
-
-                                <!-- 字体大小选择按钮 -->
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Button Name="FontSizeSmallButton"
-                                            Content="小号"
-                                            Width="50"
-                                            Height="32"
-                                            FontSize="11"
-                                            Background="{DynamicResource ButtonBackgroundBrush}"
-                                            Foreground="{DynamicResource PrimaryTextBrush}"
-                                            BorderBrush="{DynamicResource ButtonBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Cursor="Hand"/>
-
-                                    <Button Name="FontSizeDefaultButton"
-                                            Content="默认"
-                                            Width="50"
-                                            Height="32"
-                                            FontSize="11"
-                                            Background="#4A90E2"
-                                            Foreground="#FFFFFF"
-                                            BorderBrush="#4A90E2"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Cursor="Hand"/>
-
-                                    <Button Name="FontSizeMediumButton"
-                                            Content="中号"
-                                            Width="50"
-                                            Height="32"
-                                            FontSize="11"
-                                            Background="{DynamicResource ButtonBackgroundBrush}"
-                                            Foreground="{DynamicResource PrimaryTextBrush}"
-                                            BorderBrush="{DynamicResource ButtonBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Cursor="Hand"/>
-
-                                    <Button Name="FontSizeLargeButton"
-                                            Content="大号"
-                                            Width="50"
-                                            Height="32"
-                                            FontSize="11"
-                                            Background="{DynamicResource ButtonBackgroundBrush}"
-                                            Foreground="{DynamicResource PrimaryTextBrush}"
-                                            BorderBrush="{DynamicResource ButtonBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Cursor="Hand"/>
+                                    <Button Name="FontSizeSmallButton" Content="小号" Width="50" Height="32" FontSize="11" Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="4" Cursor="Hand"/>
+                                    <Button Name="FontSizeDefaultButton" Content="默认" Width="50" Height="32" FontSize="11" Background="#4A90E2" Foreground="#FFFFFF" BorderBrush="#4A90E2" BorderThickness="1" CornerRadius="4" Cursor="Hand"/>
+                                    <Button Name="FontSizeMediumButton" Content="中号" Width="50" Height="32" FontSize="11" Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="4" Cursor="Hand"/>
+                                    <Button Name="FontSizeLargeButton" Content="大号" Width="50" Height="32" FontSize="11" Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="4" Cursor="Hand"/>
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>
                     </Border>
-                </Grid>
-
-                <!-- 关于 -->
-                <Border Background="{DynamicResource CardBackgroundBrush}"
-                        BorderBrush="{DynamicResource CardBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="20">
-                    <StackPanel Spacing="15">
-                        <TextBlock Name="AboutTitle"
-                                   Text="关于"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
-
-                        <StackPanel Spacing="8">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <materialIcons:MaterialIcon Kind="Information"
-                                                            Width="20"
-                                                            Height="20"
-                                                            Foreground="{DynamicResource SecondaryIconBrush}"
-                                                            VerticalAlignment="Center"/>
-                                <TextBlock Text="Lyxie"
-                                           FontSize="14"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"
-                                           VerticalAlignment="Center"/>
+                    
+                    <!-- 第二行 -->
+                    <!-- 关于 -->
+                    <Border Grid.Row="1" Grid.Column="0" VerticalAlignment="Top" Margin="0,20,0,0" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                        <StackPanel Spacing="15">
+                            <TextBlock Text="关于" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <materialIcons:MaterialIcon Kind="Information" Width="20" Height="20" Foreground="{DynamicResource SecondaryIconBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Lyxie" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Name="VersionText" Text="版本 1.0.0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="30,0,0,0"/>
+                                <TextBlock Name="DescriptionText" Text="基于 Avalonia UI 开发的现代化 AI 助手" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="30,0,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
-
-                            <TextBlock Name="VersionText"
-                                       Text="版本 1.0.0"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       Margin="30,0,0,0"/>
-
-                            <TextBlock Name="DescriptionText"
-                                       Text="基于 Avalonia UI 开发的现代化 AI 助手"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       Margin="30,0,0,0"
-                                       TextWrapping="Wrap"/>
                         </StackPanel>
-                    </StackPanel>
-                </Border>
+                    </Border>
 
-                <!-- LLM API设置 -->
-                <Border Background="{DynamicResource CardBackgroundBrush}"
-                        BorderBrush="{DynamicResource CardBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="20">
-                    <StackPanel Spacing="15">
-                        <TextBlock Name="LlmApiSettingsTitle"
-                                   Text="LLM API 设置"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
-
-                        <!-- LLM API配置列表 -->
-                        <Border Background="{DynamicResource CardBackgroundBrush}"
-                                BorderBrush="{DynamicResource CardBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="4"
-                                Padding="10">
-                            <StackPanel Spacing="10">
-                                <TextBlock Text="配置列表"
-                                           FontSize="14"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
-
-                                <StackPanel Name="LlmConfigListPanel" Spacing="8">
-                                    <!-- 配置项将在代码中动态添加 -->
-                                </StackPanel>
-
-                                <Button Name="AddLlmConfigButton"
-                                        Content="添加新的 LLM 配置"
-                                        HorizontalAlignment="Left"
-                                        Margin="0,5,0,0"
-                                        Padding="10,5"
-                                        Background="{DynamicResource ButtonBackgroundBrush}"
-                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                        BorderBrush="{DynamicResource ButtonBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="4"
-                                        Cursor="Hand">
-                                    <Button.Styles>
-                                        <Style Selector="Button:pointerover">
-                                            <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
-                                        </Style>
-                                    </Button.Styles>
-                                </Button>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 配置详情编辑区域 -->
-                        <Border Name="ConfigDetailBorder"
-                                Background="{DynamicResource CardBackgroundBrush}"
-                                BorderBrush="{DynamicResource CardBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="4"
-                                Padding="10"
-                                IsVisible="False">
-                            <StackPanel Spacing="15">
-                                <TextBlock Text="配置详情"
-                                           FontSize="14"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
-
-                                <!-- 配置名称 -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="配置名称"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBox Name="ConfigNameTextBox"
-                                             Width="300"
-                                             HorizontalAlignment="Left"
-                                             Watermark="例如：OpenAI GPT-3.5"/>
-                                </StackPanel>
-
-                                <!-- API URL -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="API URL"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBox Name="ApiUrlTextBox"
-                                             Width="450"
-                                             HorizontalAlignment="Left"
-                                             Watermark="例如：https://api.openai.com/v1/chat/completions"/>
-                                </StackPanel>
-
-                                <!-- API Key -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="API Key"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBox Name="ApiKeyTextBox"
-                                             Width="450"
-                                             HorizontalAlignment="Left"
-                                             PasswordChar="•"
-                                             Watermark="输入您的API密钥"/>
-                                </StackPanel>
-
-                                <!-- Model Name -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="模型名称"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBox Name="ModelNameTextBox"
-                                             Width="300"
-                                             HorizontalAlignment="Left"
-                                             Watermark="例如：gpt-3.5-turbo"/>
-                                </StackPanel>
-
-                                <!-- Temperature -->
-                                <StackPanel Spacing="5">
-                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <TextBlock Text="温度值"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                        <TextBlock Name="TemperatureValueText"
-                                                   Text="0.7"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <!-- LLM API 设置 -->
+                    <Border Grid.Row="1" Grid.Column="2" VerticalAlignment="Top" Margin="0,20,0,0" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                        <StackPanel Spacing="15">
+                            <TextBlock Text="LLM API 设置" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <!-- LLM API配置列表 -->
+                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="配置列表" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                    <StackPanel Name="LlmConfigListPanel" Spacing="8">
+                                        <!-- 配置项将在代码中动态添加 -->
                                     </StackPanel>
-                                    <Slider Name="TemperatureSlider"
-                                            Width="300"
-                                            HorizontalAlignment="Left"
-                                            Minimum="0"
-                                            Maximum="2"
-                                            Value="0.7"
-                                            TickFrequency="0.1"
-                                            IsSnapToTickEnabled="True"/>
-                                </StackPanel>
-
-                                <!-- Max Tokens -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="最大令牌数"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <NumericUpDown Name="MaxTokensNumericUpDown"
-                                                   Width="300"
-                                                   HorizontalAlignment="Left"
-                                                   Value="4096"
-                                                   Minimum="100"
-                                                   Maximum="999999999"
-                                                   Increment="100"/>
-                                </StackPanel>
-                                
-                                <!-- API 测试按钮和结果 -->
-                                <StackPanel Spacing="8">
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Button Name="TestApiButton"
-                                                Content="测试 API"
-                                                HorizontalAlignment="Left"
-                                                Padding="15,8"
-                                                Background="{DynamicResource ButtonBackgroundBrush}"
-                                                Foreground="{DynamicResource PrimaryTextBrush}"
-                                                BorderBrush="{DynamicResource ButtonBorderBrush}"
-                                                BorderThickness="1"
-                                                CornerRadius="4"
-                                                Cursor="Hand">
-                                            <Button.Styles>
-                                                <Style Selector="Button:pointerover">
-                                                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
-                                                </Style>
-                                            </Button.Styles>
-                                        </Button>
-                                        
-                                        <TextBlock Name="TestStatusTextBlock"
-                                                   VerticalAlignment="Center"
-                                                   FontSize="14"
-                                                   IsVisible="False"/>
-                                    </StackPanel>
-                                    
-                                    <TextBlock Name="TestErrorTextBlock"
-                                               TextWrapping="Wrap"
-                                               MaxWidth="450"
-                                               Foreground="#E57373"
-                                               FontSize="12"
-                                               IsVisible="False"/>
-                                </StackPanel>
-
-                                <!-- 保存按钮 -->
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <Button Name="SaveLlmConfigButton"
-                                            Content="保存配置"
-                                            HorizontalAlignment="Left"
-                                            Margin="0,10,0,0"
-                                            Padding="15,8"
-                                            Background="#4A90E2"
-                                            Foreground="#FFFFFF"
-                                            BorderBrush="#4A90E2"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Cursor="Hand">
-                                        <Button.Styles>
-                                            <Style Selector="Button:pointerover">
-                                                <Setter Property="Background" Value="#3A80D2"/>
-                                                <Setter Property="BorderBrush" Value="#3A80D2"/>
-                                            </Style>
-                                        </Button.Styles>
-                                    </Button>
-                                    
-                                    <Button Name="CancelLlmConfigButton"
-                                            Content="取消"
-                                            HorizontalAlignment="Left"
-                                            Margin="0,10,0,0"
-                                            Padding="15,8"
-                                            Background="{DynamicResource ButtonBackgroundBrush}"
-                                            Foreground="{DynamicResource PrimaryTextBrush}"
-                                            BorderBrush="{DynamicResource ButtonBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Cursor="Hand">
+                                    <Button Name="AddLlmConfigButton" Content="添加新的 LLM 配置" HorizontalAlignment="Left" Margin="0,5,0,0" Padding="10,5" Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="4" Cursor="Hand">
                                         <Button.Styles>
                                             <Style Selector="Button:pointerover">
                                                 <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
                                             </Style>
                                         </Button.Styles>
                                     </Button>
-                                    
-                                    <TextBlock Name="SaveStatusTextBlock"
-                                               Text=""
-                                               VerticalAlignment="Center"
-                                               Margin="10,10,0,0"
-                                               FontSize="14"
-                                               Foreground="#4A90E2"
-                                               IsVisible="False"/>
                                 </StackPanel>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Border>
-
-                <!-- TTS API设置 -->
-                <Border Background="{DynamicResource CardBackgroundBrush}"
-                        BorderBrush="{DynamicResource CardBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="20">
-                    <StackPanel Spacing="15">
-                        <TextBlock Name="TtsApiSettingsTitle"
-                                   Text="TTS API 设置"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
-
-                        <!-- TTS API配置列表 -->
-                        <Border Background="{DynamicResource CardBackgroundBrush}"
-                                BorderBrush="{DynamicResource CardBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="4"
-                                Padding="10">
-                            <StackPanel Spacing="10">
-                                <TextBlock Text="配置列表"
-                                           FontSize="14"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
-
-                                <StackPanel Name="TtsConfigListPanel" Spacing="8">
-                                    <!-- TTS配置项将在代码中动态添加 -->
-                                </StackPanel>
-
-                                <Button Name="AddTtsConfigButton"
-                                        Content="添加新的 TTS 配置"
-                                        HorizontalAlignment="Left"
-                                        Margin="0,5,0,0"
-                                        Padding="10,5"
-                                        Background="{DynamicResource ButtonBackgroundBrush}"
-                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                        BorderBrush="{DynamicResource ButtonBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="4"
-                                        Cursor="Hand">
-                                    <Button.Styles>
-                                        <Style Selector="Button:pointerover">
-                                            <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
-                                        </Style>
-                                    </Button.Styles>
-                                </Button>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- TTS配置详情编辑区域 -->
-                        <Border Name="TtsConfigDetailBorder"
-                                Background="{DynamicResource CardBackgroundBrush}"
-                                BorderBrush="{DynamicResource CardBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="4"
-                                Padding="10"
-                                IsVisible="False">
-                            <StackPanel Spacing="15">
-                                <TextBlock Text="TTS配置详情"
-                                           FontSize="14"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
-
-                                <!-- TTS配置名称 -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="配置名称"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBox Name="TtsConfigNameTextBox"
-                                             Width="300"
-                                             HorizontalAlignment="Left"
-                                             Watermark="例如：Azure TTS"/>
-                                </StackPanel>
-
-                                <!-- TTS提供商 -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="TTS提供商"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <ComboBox Name="TtsProviderComboBox"
-                                              Width="200"
-                                              HorizontalAlignment="Left"
-                                              SelectedIndex="0">
-                                        <ComboBoxItem Content="Azure TTS"/>
-                                        <ComboBoxItem Content="OpenAI TTS"/>
-                                        <ComboBoxItem Content="自定义API"/>
-                                    </ComboBox>
-                                </StackPanel>
-
-                                <!-- TTS API URL -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="API URL"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBox Name="TtsApiUrlTextBox"
-                                             Width="450"
-                                             HorizontalAlignment="Left"
-                                             Watermark="例如：https://[region].tts.speech.microsoft.com/cognitiveservices/v1"/>
-                                </StackPanel>
-
-                                <!-- TTS API Key -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="API Key"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBox Name="TtsApiKeyTextBox"
-                                             Width="450"
-                                             HorizontalAlignment="Left"
-                                             PasswordChar="•"
-                                             Watermark="输入您的TTS API密钥"/>
-                                </StackPanel>
-
-                                <!-- 语音模型 -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="语音模型"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <TextBox Name="TtsVoiceModelTextBox"
-                                             Width="300"
-                                             HorizontalAlignment="Left"
-                                             Watermark="例如：zh-CN-XiaoxiaoNeural"/>
-                                </StackPanel>
-
-                                <!-- 语言设置 -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="语言"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <ComboBox Name="TtsLanguageComboBox"
-                                              Width="200"
-                                              HorizontalAlignment="Left"
-                                              SelectedIndex="0">
-                                        <ComboBoxItem Content="zh-CN"/>
-                                        <ComboBoxItem Content="en-US"/>
-                                        <ComboBoxItem Content="ja-JP"/>
-                                        <ComboBoxItem Content="ko-KR"/>
-                                    </ComboBox>
-                                </StackPanel>
-
-                                <!-- 语速设置 -->
-                                <StackPanel Spacing="5">
-                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <TextBlock Text="语速"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                        <TextBlock Name="TtsSpeedValueText"
-                                                   Text="1.0"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            </Border>
+                            <!-- 配置详情编辑区域 -->
+                            <Border Name="ConfigDetailBorder" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10" IsVisible="False">
+                                <StackPanel Spacing="15">
+                                    <TextBlock Text="配置详情" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="配置名称" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBox Name="ConfigNameTextBox" Watermark="例如：OpenAI GPT-3.5"/>
                                     </StackPanel>
-                                    <Slider Name="TtsSpeedSlider"
-                                            Width="300"
-                                            HorizontalAlignment="Left"
-                                            Minimum="0.25"
-                                            Maximum="4.0"
-                                            Value="1.0"
-                                            TickFrequency="0.25"
-                                            IsSnapToTickEnabled="True"/>
-                                </StackPanel>
-
-                                <!-- 音调设置 -->
-                                <StackPanel Spacing="5">
-                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <TextBlock Text="音调"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                        <TextBlock Name="TtsPitchValueText"
-                                                   Text="0"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="API URL" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBox Name="ApiUrlTextBox" Watermark="例如：https://api.openai.com/v1/chat/completions"/>
                                     </StackPanel>
-                                    <Slider Name="TtsPitchSlider"
-                                            Width="300"
-                                            HorizontalAlignment="Left"
-                                            Minimum="-20"
-                                            Maximum="20"
-                                            Value="0"
-                                            TickFrequency="1"
-                                            IsSnapToTickEnabled="True"/>
-                                </StackPanel>
-
-                                <!-- 音量设置 -->
-                                <StackPanel Spacing="5">
-                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <TextBlock Text="音量"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                        <TextBlock Name="TtsVolumeValueText"
-                                                   Text="1.0"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="API Key" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBox Name="ApiKeyTextBox" PasswordChar="•" Watermark="输入您的API密钥"/>
                                     </StackPanel>
-                                    <Slider Name="TtsVolumeSlider"
-                                            Width="300"
-                                            HorizontalAlignment="Left"
-                                            Minimum="0.0"
-                                            Maximum="2.0"
-                                            Value="1.0"
-                                            TickFrequency="0.1"
-                                            IsSnapToTickEnabled="True"/>
-                                </StackPanel>
-
-                                <!-- 音频格式 -->
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="音频格式"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                    <ComboBox Name="TtsAudioFormatComboBox"
-                                              Width="150"
-                                              HorizontalAlignment="Left"
-                                              SelectedIndex="0">
-                                        <ComboBoxItem Content="MP3"/>
-                                        <ComboBoxItem Content="WAV"/>
-                                        <ComboBoxItem Content="OGG"/>
-                                    </ComboBox>
-                                </StackPanel>
-                                
-                                <!-- TTS API 测试按钮和结果 -->
-                                <StackPanel Spacing="8">
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="模型名称" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBox Name="ModelNameTextBox" Watermark="例如：gpt-3.5-turbo"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="温度值" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                            <TextBlock Name="TemperatureValueText" Text="0.7" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        </StackPanel>
+                                        <Slider Name="TemperatureSlider" Minimum="0" Maximum="2" Value="0.7" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="最大令牌数" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <NumericUpDown Name="MaxTokensNumericUpDown" Value="4096" Minimum="100" Maximum="999999999" Increment="100"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="8">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Button Name="TestApiButton" Content="测试 API" HorizontalAlignment="Left" Padding="15,8" Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="4" Cursor="Hand">
+                                                <Button.Styles>
+                                                    <Style Selector="Button:pointerover">
+                                                        <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                                                    </Style>
+                                                </Button.Styles>
+                                            </Button>
+                                            <TextBlock Name="TestStatusTextBlock" VerticalAlignment="Center" FontSize="14" IsVisible="False"/>
+                                        </StackPanel>
+                                        <TextBlock Name="TestErrorTextBlock" TextWrapping="Wrap" MaxWidth="450" Foreground="#E57373" FontSize="12" IsVisible="False"/>
+                                    </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Button Name="TestTtsApiButton"
-                                                Content="测试 TTS API"
-                                                HorizontalAlignment="Left"
-                                                Padding="15,8"
-                                                Background="{DynamicResource ButtonBackgroundBrush}"
-                                                Foreground="{DynamicResource PrimaryTextBrush}"
-                                                BorderBrush="{DynamicResource ButtonBorderBrush}"
-                                                BorderThickness="1"
-                                                CornerRadius="4"
-                                                Cursor="Hand">
+                                        <Button Name="SaveLlmConfigButton" Content="保存配置" HorizontalAlignment="Left" Margin="0,10,0,0" Padding="15,8" Background="#4A90E2" Foreground="#FFFFFF" BorderBrush="#4A90E2" BorderThickness="1" CornerRadius="4" Cursor="Hand">
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover">
+                                                    <Setter Property="Background" Value="#3A80D2"/>
+                                                    <Setter Property="BorderBrush" Value="#3A80D2"/>
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                        <Button Name="CancelLlmConfigButton" Content="取消" HorizontalAlignment="Left" Margin="0,10,0,0" Padding="15,8" Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="4" Cursor="Hand">
                                             <Button.Styles>
                                                 <Style Selector="Button:pointerover">
                                                     <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
                                                 </Style>
                                             </Button.Styles>
                                         </Button>
-                                        
-                                        <TextBlock Name="TestTtsStatusTextBlock"
-                                                   VerticalAlignment="Center"
-                                                   FontSize="14"
-                                                   IsVisible="False"/>
+                                        <TextBlock Name="SaveStatusTextBlock" Text="" VerticalAlignment="Center" Margin="10,10,0,0" FontSize="14" Foreground="#4A90E2" IsVisible="False"/>
                                     </StackPanel>
-                                    
-                                    <TextBlock Name="TestTtsErrorTextBlock"
-                                               TextWrapping="Wrap"
-                                               MaxWidth="450"
-                                               Foreground="#E57373"
-                                               FontSize="12"
-                                               IsVisible="False"/>
                                 </StackPanel>
-
-                                <!-- TTS保存按钮 -->
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <Button Name="SaveTtsConfigButton"
-                                            Content="保存TTS配置"
-                                            HorizontalAlignment="Left"
-                                            Margin="0,10,0,0"
-                                            Padding="15,8"
-                                            Background="#4A90E2"
-                                            Foreground="#FFFFFF"
-                                            BorderBrush="#4A90E2"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Cursor="Hand">
-                                        <Button.Styles>
-                                            <Style Selector="Button:pointerover">
-                                                <Setter Property="Background" Value="#3A80D2"/>
-                                                <Setter Property="BorderBrush" Value="#3A80D2"/>
-                                            </Style>
-                                        </Button.Styles>
-                                    </Button>
-                                    
-                                    <Button Name="CancelTtsConfigButton"
-                                            Content="取消"
-                                            HorizontalAlignment="Left"
-                                            Margin="0,10,0,0"
-                                            Padding="15,8"
-                                            Background="{DynamicResource ButtonBackgroundBrush}"
-                                            Foreground="{DynamicResource PrimaryTextBrush}"
-                                            BorderBrush="{DynamicResource ButtonBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Cursor="Hand">
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- TTS API 设置 -->
+                    <Border Grid.Row="1" Grid.Column="4" VerticalAlignment="Top" Margin="0,20,0,0" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                        <StackPanel Spacing="15">
+                            <TextBlock Text="TTS API 设置" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <!-- TTS API配置列表 -->
+                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="配置列表" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                    <StackPanel Name="TtsConfigListPanel" Spacing="8">
+                                        <!-- TTS配置项将在代码中动态添加 -->
+                                    </StackPanel>
+                                    <Button Name="AddTtsConfigButton" Content="添加新的 TTS 配置" HorizontalAlignment="Left" Margin="0,5,0,0" Padding="10,5" Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="4" Cursor="Hand">
                                         <Button.Styles>
                                             <Style Selector="Button:pointerover">
                                                 <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
                                             </Style>
                                         </Button.Styles>
                                     </Button>
-                                    
-                                    <TextBlock Name="SaveTtsStatusTextBlock"
-                                               Text=""
-                                               VerticalAlignment="Center"
-                                               Margin="10,10,0,0"
-                                               FontSize="14"
-                                               Foreground="#4A90E2"
-                                               IsVisible="False"/>
                                 </StackPanel>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Border>
+                            </Border>
+                            <!-- TTS配置详情编辑区域 -->
+                            <Border Name="TtsConfigDetailBorder" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10" IsVisible="False">
+                                <StackPanel Spacing="15">
+                                    <TextBlock Text="TTS配置详情" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                     <StackPanel Spacing="5">
+                                        <TextBlock Text="配置名称" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBox Name="TtsConfigNameTextBox" Watermark="例如：Azure TTS"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="TTS提供商" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <ComboBox Name="TtsProviderComboBox" SelectedIndex="0">
+                                            <ComboBoxItem Content="Azure TTS"/>
+                                            <ComboBoxItem Content="OpenAI TTS"/>
+                                            <ComboBoxItem Content="自定义API"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="API URL" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBox Name="TtsApiUrlTextBox" Watermark="例如：https://[region].tts.speech.microsoft.com/cognitiveservices/v1"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="API Key" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBox Name="TtsApiKeyTextBox" PasswordChar="•" Watermark="输入您的TTS API密钥"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="语音模型" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBox Name="TtsVoiceModelTextBox" Watermark="例如：zh-CN-XiaoxiaoNeural"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="语言" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <ComboBox Name="TtsLanguageComboBox" SelectedIndex="0">
+                                            <ComboBoxItem Content="zh-CN"/>
+                                            <ComboBoxItem Content="en-US"/>
+                                            <ComboBoxItem Content="ja-JP"/>
+                                            <ComboBoxItem Content="ko-KR"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="语速" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                            <TextBlock Name="TtsSpeedValueText" Text="1.0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        </StackPanel>
+                                        <Slider Name="TtsSpeedSlider" Minimum="0.25" Maximum="4.0" Value="1.0" TickFrequency="0.25" IsSnapToTickEnabled="True"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="音调" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                            <TextBlock Name="TtsPitchValueText" Text="0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        </StackPanel>
+                                        <Slider Name="TtsPitchSlider" Minimum="-20" Maximum="20" Value="0" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="音量" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                            <TextBlock Name="TtsVolumeValueText" Text="1.0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        </StackPanel>
+                                        <Slider Name="TtsVolumeSlider" Minimum="0.0" Maximum="2.0" Value="1.0" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="音频格式" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <ComboBox Name="TtsAudioFormatComboBox" SelectedIndex="0">
+                                            <ComboBoxItem Content="MP3"/>
+                                            <ComboBoxItem Content="WAV"/>
+                                            <ComboBoxItem Content="OGG"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Spacing="8">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Button Name="TestTtsApiButton" Content="测试 TTS API" HorizontalAlignment="Left" Padding="15,8" Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="4" Cursor="Hand">
+                                                <Button.Styles>
+                                                    <Style Selector="Button:pointerover">
+                                                        <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                                                    </Style>
+                                                </Button.Styles>
+                                            </Button>
+                                            <TextBlock Name="TestTtsStatusTextBlock" VerticalAlignment="Center" FontSize="14" IsVisible="False"/>
+                                        </StackPanel>
+                                        <TextBlock Name="TestTtsErrorTextBlock" TextWrapping="Wrap" MaxWidth="450" Foreground="#E57373" FontSize="12" IsVisible="False"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Button Name="SaveTtsConfigButton" Content="保存TTS配置" HorizontalAlignment="Left" Margin="0,10,0,0" Padding="15,8" Background="#4A90E2" Foreground="#FFFFFF" BorderBrush="#4A90E2" BorderThickness="1" CornerRadius="4" Cursor="Hand">
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover">
+                                                    <Setter Property="Background" Value="#3A80D2"/>
+                                                    <Setter Property="BorderBrush" Value="#3A80D2"/>
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                        <Button Name="CancelTtsConfigButton" Content="取消" HorizontalAlignment="Left" Margin="0,10,0,0" Padding="15,8" Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="4" Cursor="Hand">
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover">
+                                                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                        <TextBlock Name="SaveTtsStatusTextBlock" Text="" VerticalAlignment="Center" Margin="10,10,0,0" FontSize="14" Foreground="#4A90E2" IsVisible="False"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </StackPanel>
         </ScrollViewer>
     </Grid>
