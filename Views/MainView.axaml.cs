@@ -22,8 +22,10 @@ using System.Text;
 using Newtonsoft.Json.Linq;
 using System.Diagnostics;
 using System.Threading;
+using System.Text.RegularExpressions;
 using Material.Icons;
 using Material.Icons.Avalonia;
+using Lyxie_desktop.Models;
 
 namespace Lyxie_desktop.Views;
 
@@ -50,6 +52,10 @@ public partial class MainView : UserControl
     // 对话界面状态
     private bool _isChatVisible = false;
     private CancellationTokenSource? _cancellationTokenSource;
+    
+    // TTS功能
+    private TtsApiService? _ttsApiService;
+    private StringBuilder? _currentAiResponseBuilder;
 
     public MainView()
     {
@@ -116,6 +122,9 @@ public partial class MainView : UserControl
         
         // 初始化LLM API配置显示
         RefreshLlmApiConfig();
+        
+        // 初始化TTS服务
+        InitializeTtsService();
     }
     
     // 初始化工具面板开关状态
@@ -369,8 +378,13 @@ public partial class MainView : UserControl
             App.Settings.EnableTTS = toggle.IsChecked ?? false;
             App.SaveSettings();
             
-            // TODO: 实现TTS功能切换
             System.Diagnostics.Debug.WriteLine($"TTS开关状态: {toggle.IsChecked}");
+            
+            // 如果关闭TTS，停止当前播放
+            if (!toggle.IsChecked.GetValueOrDefault() && _ttsApiService != null)
+            {
+                _ttsApiService.Stop();
+            }
         }
     }
 
@@ -1105,6 +1119,9 @@ public partial class MainView : UserControl
         string message = messageInput.Text?.Trim() ?? "";
         if (string.IsNullOrEmpty(message)) return;
 
+        // 初始化TTS内容构造器
+        _currentAiResponseBuilder = new StringBuilder();
+        
         // 设置为发送中状态
         _cancellationTokenSource = new CancellationTokenSource();
         UpdateSendButtonState(isSending: true);
@@ -1174,6 +1191,12 @@ public partial class MainView : UserControl
                 {
                     if (aiBubble != null)
                     {
+                        // 累积内容用于TTS
+                        if (!string.IsNullOrEmpty(content))
+                        {
+                            _currentAiResponseBuilder?.Append(content);
+                        }
+
                         if (isComplete)
                         {
                             // 流式接收完成，启用Markdown渲染
@@ -1182,10 +1205,17 @@ public partial class MainView : UserControl
                             {
                                 messageScrollViewer?.ScrollToEnd();
                             });
+                            
+                            // 使用累积的完整回复播放TTS
+                            var fullAiResponse = _currentAiResponseBuilder?.ToString();
+                            if (!string.IsNullOrWhiteSpace(fullAiResponse))
+                            {
+                                HandleAiResponseForTts(fullAiResponse);
+                            }
                         }
                         else if (!string.IsNullOrEmpty(content))
                         {
-                            // 追加内容
+                            // 追加内容到UI
                             aiBubble.AppendContent(content);
                             Dispatcher.UIThread.Post(() =>
                             {
@@ -1325,6 +1355,7 @@ public partial class MainView : UserControl
             UpdateSendButtonState(isSending: false);
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
+            _currentAiResponseBuilder = null;
         }
         
         // 最后再滚动到底部
@@ -1333,6 +1364,144 @@ public partial class MainView : UserControl
             messageScrollViewer?.ScrollToEnd();
         }, DispatcherPriority.Background);
     }
+    
+    #region TTS功能
+    
+    /// <summary>
+    /// 初始化TTS服务
+    /// </summary>
+    private void InitializeTtsService()
+    {
+        _ttsApiService = new TtsApiService();
+        
+        // 订阅TTS事件
+        _ttsApiService.StateChanged += OnTtsStateChanged;
+        _ttsApiService.ErrorOccurred += OnTtsErrorOccurred;
+    }
+    
+    /// <summary>
+    /// TTS状态变化回调
+    /// </summary>
+    private void OnTtsStateChanged(TtsPlaybackState state, string message = "")
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            System.Diagnostics.Debug.WriteLine($"TTS状态变化: {state} - {message}");
+            
+            // 可以在这里更新UI状态，比如显示播放状态指示器
+        });
+    }
+    
+    /// <summary>
+    /// TTS错误回调
+    /// </summary>
+    private void OnTtsErrorOccurred(string error)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            System.Diagnostics.Debug.WriteLine($"TTS错误: {error}");
+            
+            // 可以选择在UI上显示错误提示
+            // 这里简化处理，只记录日志
+        });
+    }
+    
+    /// <summary>
+    /// 播放TTS语音
+    /// </summary>
+    /// <param name="text">要播放的文本</param>
+    private async Task PlayTtsAsync(string text)
+    {
+        // 检查TTS是否启用
+        if (!App.Settings.EnableTTS || _ttsApiService == null)
+        {
+            return;
+        }
+        
+        // 检查是否有TTS配置
+        if (App.Settings.TtsApiConfigs == null || App.Settings.TtsApiConfigs.Count == 0)
+        {
+            System.Diagnostics.Debug.WriteLine("TTS播放失败: 未配置TTS API");
+            return;
+        }
+        
+        // 获取当前激活的TTS配置
+        var activeTtsConfigIndex = App.Settings.ActiveTtsConfigIndex;
+        if (activeTtsConfigIndex < 0 || activeTtsConfigIndex >= App.Settings.TtsApiConfigs.Count)
+        {
+            activeTtsConfigIndex = 0; // 使用第一个配置
+        }
+        
+        var ttsConfig = App.Settings.TtsApiConfigs[activeTtsConfigIndex];
+        
+        try
+        {
+            // 停止当前播放
+            _ttsApiService.Stop();
+            
+            // 播放新的文本
+            System.Diagnostics.Debug.WriteLine($"开始TTS播放: {text.Substring(0, Math.Min(50, text.Length))}...");
+            await _ttsApiService.SpeakAsync(ttsConfig, text);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"TTS播放异常: {ex.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// 处理AI回复完成后的TTS播放
+    /// </summary>
+    /// <param name="aiResponse">AI回复文本</param>
+    private async void HandleAiResponseForTts(string aiResponse)
+    {
+        if (string.IsNullOrWhiteSpace(aiResponse))
+            return;
+            
+        // 清理文本，移除Markdown格式
+        var cleanText = CleanTextForTts(aiResponse);
+        
+        if (!string.IsNullOrWhiteSpace(cleanText))
+        {
+            await PlayTtsAsync(cleanText);
+        }
+    }
+    
+    /// <summary>
+    /// 清理文本用于TTS播放
+    /// </summary>
+    /// <param name="text">原始文本</param>
+    /// <returns>清理后的文本</returns>
+    private string CleanTextForTts(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return string.Empty;
+            
+        // 移除Markdown格式标记
+        var cleanText = text;
+        
+        // 移除代码块
+        cleanText = Regex.Replace(cleanText, @"```[\s\S]*?```", "", RegexOptions.Multiline);
+        // 移除内联代码
+        cleanText = cleanText.Replace("`", "");
+        // 移除链接格式 [text](url)
+        cleanText = Regex.Replace(cleanText, @"\[([^\]]+)\]\([^\)]+\)", "$1");
+        // 移除粗体和斜体标记
+        cleanText = cleanText.Replace("**", "").Replace("*", "");
+        // 移除标题标记
+        cleanText = Regex.Replace(cleanText, @"^#+\s*", "", RegexOptions.Multiline);
+        // 移除列表标记
+        cleanText = Regex.Replace(cleanText, @"^\s*[-*+]\s*", "", RegexOptions.Multiline);
+        // 移除数字列表标记
+        cleanText = Regex.Replace(cleanText, @"^\s*\d+\.\s*", "", RegexOptions.Multiline);
+        // 移除多余的空白字符
+        cleanText = Regex.Replace(cleanText, @"\s+", " ");
+        cleanText = cleanText.Trim();
+            
+        return cleanText;
+    }
+    
+    #endregion
 
     #endregion
 }
