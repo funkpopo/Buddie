@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.Markup.Xaml;
 using Lyxie_desktop.Helpers;
 using System;
 using System.Text;
@@ -10,6 +12,17 @@ namespace Lyxie_desktop.Controls;
 
 public partial class MessageBubble : UserControl
 {
+    public string? AudioFilePath { get; set; }
+
+    public static readonly RoutedEvent<RoutedEventArgs> ReplayRequestedEvent =
+        RoutedEvent.Register<MessageBubble, RoutedEventArgs>(nameof(ReplayRequested), RoutingStrategies.Bubble);
+
+    public event EventHandler<RoutedEventArgs> ReplayRequested
+    {
+        add => AddHandler(ReplayRequestedEvent, value);
+        remove => RemoveHandler(ReplayRequestedEvent, value);
+    }
+
     private StringBuilder _contentBuilder = new StringBuilder();
     private bool _isStreamingMode = false;
     private bool _isUser = false;
@@ -17,7 +30,22 @@ public partial class MessageBubble : UserControl
 
     public MessageBubble()
     {
-        InitializeComponent();
+        AvaloniaXamlLoader.Load(this);
+        
+        var replayButton = this.FindControl<Button>("ReplayButton");
+        if (replayButton != null)
+        {
+            replayButton.Click += (sender, e) => RaiseEvent(new RoutedEventArgs(ReplayRequestedEvent));
+        }
+    }
+
+    public void ShowReplayButton(bool show)
+    {
+        var replayButton = this.FindControl<Button>("ReplayButton");
+        if (replayButton != null)
+        {
+            replayButton.IsVisible = show;
+        }
     }
 
     /// <summary>
@@ -266,14 +294,12 @@ public partial class MessageBubble : UserControl
             if (isUser)
             {
                 // 用户消息样式
-                bubbleBorder.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
                 bubbleBorder.SetValue(Border.BackgroundProperty, this.FindResource("UserMessageBackgroundBrush"));
                 bubbleBorder.SetValue(Border.BorderBrushProperty, this.FindResource("UserMessageBackgroundBrush"));
             }
             else
             {
                 // AI消息样式
-                bubbleBorder.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
                 bubbleBorder.SetValue(Border.BackgroundProperty, this.FindResource("AiMessageBackgroundBrush"));
                 bubbleBorder.SetValue(Border.BorderBrushProperty, this.FindResource("AiMessageBackgroundBrush"));
             }

@@ -498,6 +498,7 @@
                              Margin="0,0,10,0"/>
                     
                     <!-- 语音输入按钮 -->
+                    <!-- 
                     <Button Grid.Column="1"
                             Name="VoiceInputButton"
                             Width="40"
@@ -512,6 +513,7 @@
                                                     Height="24"
                                                     Foreground="{DynamicResource IconBrush}"/>
                     </Button>
+                    -->
                     
                     <!-- 发送按钮 -->
                     <Button Grid.Column="2"

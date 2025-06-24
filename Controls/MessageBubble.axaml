@@ -2,55 +2,77 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="100"
              x:Class="Lyxie_desktop.Controls.MessageBubble"
              MinHeight="50"
              Background="Transparent">
 
-    <Border Name="BubbleBorder"
-            CornerRadius="12"
-            Padding="15,10"
-            MaxWidth="600"
-            MinHeight="40"
-            HorizontalAlignment="Left"
-            Background="{DynamicResource AiMessageBackgroundBrush}"
-            BorderBrush="{DynamicResource AiMessageBackgroundBrush}"
-            BorderThickness="1">
+    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <!-- 气泡边框 -->
+        <Border Name="BubbleBorder"
+                CornerRadius="12"
+                Padding="15,10"
+                MaxWidth="600"
+                MinHeight="40"
+                HorizontalAlignment="Left"
+                Background="{DynamicResource AiMessageBackgroundBrush}"
+                BorderBrush="{DynamicResource AiMessageBackgroundBrush}"
+                BorderThickness="1">
+            
+            <StackPanel Orientation="Vertical" Spacing="5">
+                <!-- 发送者标签 -->
+                <TextBlock Name="SenderText"
+                           Text="AI"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           IsVisible="True"/>
+                
+                <!-- Think内容容器 -->
+                <StackPanel Name="ThinkBlockContainer"
+                            Orientation="Vertical"
+                            Spacing="12"
+                            IsVisible="False"
+                            Margin="0,0,0,8"/>
+                
+                <!-- 普通文本消息 -->
+                <SelectableTextBlock Name="MessageText"
+                                     Text="This is a sample message"
+                                     FontSize="14"
+                                     TextWrapping="Wrap"
+                                     Foreground="{DynamicResource AiMessageTextBrush}"
+                                     IsVisible="True"
+                                     SelectionBrush="{DynamicResource TextSelectionHighlightBrush}"/>
+                
+                <!-- Markdown消息容器 -->
+                <ScrollViewer Name="MarkdownContainer"
+                              IsVisible="False"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto"
+                              MaxHeight="400">
+                    <!-- Markdown内容将通过代码动态添加 -->
+                </ScrollViewer>
+            </StackPanel>
+        </Border>
         
-        <StackPanel Orientation="Vertical" Spacing="5">
-            <!-- 发送者标签 -->
-            <TextBlock Name="SenderText"
-                       Text="AI"
-                       FontSize="12"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource SecondaryTextBrush}"
-                       IsVisible="True"/>
-            
-            <!-- Think内容容器 -->
-            <StackPanel Name="ThinkBlockContainer"
-                        Orientation="Vertical"
-                        Spacing="12"
-                        IsVisible="False"
-                        Margin="0,0,0,8"/>
-            
-            <!-- 普通文本消息 -->
-            <SelectableTextBlock Name="MessageText"
-                                 Text="This is a sample message"
-                                 FontSize="14"
-                                 TextWrapping="Wrap"
-                                 Foreground="{DynamicResource AiMessageTextBrush}"
-                                 IsVisible="True"
-                                 SelectionBrush="{DynamicResource TextSelectionHighlightBrush}"/>
-            
-            <!-- Markdown消息容器 -->
-            <ScrollViewer Name="MarkdownContainer"
-                          IsVisible="False"
-                          HorizontalScrollBarVisibility="Disabled"
-                          VerticalScrollBarVisibility="Auto"
-                          MaxHeight="400">
-                <!-- Markdown内容将通过代码动态添加 -->
-            </ScrollViewer>
-        </StackPanel>
-    </Border>
+        <!-- 语音重播按钮 -->
+        <Button Name="ReplayButton"
+                IsVisible="False"
+                Background="Transparent"
+                BorderThickness="0"
+                Cursor="Hand"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Margin="0"
+                Width="32"
+                Height="32">
+            <materialIcons:MaterialIcon 
+                                    Kind="VolumeHigh"
+                                    Width="20"
+                                    Height="20"
+                                    Foreground="{DynamicResource SecondaryIconBrush}"/>
+        </Button>
+    </StackPanel>
 
 </UserControl> 

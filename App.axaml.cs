@@ -33,9 +33,27 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow();
+            desktop.ShutdownRequested += OnShutdown;
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void OnShutdown(object? sender, ShutdownRequestedEventArgs e)
+    {
+        // 清理TTS缓存目录
+        try
+        {
+            var tempPath = Path.Combine(AppContext.BaseDirectory, "temp");
+            if (Directory.Exists(tempPath))
+            {
+                Directory.Delete(tempPath, true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to clear TTS cache: {ex.Message}");
+        }
     }
 
     // 加载并应用设置

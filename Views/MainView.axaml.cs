@@ -1134,6 +1134,7 @@ public partial class MainView : UserControl
         // 创建用户消息气泡
         var userBubble = new MessageBubble();
         userBubble.SetMessage(message, true, "您");
+        userBubble.HorizontalAlignment = HorizontalAlignment.Right;
         
         messageList.Children.Add(userBubble);
         
@@ -1158,6 +1159,7 @@ public partial class MainView : UserControl
                 {
                     var errorBubble = new MessageBubble();
                     errorBubble.SetMessage("错误：未配置LLM API。请先在设置中添加API配置。", false, "系统");
+                    errorBubble.HorizontalAlignment = HorizontalAlignment.Left;
                     messageList.Children.Add(errorBubble);
                 });
                 return;
@@ -1167,8 +1169,8 @@ public partial class MainView : UserControl
             if (activeConfigIndex < 0 || activeConfigIndex >= App.Settings.LlmApiConfigs.Count)
             {
                 activeConfigIndex = 0; // 默认使用第一个配置
-                App.Settings.ActiveLlmConfigIndex = 0; // 更新App.Settings
-                App.SaveSettings(); // 保存更新后的设置
+                App.Settings.ActiveLlmConfigIndex = 0;
+                App.SaveSettings();
             }
 
             var config = App.Settings.LlmApiConfigs[activeConfigIndex];
@@ -1180,6 +1182,7 @@ public partial class MainView : UserControl
             {
                 aiBubble = new MessageBubble();
                 aiBubble.InitializeStreamingMessage(false, "Lyxie");
+                aiBubble.HorizontalAlignment = HorizontalAlignment.Left;
                 messageList.Children.Add(aiBubble);
                 messageScrollViewer?.ScrollToEnd();
             });
@@ -1213,7 +1216,7 @@ public partial class MainView : UserControl
                             var fullAiResponse = _currentAiResponseBuilder?.ToString();
                             if (!string.IsNullOrWhiteSpace(fullAiResponse))
                             {
-                                HandleAiResponseForTts(fullAiResponse);
+                                HandleAiResponseForTts(fullAiResponse, aiBubble);
                             }
                         }
                         else if (!string.IsNullOrEmpty(content))
@@ -1238,6 +1241,7 @@ public partial class MainView : UserControl
                         
                         var errorBubble = new MessageBubble();
                         errorBubble.SetMessage($"流式请求错误：{error}", false, "错误");
+                        errorBubble.HorizontalAlignment = HorizontalAlignment.Left;
                         messageList.Children.Add(errorBubble);
                         messageScrollViewer?.ScrollToEnd();
                     });
@@ -1270,6 +1274,7 @@ public partial class MainView : UserControl
                     {
                         var errorBubble = new MessageBubble();
                         errorBubble.SetMessage("无法启动流式请求，请检查API配置。", false, "错误");
+                        errorBubble.HorizontalAlignment = HorizontalAlignment.Left;
                         messageList.Children.Add(errorBubble);
                     }
                 });
@@ -1292,6 +1297,7 @@ public partial class MainView : UserControl
                         // 添加取消提示（如果有内容则不替换，只添加提示）
                         var cancelledBubble = new MessageBubble();
                         cancelledBubble.SetMessage("（流式传输已被用户中止）", false, "系统");
+                        cancelledBubble.HorizontalAlignment = HorizontalAlignment.Left;
                         messageList.Children.Add(cancelledBubble);
                     }
                     catch (Exception ex)
@@ -1301,6 +1307,7 @@ public partial class MainView : UserControl
                         messageList.Children.Remove(aiBubble);
                         var cancelledBubble = new MessageBubble();
                         cancelledBubble.SetMessage("消息请求已取消。", false, "系统");
+                        cancelledBubble.HorizontalAlignment = HorizontalAlignment.Left;
                         messageList.Children.Add(cancelledBubble);
                     }
                 }
@@ -1308,6 +1315,7 @@ public partial class MainView : UserControl
                 {
                     var cancelledBubble = new MessageBubble();
                     cancelledBubble.SetMessage("消息请求已取消。", false, "系统");
+                    cancelledBubble.HorizontalAlignment = HorizontalAlignment.Left;
                     messageList.Children.Add(cancelledBubble);
                 }
             });
@@ -1327,6 +1335,7 @@ public partial class MainView : UserControl
                         // 添加错误提示
                         var errorBubble = new MessageBubble();
                         errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
+                        errorBubble.HorizontalAlignment = HorizontalAlignment.Left;
                         messageList.Children.Add(errorBubble);
                     }
                     catch (Exception renderEx)
@@ -1338,6 +1347,7 @@ public partial class MainView : UserControl
                         // 显示异常信息
                         var errorBubble = new MessageBubble();
                         errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
+                        errorBubble.HorizontalAlignment = HorizontalAlignment.Left;
                         messageList.Children.Add(errorBubble);
                     }
                 }
@@ -1346,6 +1356,7 @@ public partial class MainView : UserControl
                     // 显示异常信息
                     var errorBubble = new MessageBubble();
                     errorBubble.SetMessage($"发生错误：{ex.Message}", false, "错误");
+                    errorBubble.HorizontalAlignment = HorizontalAlignment.Left;
                     messageList.Children.Add(errorBubble);
                 }
             });
@@ -1366,6 +1377,23 @@ public partial class MainView : UserControl
         {
             messageScrollViewer?.ScrollToEnd();
         }, DispatcherPriority.Background);
+    }
+    
+    private void OnReplayTtsRequested(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MessageBubble bubble && !string.IsNullOrEmpty(bubble.AudioFilePath))
+        {
+            // 获取当前激活的TTS配置
+            if (App.Settings.TtsApiConfigs == null || App.Settings.TtsApiConfigs.Count == 0) return;
+            var activeTtsConfigIndex = App.Settings.ActiveTtsConfigIndex;
+            if (activeTtsConfigIndex < 0 || activeTtsConfigIndex >= App.Settings.TtsApiConfigs.Count)
+            {
+                activeTtsConfigIndex = 0;
+            }
+            var ttsConfig = App.Settings.TtsApiConfigs[activeTtsConfigIndex];
+
+            _ttsApiService?.PlayFromFileAsync(bubble.AudioFilePath, ttsConfig);
+        }
     }
     
     #region TTS功能
@@ -1413,19 +1441,19 @@ public partial class MainView : UserControl
     /// 播放TTS语音
     /// </summary>
     /// <param name="text">要播放的文本</param>
-    private async Task PlayTtsAsync(string text)
+    private async Task<string?> PlayTtsAsync(string text)
     {
         // 检查TTS是否启用
         if (!App.Settings.EnableTTS || _ttsApiService == null)
         {
-            return;
+            return null;
         }
         
         // 检查是否有TTS配置
         if (App.Settings.TtsApiConfigs == null || App.Settings.TtsApiConfigs.Count == 0)
         {
             System.Diagnostics.Debug.WriteLine("TTS播放失败: 未配置TTS API");
-            return;
+            return null;
         }
         
         // 获取当前激活的TTS配置
@@ -1442,13 +1470,14 @@ public partial class MainView : UserControl
             // 停止当前播放
             _ttsApiService.Stop();
             
-            // 播放新的文本
+            // 播放新的文本并获取缓存路径
             System.Diagnostics.Debug.WriteLine($"开始TTS播放: {text.Substring(0, Math.Min(50, text.Length))}...");
-            await _ttsApiService.SpeakAsync(ttsConfig, text);
+            return await _ttsApiService.SpeakAsync(ttsConfig, text);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"TTS播放异常: {ex.Message}");
+            return null;
         }
     }
     
@@ -1456,7 +1485,7 @@ public partial class MainView : UserControl
     /// 处理AI回复完成后的TTS播放
     /// </summary>
     /// <param name="aiResponse">AI回复文本</param>
-    private async void HandleAiResponseForTts(string aiResponse)
+    private async void HandleAiResponseForTts(string aiResponse, MessageBubble aiBubble)
     {
         if (string.IsNullOrWhiteSpace(aiResponse))
             return;
@@ -1466,7 +1495,14 @@ public partial class MainView : UserControl
         
         if (!string.IsNullOrWhiteSpace(cleanText))
         {
-            await PlayTtsAsync(cleanText);
+            var audioPath = await PlayTtsAsync(cleanText);
+            if (audioPath != null)
+            {
+                // 将音频路径与气泡关联并显示重播按钮
+                aiBubble.AudioFilePath = audioPath;
+                aiBubble.ShowReplayButton(true);
+                aiBubble.ReplayRequested += OnReplayTtsRequested;
+            }
         }
     }
     

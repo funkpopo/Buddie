@@ -51,8 +51,15 @@ namespace Lyxie_desktop.Interfaces
         /// <param name="config">TTS API配置</param>
         /// <param name="text">要转换的文本</param>
         /// <param name="cancellationToken">取消令牌</param>
-        /// <returns>是否成功开始播放</returns>
-        Task<bool> SpeakAsync(TtsApiConfig config, string text, CancellationToken cancellationToken = default);
+        /// <returns>成功则返回缓存文件路径，否则返回null</returns>
+        Task<string?> SpeakAsync(TtsApiConfig config, string text, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 从缓存文件播放语音
+        /// </summary>
+        /// <param name="filePath">音频文件路径</param>
+        /// <param name="config">TTS API配置（用于确定解码格式）</param>
+        Task PlayFromFileAsync(string filePath, TtsApiConfig config);
 
         /// <summary>
         /// 暂停播放

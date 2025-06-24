@@ -78,19 +78,19 @@ namespace Lyxie_desktop.Services
             }
         }
 
-        public async Task<bool> SpeakAsync(TtsApiConfig config, string text, CancellationToken cancellationToken = default)
+        public async Task<string?> SpeakAsync(TtsApiConfig config, string text, CancellationToken cancellationToken = default)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(text))
                 {
-                    return false;
+                    return null;
                 }
 
                 if (!config.IsValid())
                 {
                     ErrorOccurred?.Invoke("TTS配置不完整");
-                    return false;
+                    return null;
                 }
 
                 CurrentState = TtsPlaybackState.Loading;
@@ -101,36 +101,24 @@ namespace Lyxie_desktop.Services
                 {
                     CurrentState = TtsPlaybackState.Error;
                     ErrorOccurred?.Invoke("音频合成失败");
-                    return false;
+                    return null;
                 }
+
+                // 缓存音频文件
+                var tempPath = Path.Combine(AppContext.BaseDirectory, "temp");
+                Directory.CreateDirectory(tempPath);
+                // 使用哈希值作为文件名避免重复，并确保唯一性
+                var fileName = $"{System.Security.Cryptography.SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(text))}.{config.AudioFormat.ToString().ToLower()}";
+                var filePath = Path.Combine(tempPath, fileName);
+                await File.WriteAllBytesAsync(filePath, audioData, cancellationToken);
 
                 // 停止当前播放
                 Stop();
 
-                // 准备播放
+                // 从内存流播放
                 _audioStream = new MemoryStream(audioData);
                 
-                IWaveProvider waveProvider;
-                try
-                {
-                    // 尝试不同的音频格式
-                    _audioStream.Position = 0;
-                    if (config.AudioFormat == AudioFormat.Mp3)
-                    {
-                        waveProvider = new Mp3FileReader(_audioStream);
-                    }
-                    else
-                    {
-                        waveProvider = new WaveFileReader(_audioStream);
-                    }
-                }
-                catch (Exception)
-                {
-                    // 如果格式解析失败，尝试作为原始PCM数据处理
-                    _audioStream.Position = 0;
-                    var waveFormat = new WaveFormat(16000, 16, 1); // 默认格式
-                    waveProvider = new RawSourceWaveStream(_audioStream, waveFormat);
-                }
+                IWaveProvider waveProvider = CreateWaveProvider(config, _audioStream);
 
                 // 应用音量控制
                 var volumeProvider = new VolumeWaveProvider16(waveProvider)
@@ -145,18 +133,80 @@ namespace Lyxie_desktop.Services
                 CurrentState = TtsPlaybackState.Playing;
                 _waveOut.Play();
 
-                return true;
+                return filePath;
             }
             catch (OperationCanceledException)
             {
                 CurrentState = TtsPlaybackState.Stopped;
-                return false;
+                return null;
             }
             catch (Exception ex)
             {
                 CurrentState = TtsPlaybackState.Error;
                 ErrorOccurred?.Invoke($"播放失败: {ex.Message}");
-                return false;
+                return null;
+            }
+        }
+
+        public async Task PlayFromFileAsync(string filePath, TtsApiConfig config)
+        {
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    ErrorOccurred?.Invoke("音频缓存文件不存在");
+                    return;
+                }
+
+                Stop();
+
+                // 从文件流播放
+                var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                _audioStream = new MemoryStream();
+                await fileStream.CopyToAsync(_audioStream);
+                fileStream.Close();
+                _audioStream.Position = 0;
+
+                IWaveProvider waveProvider = CreateWaveProvider(config, _audioStream);
+
+                var volumeProvider = new VolumeWaveProvider16(waveProvider)
+                {
+                    Volume = _volume
+                };
+
+                _waveOut = new WaveOutEvent();
+                _waveOut.PlaybackStopped += OnPlaybackStopped;
+                _waveOut.Init(volumeProvider);
+
+                CurrentState = TtsPlaybackState.Playing;
+                _waveOut.Play();
+            }
+            catch (Exception ex)
+            {
+                CurrentState = TtsPlaybackState.Error;
+                ErrorOccurred?.Invoke($"从文件播放失败: {ex.Message}");
+            }
+        }
+
+        private IWaveProvider CreateWaveProvider(TtsApiConfig config, Stream stream)
+        {
+            try
+            {
+                stream.Position = 0;
+                if (config.AudioFormat == AudioFormat.Mp3)
+                {
+                    return new Mp3FileReader(stream);
+                }
+                else
+                {
+                    return new WaveFileReader(stream);
+                }
+            }
+            catch (Exception)
+            {
+                stream.Position = 0;
+                var waveFormat = new WaveFormat(16000, 16, 1); // 默认格式
+                return new RawSourceWaveStream(stream, waveFormat);
             }
         }
 
