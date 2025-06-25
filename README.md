@@ -86,6 +86,7 @@ dotnet build --configuration Debug
 ### 发布构建
 ```bash
 dotnet publish --configuration Release --self-contained true --runtime win-x64
+dotnet publish -c Release --runtime win-x64 -p:PublishSingleFile=true -p:SelfContained=true
 ```
 
 ### 跨平台发布

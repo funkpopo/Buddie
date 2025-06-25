@@ -990,7 +990,7 @@ public partial class SettingsView : UserControl
             {
                 // 如果没有配置了，重置当前编辑的配置
                 _currentEditingConfig = null;
-                _settings.ActiveLlmConfigIndex = 0;
+                _settings.ActiveLlmConfigIndex = -1; // 当列表为空时，索引应为-1
             }
             
             _isAddingNewConfig = false;
@@ -1000,6 +1000,9 @@ public partial class SettingsView : UserControl
             
             // 更新UI
             UpdateLlmApiConfigList();
+            
+            // 触发配置变更事件，通知主界面更新
+            LlmApiConfigChanged?.Invoke(this, EventArgs.Empty);
             
             // 如果正在编辑配置，关闭编辑区域
             if (_isEditingConfig)
