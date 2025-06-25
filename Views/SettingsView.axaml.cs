@@ -163,6 +163,9 @@ public partial class SettingsView : UserControl
         // 初始化API配置界面
         InitializeLlmApiConfigUI();
         InitializeTtsApiConfigUI();
+        
+        // 手动触发一次Provider的变更事件，以根据默认选择更新UI
+        OnTtsProviderChanged(TtsProviderComboBox, null);
     }
     
     private void OnBackButtonClick(object? sender, RoutedEventArgs e)
@@ -1104,49 +1107,25 @@ public partial class SettingsView : UserControl
     // 初始化TTS API配置界面
     private void InitializeTtsApiConfigUI()
     {
-        // 设置添加TTS配置按钮点击事件
-        var addTtsConfigButton = this.FindControl<Button>("AddTtsConfigButton");
-        if (addTtsConfigButton != null)
+        // 从枚举动态填充TTS Provider ComboBox
+        TtsProviderComboBox.Items.Clear();
+        var providerNames = Enum.GetNames(typeof(TtsProvider));
+        foreach (var name in providerNames)
         {
-            addTtsConfigButton.Click += OnAddTtsConfigClick;
+            TtsProviderComboBox.Items.Add(new ComboBoxItem { Content = name });
         }
         
-        // 设置保存TTS配置按钮点击事件
-        var saveTtsConfigButton = this.FindControl<Button>("SaveTtsConfigButton");
-        if (saveTtsConfigButton != null)
-        {
-            saveTtsConfigButton.Click += OnSaveTtsConfigClick;
-        }
-        
-        // 设置取消TTS配置按钮点击事件
-        var cancelTtsConfigButton = this.FindControl<Button>("CancelTtsConfigButton");
-        if (cancelTtsConfigButton != null)
-        {
-            cancelTtsConfigButton.Click += OnCancelTtsConfigClick;
-        }
-        
-        // 设置TTS API测试按钮点击事件
-        var testTtsApiButton = this.FindControl<Button>("TestTtsApiButton");
-        if (testTtsApiButton != null)
-        {
-            testTtsApiButton.Click += OnTestTtsApiButtonClick;
-        }
-        
-        // 设置TTS提供商下拉框变更事件
-        var ttsProviderComboBox = this.FindControl<ComboBox>("TtsProviderComboBox");
-        if (ttsProviderComboBox != null)
-        {
-            ttsProviderComboBox.SelectionChanged += OnTtsProviderChanged;
-        }
-        
-        // 设置滑块值变更事件
+        // 订阅事件
+        AddTtsConfigButton.Click += OnAddTtsConfigClick;
+        SaveTtsConfigButton.Click += OnSaveTtsConfigClick;
+        CancelTtsConfigButton.Click += OnCancelTtsConfigClick;
+        TestTtsApiButton.Click += OnTestTtsApiButtonClick;
+        TtsProviderComboBox.SelectionChanged += OnTtsProviderChanged;
+
+        // 绑定滑块事件
         SetupTtsSliders();
-        
-        // 初始隐藏TTS配置详情区域
-        _isEditingTtsConfig = false;
-        UpdateTtsConfigDetailVisibility();
-        
-        // 更新TTS配置列表
+
+        // 加载并显示配置列表
         UpdateTtsApiConfigList();
     }
     
@@ -1415,31 +1394,45 @@ public partial class SettingsView : UserControl
             audioFormatComboBox.SelectedIndex = (int)_currentEditingTtsConfig.AudioFormat;
         }
         
+        // 更新合成模型UI
+        var synthesisModelPanel = this.FindControl<StackPanel>("TtsSynthesisModelPanel");
+        var synthesisModelTextBox = this.FindControl<TextBox>("TtsSynthesisModelTextBox");
+        if (synthesisModelPanel != null && synthesisModelTextBox != null)
+        {
+            var provider = _currentEditingTtsConfig?.Provider ?? (TtsProvider)TtsProviderComboBox.SelectedIndex;
+            bool isVisible = provider == TtsProvider.ElevenLabs || provider == TtsProvider.OpenAI;
+            synthesisModelPanel.IsVisible = isVisible;
+            synthesisModelTextBox.Text = _currentEditingTtsConfig?.SynthesisModel ?? "";
+        }
+        
         // 重置测试状态
         ResetTtsTestStatusUI();
     }
     
     // TTS提供商变更事件
-    private void OnTtsProviderChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnTtsProviderChanged(object? sender, SelectionChangedEventArgs? e)
     {
-        if (_currentEditingTtsConfig == null) return;
+        if (TtsProviderComboBox.SelectedItem is not ComboBoxItem selectedItem || selectedItem.Content == null) return;
         
-        if (sender is ComboBox comboBox && comboBox.SelectedIndex >= 0)
+        if (Enum.TryParse(selectedItem.Content.ToString(), out TtsProvider provider))
         {
-            _currentEditingTtsConfig.Provider = (TtsProvider)comboBox.SelectedIndex;
+            // 创建一个临时配置以获取默认值
+            var tempConfig = new TtsApiConfig { Provider = provider };
+
+            TtsApiUrlTextBox.Text = tempConfig.ApiUrl;
+            TtsVoiceModelTextBox.Text = tempConfig.VoiceModel;
             
-            // 更新默认URL和语音模型
-            var apiUrlTextBox = this.FindControl<TextBox>("TtsApiUrlTextBox");
-            var voiceModelTextBox = this.FindControl<TextBox>("TtsVoiceModelTextBox");
+            var synthesisModelPanel = this.FindControl<StackPanel>("TtsSynthesisModelPanel");
+            var synthesisModelTextBox = this.FindControl<TextBox>("TtsSynthesisModelTextBox");
             
-            if (apiUrlTextBox != null)
+            if (synthesisModelPanel != null && synthesisModelTextBox != null)
             {
-                apiUrlTextBox.Text = _currentEditingTtsConfig.ApiUrl;
-            }
-            
-            if (voiceModelTextBox != null)
-            {
-                voiceModelTextBox.Text = _currentEditingTtsConfig.VoiceModel;
+                bool isVisible = provider == TtsProvider.ElevenLabs || provider == TtsProvider.OpenAI;
+                synthesisModelPanel.IsVisible = isVisible;
+                if (isVisible)
+                {
+                    synthesisModelTextBox.Text = tempConfig.SynthesisModel;
+                }
             }
         }
     }
@@ -1698,6 +1691,9 @@ public partial class SettingsView : UserControl
         if (pitchSlider != null) config.Pitch = (float)pitchSlider.Value;
         if (volumeSlider != null) config.Volume = (float)volumeSlider.Value;
         if (audioFormatComboBox != null) config.AudioFormat = (AudioFormat)audioFormatComboBox.SelectedIndex;
+        
+        var synthesisModelTextBox = this.FindControl<TextBox>("TtsSynthesisModelTextBox");
+        if (synthesisModelTextBox != null) config.SynthesisModel = synthesisModelTextBox.Text ?? "";
         
         return config;
     }

@@ -13,6 +13,7 @@ namespace Lyxie_desktop.Models
         private string _apiUrl = "";
         private string _apiKey = "";
         private string _voiceModel = "";
+        private string _synthesisModel = "";
         private string _language = "zh-CN";
         private float _speed = 1.0f;
         private float _pitch = 0.0f;
@@ -66,6 +67,16 @@ namespace Lyxie_desktop.Models
             set
             {
                 _voiceModel = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string SynthesisModel
+        {
+            get => _synthesisModel;
+            set
+            {
+                _synthesisModel = value;
                 OnPropertyChanged();
             }
         }
@@ -142,6 +153,16 @@ namespace Lyxie_desktop.Models
                         _apiUrl = "https://api.openai.com/v1/audio/speech";
                     if (string.IsNullOrEmpty(_voiceModel))
                         _voiceModel = "alloy";
+                    if (string.IsNullOrEmpty(_synthesisModel))
+                        _synthesisModel = "tts-1";
+                    break;
+                case TtsProvider.ElevenLabs:
+                    if (string.IsNullOrEmpty(_apiUrl))
+                        _apiUrl = "https://api.elevenlabs.io/v1/text-to-speech";
+                    if (string.IsNullOrEmpty(_voiceModel))
+                        _voiceModel = "JBFqnCBsd6RMkjVDRZzb";
+                    if (string.IsNullOrEmpty(_synthesisModel))
+                        _synthesisModel = "eleven_multilingual_v2";
                     break;
                 case TtsProvider.Custom:
                     // 自定义API，用户需要手动配置
@@ -172,6 +193,7 @@ namespace Lyxie_desktop.Models
                 ApiUrl = this.ApiUrl,
                 ApiKey = this.ApiKey,
                 VoiceModel = this.VoiceModel,
+                SynthesisModel = this.SynthesisModel,
                 Language = this.Language,
                 Speed = this.Speed,
                 Pitch = this.Pitch,
@@ -188,7 +210,8 @@ namespace Lyxie_desktop.Models
     {
         Azure = 0,
         OpenAI = 1,
-        Custom = 2
+        ElevenLabs = 2,
+        Custom = 3
     }
 
     /// <summary>

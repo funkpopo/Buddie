@@ -220,6 +220,8 @@ namespace Lyxie_desktop.Services
                         return await SynthesizeAzureTtsAsync(config, text, cancellationToken);
                     case TtsProvider.OpenAI:
                         return await SynthesizeOpenAITtsAsync(config, text, cancellationToken);
+                    case TtsProvider.ElevenLabs:
+                        return await SynthesizeElevenLabsTtsAsync(config, text, cancellationToken);
                     case TtsProvider.Custom:
                         return await SynthesizeCustomTtsAsync(config, text, cancellationToken);
                     default:
@@ -261,7 +263,7 @@ namespace Lyxie_desktop.Services
         {
             var requestData = new
             {
-                model = "tts-1",
+                model = config.SynthesisModel,
                 input = text,
                 voice = config.VoiceModel,
                 response_format = GetOpenAIAudioFormat(config.AudioFormat),
@@ -270,6 +272,26 @@ namespace Lyxie_desktop.Services
 
             var request = new HttpRequestMessage(HttpMethod.Post, config.ApiUrl);
             request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
+            request.Content = new StringContent(JsonConvert.SerializeObject(requestData), Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsByteArrayAsync();
+        }
+
+        private async Task<byte[]?> SynthesizeElevenLabsTtsAsync(TtsApiConfig config, string text, CancellationToken cancellationToken)
+        {
+            var requestUrl = $"{config.ApiUrl.TrimEnd('/')}/{config.VoiceModel}";
+            
+            var requestData = new
+            {
+                text = text,
+                model_id = config.SynthesisModel
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+            request.Headers.Add("xi-api-key", config.ApiKey);
             request.Content = new StringContent(JsonConvert.SerializeObject(requestData), Encoding.UTF8, "application/json");
 
             var response = await _httpClient.SendAsync(request, cancellationToken);

@@ -251,8 +251,9 @@
                                     <StackPanel Spacing="5">
                                         <TextBlock Text="TTS提供商" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
                                         <ComboBox Name="TtsProviderComboBox" SelectedIndex="0">
-                                            <ComboBoxItem Content="Azure TTS"/>
-                                            <ComboBoxItem Content="OpenAI TTS"/>
+                                            <ComboBoxItem Content="Azure"/>
+                                            <ComboBoxItem Content="OpenAI"/>
+                                            <ComboBoxItem Content="ElevenLabs"/>
                                             <ComboBoxItem Content="自定义API"/>
                                         </ComboBox>
                                     </StackPanel>
@@ -267,6 +268,10 @@
                                     <StackPanel Spacing="5">
                                         <TextBlock Text="语音模型" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
                                         <TextBox Name="TtsVoiceModelTextBox" Watermark="例如：zh-CN-XiaoxiaoNeural"/>
+                                    </StackPanel>
+                                    <StackPanel Name="TtsSynthesisModelPanel" Spacing="5" IsVisible="False">
+                                        <TextBlock Text="合成模型ID" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        <TextBox Name="TtsSynthesisModelTextBox" Watermark="例如：eleven_multilingual_v2"/>
                                     </StackPanel>
                                     <StackPanel Spacing="5">
                                         <TextBlock Text="语言" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
