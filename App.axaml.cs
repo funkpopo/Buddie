@@ -7,6 +7,9 @@ using System;
 using System.IO;
 using System.Text.Json;
 using Lyxie_desktop.Helpers;
+using Avalonia.Controls;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 
 namespace Lyxie_desktop;
 
@@ -33,11 +36,66 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow();
+            // 设置应用关闭模式，使得只有在明确调用 Shutdown() 时应用才会退出。
+            desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            
+            // 创建托盘图标
+            CreateTrayIcon(desktop);
+            
             desktop.ShutdownRequested += OnShutdown;
+            
+            // 应用启动时直接打开主窗口
+            ShowMainWindow(desktop);
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void CreateTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        var openMenuItem = new NativeMenuItem("打开");
+        openMenuItem.Click += (sender, args) => ShowMainWindow(desktop);
+
+        var exitMenuItem = new NativeMenuItem("退出");
+        exitMenuItem.Click += (sender, args) => desktop.Shutdown();
+
+        var trayIcon = new TrayIcon
+        {
+            Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://Lyxie-desktop/Lyxie.ico"))),
+            ToolTipText = "Lyxie",
+            Menu = new NativeMenu
+            {
+                Items =
+                {
+                    openMenuItem,
+                    new NativeMenuItemSeparator(),
+                    exitMenuItem
+                }
+            }
+        };
+
+        TrayIcon.SetIcons(this, new TrayIcons { trayIcon });
+    }
+
+    private void ShowMainWindow(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        if (desktop.MainWindow == null)
+        {
+            desktop.MainWindow = new MainWindow();
+            // 当主窗口关闭时，我们只是隐藏它而不是关闭应用
+            desktop.MainWindow.Closing += (s, e) =>
+            {
+                if (e is WindowClosingEventArgs closingEventArgs)
+                {
+                    closingEventArgs.Cancel = true;
+                }
+                desktop.MainWindow.Hide();
+            };
+        }
+        
+        desktop.MainWindow.Show();
+        desktop.MainWindow.WindowState = WindowState.Normal;
+        desktop.MainWindow.Activate();
     }
 
     private void OnShutdown(object? sender, ShutdownRequestedEventArgs e)
@@ -99,7 +157,7 @@ public partial class App : Application
     }
     
     // 保存设置
-    private void SaveSettings()
+    public static void SaveSettings()
     {
         var settingsFile = AppDataHelper.GetSettingsFilePath();
         try
