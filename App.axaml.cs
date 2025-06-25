@@ -6,6 +6,7 @@ using Lyxie_desktop.Views;
 using System;
 using System.IO;
 using System.Text.Json;
+using Lyxie_desktop.Helpers;
 
 namespace Lyxie_desktop;
 
@@ -44,7 +45,7 @@ public partial class App : Application
         // 清理TTS缓存目录
         try
         {
-            var tempPath = Path.Combine(AppContext.BaseDirectory, "temp");
+            var tempPath = AppDataHelper.GetTempPath();
             if (Directory.Exists(tempPath))
             {
                 Directory.Delete(tempPath, true);
@@ -59,16 +60,12 @@ public partial class App : Application
     // 加载并应用设置
     private void LoadAndApplySettings()
     {
-        try
+        var settingsFile = AppDataHelper.GetSettingsFilePath();
+        if (File.Exists(settingsFile))
         {
-            // 获取设置文件路径（与SettingsView中的路径保持一致）
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var appFolder = Path.Combine(appDataPath, "Lyxie");
-            var settingsPath = Path.Combine(appFolder, "settings.json");
-
-            if (File.Exists(settingsPath))
+            try
             {
-                var json = File.ReadAllText(settingsPath);
+                var json = File.ReadAllText(settingsFile);
                 var settings = JsonSerializer.Deserialize<Views.AppSettings>(json);
 
                 if (settings != null)
@@ -85,39 +82,30 @@ public partial class App : Application
                     LanguageService.SetLanguage(language);
                 }
             }
-            else
+            catch (Exception ex)
             {
-                // 如果设置文件不存在，使用默认设置
+                // 如果加载失败，使用默认设置
+                Console.WriteLine($"Failed to load settings: {ex.Message}");
                 ThemeService.InitializeTheme(ThemeMode.System);
                 LanguageService.SetLanguage(Language.SimplifiedChinese);
             }
         }
-        catch (Exception ex)
+        else
         {
-            // 如果加载失败，使用默认设置
-            Console.WriteLine($"Failed to load settings: {ex.Message}");
+            // 如果设置文件不存在，使用默认设置
             ThemeService.InitializeTheme(ThemeMode.System);
             LanguageService.SetLanguage(Language.SimplifiedChinese);
         }
     }
     
     // 保存设置
-    public static void SaveSettings()
+    private void SaveSettings()
     {
+        var settingsFile = AppDataHelper.GetSettingsFilePath();
         try
         {
-            // 设置文件路径
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var appFolder = Path.Combine(appDataPath, "Lyxie");
-            Directory.CreateDirectory(appFolder);
-            var settingsPath = Path.Combine(appFolder, "settings.json");
-            
-            // 序列化设置并写入文件
-            var json = JsonSerializer.Serialize(Settings, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-            File.WriteAllText(settingsPath, json);
+            var json = JsonSerializer.Serialize(Settings, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(settingsFile, json);
         }
         catch (Exception ex)
         {

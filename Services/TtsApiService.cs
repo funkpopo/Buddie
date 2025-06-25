@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using NAudio.Wave;
 using Lyxie_desktop.Interfaces;
 using Lyxie_desktop.Models;
+using Lyxie_desktop.Helpers;
 
 namespace Lyxie_desktop.Services
 {
@@ -105,8 +106,7 @@ namespace Lyxie_desktop.Services
                 }
 
                 // 缓存音频文件
-                var tempPath = Path.Combine(AppContext.BaseDirectory, "temp");
-                Directory.CreateDirectory(tempPath);
+                var tempPath = AppDataHelper.GetTempPath();
                 // 使用哈希值作为文件名避免重复，并确保唯一性
                 var fileName = $"{System.Security.Cryptography.SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(text))}.{config.AudioFormat.ToString().ToLower()}";
                 var filePath = Path.Combine(tempPath, fileName);
