@@ -133,6 +133,8 @@ const App: React.FC = () => {
           top: 16,
           left: 16,
           zIndex: 1000,
+          width: 60, 
+          height: 60,
         }}
       >
         <SettingsIcon sx={{ fontSize: 36 }} />
