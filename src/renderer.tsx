@@ -33,6 +33,7 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import App from './App';
 import { useTheme, ThemeProvider as CustomThemeProvider } from './ThemeContext';
+import { ApiKeyProvider } from './ApiKeyContext';
 
 // Create a theme based on the current theme mode
 const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -86,9 +87,11 @@ const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children })
 // 性能优化：仅在开发环境中使用StrictMode
 const RootComponent = () => (
   <CustomThemeProvider>
-    <AppThemeProvider>
-      <App />
-    </AppThemeProvider>
+    <ApiKeyProvider>
+      <AppThemeProvider>
+        <App />
+      </AppThemeProvider>
+    </ApiKeyProvider>
   </CustomThemeProvider>
 );
 

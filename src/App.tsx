@@ -3,7 +3,19 @@ import {
   IconButton, 
   Box, 
   Typography,
-  Switch
+  Switch,
+  Button,
+  TextField,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Divider,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { 
   Settings as SettingsIcon, 
@@ -11,9 +23,13 @@ import {
   Mic as MicIcon,
   MicOff as MicOffIcon,
   Brightness4 as DarkModeIcon,
-  Brightness7 as LightModeIcon
+  Brightness7 as LightModeIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import { useTheme } from './ThemeContext';
+import { useApiKeys } from './ApiKeyContext';
 
 const App: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -38,72 +54,173 @@ const App: React.FC = () => {
   }, []);
 
   // 使用useMemo优化组件渲染
-  const SettingsPage = useMemo(() => memo(() => (
-    <Box 
-      sx={{ 
-        height: '100vh', 
-        width: '100vw',
-        display: 'flex', 
-        flexDirection: 'column',
-        position: 'relative'
-      }}
-    >
-      {/* 主页按钮 - 左上角 */}
-      <IconButton
-        onClick={() => handleSetCurrentPage('home')}
-        sx={{
-          position: 'absolute',
-          top: 16,
-          left: 16,
-          zIndex: 1000,
-          width: 60, 
-          height: 60,
-        }}
-      >
-        <HomeIcon sx={{ fontSize: 36 }} />
-      </IconButton>
-      
-      {/* 主题切换开关 - 右上角 */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.05)',
-          borderRadius: 4,
-          padding: '4px 8px'
-        }}
-      >
-        <LightModeIcon sx={{ fontSize: 20, mr: 1, color: theme === 'light' ? 'primary.main' : 'text.secondary' }} />
-        <Switch
-          checked={theme === 'dark'}
-          onChange={toggleTheme}
-          size="small"
-        />
-        <DarkModeIcon sx={{ fontSize: 20, ml: 1, color: theme === 'dark' ? 'primary.main' : 'text.secondary' }} />
-      </Box>
-      
+  const SettingsPage = useMemo(() => memo(() => {
+    const [openDialog, setOpenDialog] = useState(false);
+    const [newKeyName, setNewKeyName] = useState('');
+    const [newKeyValue, setNewKeyValue] = useState('');
+    const [newKeyBaseUrl, setNewKeyBaseUrl] = useState('');
+    const { apiKeys, addApiKey, removeApiKey } = useApiKeys();
+
+    const handleAddKey = () => {
+      if (newKeyName.trim() && newKeyValue.trim()) {
+        addApiKey({
+          name: newKeyName,
+          key: newKeyValue,
+          baseUrl: newKeyBaseUrl || undefined
+        });
+        setNewKeyName('');
+        setNewKeyValue('');
+        setNewKeyBaseUrl('');
+        setOpenDialog(false);
+      }
+    };
+
+    return (
       <Box 
         sx={{ 
+          height: '100vh', 
+          width: '100vw',
           display: 'flex', 
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexGrow: 1,
-          pt: 8 // 为顶部按钮留出空间
+          position: 'relative'
         }}
       >
-        <Typography variant="h4" sx={{ mb: 4 }}>设置页面</Typography>
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="h6">这里是设置页面内容</Typography>
-          <Typography>你可以在这里添加各种设置选项</Typography>
+        {/* 主页按钮 - 左上角 */}
+        <IconButton
+          onClick={() => handleSetCurrentPage('home')}
+          sx={{
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            zIndex: 1000,
+            width: 60, 
+            height: 60,
+          }}
+        >
+          <HomeIcon sx={{ fontSize: 36 }} />
+        </IconButton>
+        
+        {/* 主题切换开关 - 右上角 */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.05)',
+            borderRadius: 4,
+            padding: '4px 8px'
+          }}
+        >
+          <LightModeIcon sx={{ fontSize: 20, mr: 1, color: theme === 'light' ? 'primary.main' : 'text.secondary' }} />
+          <Switch
+            checked={theme === 'dark'}
+            onChange={toggleTheme}
+            size="small"
+          />
+          <DarkModeIcon sx={{ fontSize: 20, ml: 1, color: theme === 'dark' ? 'primary.main' : 'text.secondary' }} />
         </Box>
+        
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            flexGrow: 1,
+            pt: 8, // 为顶部按钮留出空间
+            px: 2
+          }}
+        >
+          <Typography variant="h4" sx={{ mb: 3 }}>设置页面</Typography>
+          
+          <Paper sx={{ width: '100%', maxWidth: 600, p: 3, mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">API 密钥管理</Typography>
+              <Button 
+                variant="contained" 
+                startIcon={<AddIcon />} 
+                onClick={() => setOpenDialog(true)}
+              >
+                添加密钥
+              </Button>
+            </Box>
+            
+            {apiKeys.length === 0 ? (
+              <Typography sx={{ textAlign: 'center', py: 2 }}>暂无 API 密钥，请添加一个</Typography>
+            ) : (
+              <List>
+                {apiKeys.map((apiKey) => (
+                  <React.Fragment key={apiKey.id}>
+                    <ListItem>
+                      <ListItemText 
+                        primary={apiKey.name} 
+                        secondary={apiKey.baseUrl ? `Base URL: ${apiKey.baseUrl}` : '默认 OpenAI API'} 
+                      />
+                      <ListItemSecondaryAction>
+                        <IconButton 
+                          edge="end" 
+                          aria-label="delete" 
+                          onClick={() => removeApiKey(apiKey.id)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                    <Divider />
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </Paper>
+        </Box>
+        
+        {/* 添加 API 密钥对话框 */}
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+          <DialogTitle>添加新的 API 密钥</DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="密钥名称"
+              type="text"
+              fullWidth
+              variant="standard"
+              value={newKeyName}
+              onChange={(e) => setNewKeyName(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              margin="dense"
+              label="API 密钥"
+              type="password"
+              fullWidth
+              variant="standard"
+              value={newKeyValue}
+              onChange={(e) => setNewKeyValue(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              margin="dense"
+              label="Base URL (可选)"
+              type="text"
+              fullWidth
+              variant="standard"
+              value={newKeyBaseUrl}
+              onChange={(e) => setNewKeyBaseUrl(e.target.value)}
+              helperText="对于兼容 OpenAI 格式的第三方 API，如本地部署的模型"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenDialog(false)}>取消</Button>
+            <Button onClick={handleAddKey} variant="contained">添加</Button>
+          </DialogActions>
+        </Dialog>
       </Box>
-    </Box>
-  )), [handleSetCurrentPage, theme, toggleTheme]);
+    );
+  }), [handleSetCurrentPage, theme, toggleTheme]);
 
   const HomePage = useMemo(() => memo(() => (
     <Box 
