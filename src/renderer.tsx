@@ -27,42 +27,69 @@
  */
 
 import './index.css';
-import React from 'react';
+import React, { useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import App from './App';
+import { useTheme, ThemeProvider as CustomThemeProvider } from './ThemeContext';
 
-// Create a theme
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2',
+// Create a theme based on the current theme mode
+const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { theme: themeMode } = useTheme();
+  
+  const theme = useMemo(() => createTheme({
+    palette: {
+      mode: themeMode,
+      primary: {
+        main: themeMode === 'dark' ? '#90caf9' : '#1976d2',
+      },
+      secondary: {
+        main: '#f48fb1',
+      },
+      background: {
+        default: themeMode === 'dark' ? '#303030' : '#fafafa',
+        paper: themeMode === 'dark' ? '#424242' : '#ffffff',
+      },
     },
-    secondary: {
-      main: '#dc004e',
+    // 禁用过渡动画以提高性能
+    components: {
+      MuiCssBaseline: {
+        styleOverrides: `
+          *, *::before, *::after {
+            transition: none !important;
+            animation: none !important;
+          }
+          
+          body.dark {
+            background-color: #303030;
+            color: #ffffff;
+          }
+          
+          body.light {
+            background-color: #fafafa;
+            color: #000000;
+          }
+        `,
+      },
     },
-  },
-  // 禁用过渡动画以提高性能
-  components: {
-    MuiCssBaseline: {
-      styleOverrides: `
-        *, *::before, *::after {
-          transition: none !important;
-          animation: none !important;
-        }
-      `,
-    },
-  },
-});
+  }), [themeMode]);
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  );
+};
 
 // 性能优化：仅在开发环境中使用StrictMode
 const RootComponent = () => (
-  <ThemeProvider theme={theme}>
-    <CssBaseline />
-    <App />
-  </ThemeProvider>
+  <CustomThemeProvider>
+    <AppThemeProvider>
+      <App />
+    </AppThemeProvider>
+  </CustomThemeProvider>
 );
 
 const root = ReactDOM.createRoot(document.getElementById('root')!);
@@ -78,4 +105,4 @@ if (__DEV__) {
   root.render(<RootComponent />);
 }
 
-console.log('👋 This message is being logged by "renderer.ts", included via Vite');
+console.log('👋 This message is being logged by "renderer", included via Vite');

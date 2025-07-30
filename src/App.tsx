@@ -1,119 +1,41 @@
-import React, { useState, useCallback, memo, useMemo, useRef } from 'react';
+import React, { useState, useCallback, memo, useMemo } from 'react';
 import { 
-  Fab, 
   IconButton, 
-  Menu, 
-  MenuItem, 
   Box, 
   Typography,
-  keyframes
+  Switch
 } from '@mui/material';
 import { 
   Settings as SettingsIcon, 
-  Home as HomeIcon
+  Home as HomeIcon,
+  Mic as MicIcon,
+  MicOff as MicOffIcon,
+  Brightness4 as DarkModeIcon,
+  Brightness7 as LightModeIcon
 } from '@mui/icons-material';
-
-// 定义流光色彩动画
-const gradientAnimation = keyframes`
-  0% {
-    background-position: 0% 50%;
-    box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
-  }
-  25% {
-    box-shadow: 0 0 40px rgba(78, 205, 196, 1);
-  }
-  50% {
-    background-position: 100% 50%;
-    box-shadow: 0 0 60px rgba(69, 183, 209, 1);
-  }
-  75% {
-    box-shadow: 0 0 40px rgba(150, 206, 180, 1);
-  }
-  100% {
-    background-position: 0% 50%;
-    box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
-  }
-`;
-
-// 定义脉冲动画
-const pulseAnimation = keyframes`
-  0% {
-    transform: scale(0.9);
-    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.9);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 20px rgba(255, 107, 107, 0.3);
-  }
-  100% {
-    transform: scale(0.9);
-    box-shadow: 0 0 0 40px rgba(255, 107, 107, 0);
-  }
-`;
-
-// 定义旋转边框动画
-const rotateBorder = keyframes`
-  0% {
-    transform: rotate(0deg);
-    filter: hue-rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-    filter: hue-rotate(360deg);
-  }
-`;
-
-// 定义粒子动画
-const particleAnimation = keyframes`
-  0% {
-    transform: translate(0, 0) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(var(--tx), var(--ty)) rotate(720deg);
-    opacity: 0;
-  }
-`;
-
-// 定义浮动动画
-const floatAnimation = keyframes`
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-`;
+import { useTheme } from './ThemeContext';
 
 const App: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
   const [currentPage, setCurrentPage] = useState<'home' | 'settings'>('home');
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
-  const fabRef = useRef<HTMLButtonElement>(null);
+  const [isListening, setIsListening] = useState<boolean>(false);
 
   const handleSetCurrentPage = useCallback((page: 'home' | 'settings') => {
     setCurrentPage(page);
-  }, []);
-
-  const handleClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(fabRef.current);
   }, []);
 
   const handleSettingsClick = useCallback(() => {
     handleSetCurrentPage('settings');
   }, [handleSetCurrentPage]);
 
-  const handleClose = useCallback(() => {
-    setAnchorEl(null);
+  const toggleListening = useCallback(() => {
+    setIsListening(prev => {
+      const newState = !prev;
+      console.log(`语音聆听状态: ${newState ? '开启' : '关闭'}`);
+      // 这里可以添加实际的语音处理逻辑
+      return newState;
+    });
   }, []);
-
-  const handleMenuClick = useCallback((action: string) => {
-    console.log(`执行功能: ${action}`);
-    handleClose();
-  }, [handleClose]);
 
   // 使用useMemo优化组件渲染
   const SettingsPage = useMemo(() => memo(() => (
@@ -141,6 +63,29 @@ const App: React.FC = () => {
         <HomeIcon sx={{ fontSize: 36 }} />
       </IconButton>
       
+      {/* 主题切换开关 - 右上角 */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.05)',
+          borderRadius: 4,
+          padding: '4px 8px'
+        }}
+      >
+        <LightModeIcon sx={{ fontSize: 20, mr: 1, color: theme === 'light' ? 'primary.main' : 'text.secondary' }} />
+        <Switch
+          checked={theme === 'dark'}
+          onChange={toggleTheme}
+          size="small"
+        />
+        <DarkModeIcon sx={{ fontSize: 20, ml: 1, color: theme === 'dark' ? 'primary.main' : 'text.secondary' }} />
+      </Box>
+      
       <Box 
         sx={{ 
           display: 'flex', 
@@ -158,7 +103,7 @@ const App: React.FC = () => {
         </Box>
       </Box>
     </Box>
-  )), [handleSetCurrentPage]);
+  )), [handleSetCurrentPage, theme, toggleTheme]);
 
   const HomePage = useMemo(() => memo(() => (
     <Box 
@@ -167,133 +112,18 @@ const App: React.FC = () => {
         width: '100vw',
         display: 'flex', 
         flexDirection: 'column',
-        position: 'relative'
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center'
       }}
     >
-      {/* 中央大圆形按钮容器 */}
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          flexGrow: 1,
-          position: 'relative',
-          animation: `${floatAnimation} 3s ease-in-out infinite`
-        }}
+      {/* 语音按钮 */}
+      <button 
+        className={`voice-button ${isListening ? 'listening' : ''}`}
+        onClick={toggleListening}
       >
-        {/* 粒子效果容器 */}
-        <Box
-          sx={{
-            position: 'absolute',
-            width: 600,
-            height: 600,
-            pointerEvents: 'none',
-            zIndex: 1
-          }}
-        >
-          {Array.from({ length: 30 }).map((_, i) => (
-            <Box
-              key={i}
-              sx={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: `hsl(${Math.random() * 360}, 70%, 60%)`,
-                opacity: 0,
-                animation: `${particleAnimation} ${2 + Math.random() * 3}s linear infinite`,
-                '--tx': `${(Math.random() - 0.5) * 500}px`,
-                '--ty': `${(Math.random() - 0.5) * 500}px`,
-                animationDelay: `${Math.random() * 5}s`
-              }}
-            />
-          ))}
-        </Box>
-        
-        {/* 旋转边框效果 */}
-        <Box
-          sx={{
-            position: 'absolute',
-            width: 450,
-            height: 450,
-            borderRadius: '50%',
-            background: 'conic-gradient(transparent, #FF6B6B, #4ECDC4, #45B7D1, #96CEB4, transparent)',
-            animation: `${rotateBorder} 2s linear infinite`,
-            filter: 'blur(8px)',
-            opacity: 0.8,
-            zIndex: 0
-          }}
-        />
-        
-        {/* 内层旋转边框 */}
-        <Box
-          sx={{
-            position: 'absolute',
-            width: 480,
-            height: 480,
-            borderRadius: '50%',
-            background: 'conic-gradient(transparent, #FFEAA7, #DDA0DD, #FF6B6B, transparent)',
-            animation: `${rotateBorder} 3s linear infinite reverse`,
-            filter: 'blur(6px)',
-            opacity: 0.6,
-            zIndex: 0
-          }}
-        />
-        
-        <Fab 
-          aria-label="add"
-          sx={{ 
-            width: 400, 
-            height: 400,
-            background: 'radial-gradient(circle at 30% 30%, #FF6B6B, #4ECDC4, #45B7D1, #96CEB4)',
-            backgroundSize: '400% 400%',
-            animation: `${gradientAnimation} 3s ease infinite, ${pulseAnimation} 2s infinite`,
-            border: 'none',
-            position: 'relative',
-            overflow: 'hidden',
-            borderRadius: '50%',
-            zIndex: 2,
-            boxShadow: '0 0 40px rgba(255, 107, 107, 0.8), 0 0 80px rgba(78, 205, 196, 0.6)',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: '-50%',
-              left: '-50%',
-              width: '200%',
-              height: '200%',
-              background: 'radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 70%)',
-              transform: 'rotate(30deg)',
-              opacity: 0.8,
-              zIndex: 3
-            },
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              top: '15px',
-              left: '15px',
-              right: '15px',
-              bottom: '15px',
-              background: 'inherit',
-              borderRadius: '50%',
-              zIndex: 1,
-              filter: 'blur(15px)',
-              opacity: 0.9
-            },
-            '&:hover': {
-              animation: `${gradientAnimation} 1.5s ease infinite, ${pulseAnimation} 1s infinite`,
-              transform: 'scale(1.1)',
-              boxShadow: '0 0 70px rgba(255, 107, 107, 1), 0 0 140px rgba(78, 205, 196, 0.8)',
-              '&::before': {
-                opacity: 1,
-                transform: 'rotate(90deg)'
-              }
-            },
-            transition: 'transform 0.4s ease, box-shadow 0.4s ease'
-          }}
-        />
-      </Box>
+        {isListening ? <MicOffIcon sx={{ fontSize: 50, color: 'white' }} /> : <MicIcon sx={{ fontSize: 50, color: 'white' }} />}
+      </button>
       
       {/* 设置按钮 - 左上角 */}
       <IconButton
@@ -307,8 +137,31 @@ const App: React.FC = () => {
       >
         <SettingsIcon sx={{ fontSize: 36 }} />
       </IconButton>
+      
+      {/* 主题切换开关 - 右上角 */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.05)',
+          borderRadius: 4,
+          padding: '4px 8px'
+        }}
+      >
+        <LightModeIcon sx={{ fontSize: 20, mr: 1, color: theme === 'light' ? 'primary.main' : 'text.secondary' }} />
+        <Switch
+          checked={theme === 'dark'}
+          onChange={toggleTheme}
+          size="small"
+        />
+        <DarkModeIcon sx={{ fontSize: 20, ml: 1, color: theme === 'dark' ? 'primary.main' : 'text.secondary' }} />
+      </Box>
     </Box>
-  )), [handleSettingsClick]);
+  )), [handleSettingsClick, isListening, toggleListening, theme, toggleTheme]);
 
   if (currentPage === 'settings') {
     return <SettingsPage />;
