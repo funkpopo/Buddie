@@ -29,6 +29,7 @@ body.dark {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden; /* 防止出现双重滚动条 */
 }
 
 /* 语音按钮样式 */

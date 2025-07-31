@@ -5,13 +5,23 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // 定义API接口以提高类型安全性
 interface IElectronAPI {
-  // 可以在这里添加IPC通信方法
-  // 例如: sendMessage: (channel: string, data: any) => void;
+  // IPC通信方法
+  ipcRenderer: {
+    on: (channel: string, func: (...args: any[]) => void) => void;
+    removeListener: (channel: string, func: (...args: any[]) => void) => void;
+  };
 }
 
 // 创建安全的API桥接
 const electronAPI: IElectronAPI = {
-  // 实现API方法
+  ipcRenderer: {
+    on: (channel, func) => {
+      ipcRenderer.on(channel, (event, ...args) => func(...args));
+    },
+    removeListener: (channel, func) => {
+      ipcRenderer.removeListener(channel, func);
+    }
+  }
 };
 
 // 将API安全地暴露给渲染进程

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo, useMemo } from 'react';
+import React, { useState, useCallback, memo, useMemo, useEffect } from 'react';
 import { 
   IconButton, 
   Box, 
@@ -36,6 +36,28 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<'home' | 'settings'>('home');
   const [isListening, setIsListening] = useState<boolean>(false);
 
+  // 添加 IPC 消息监听
+  useEffect(() => {
+    // 监听导航到设置页面的消息
+    const navigateToSettings = () => {
+      setCurrentPage('settings');
+    };
+    
+    // 监听触发主页对话按钮的消息
+    const triggerHomeDialog = () => {
+      setIsListening(prev => !prev);
+    };
+
+    window.electronAPI.ipcRenderer.on('navigate-to-settings', navigateToSettings);
+    window.electronAPI.ipcRenderer.on('trigger-home-dialog', triggerHomeDialog);
+
+    // 清理监听器
+    return () => {
+      window.electronAPI.ipcRenderer.removeListener('navigate-to-settings', navigateToSettings);
+      window.electronAPI.ipcRenderer.removeListener('trigger-home-dialog', triggerHomeDialog);
+    };
+  }, []);
+
   const handleSetCurrentPage = useCallback((page: 'home' | 'settings') => {
     setCurrentPage(page);
   }, []);
@@ -56,10 +78,12 @@ const App: React.FC = () => {
   // 使用useMemo优化组件渲染
   const SettingsPage = useMemo(() => memo(() => {
     const [openDialog, setOpenDialog] = useState(false);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [newKeyName, setNewKeyName] = useState('');
     const [newKeyValue, setNewKeyValue] = useState('');
     const [newKeyBaseUrl, setNewKeyBaseUrl] = useState('');
-    const { apiKeys, addApiKey, removeApiKey } = useApiKeys();
+    const [editingKeyId, setEditingKeyId] = useState<string | null>(null);
+    const { apiKeys, addApiKey, removeApiKey, updateApiKey } = useApiKeys();
 
     const handleAddKey = () => {
       if (newKeyName.trim() && newKeyValue.trim()) {
@@ -75,6 +99,32 @@ const App: React.FC = () => {
       }
     };
 
+    const handleEditKey = (id: string) => {
+      const apiKey = apiKeys.find(key => key.id === id);
+      if (apiKey) {
+        setNewKeyName(apiKey.name);
+        setNewKeyValue(apiKey.key);
+        setNewKeyBaseUrl(apiKey.baseUrl || '');
+        setEditingKeyId(id);
+        setEditDialogOpen(true);
+      }
+    };
+
+    const handleUpdateKey = () => {
+      if (editingKeyId && newKeyName.trim() && newKeyValue.trim()) {
+        updateApiKey(editingKeyId, {
+          name: newKeyName,
+          key: newKeyValue,
+          baseUrl: newKeyBaseUrl || undefined
+        });
+        setNewKeyName('');
+        setNewKeyValue('');
+        setNewKeyBaseUrl('');
+        setEditingKeyId(null);
+        setEditDialogOpen(false);
+      }
+    };
+
     return (
       <Box 
         sx={{ 
@@ -82,7 +132,9 @@ const App: React.FC = () => {
           width: '100vw',
           display: 'flex', 
           flexDirection: 'column',
-          position: 'relative'
+          position: 'relative',
+          overflowX: 'hidden', // 禁止横向滚动
+          overflowY: 'auto'   // 允许纵向滚动
         }}
       >
         {/* 主页按钮 - 左上角 */}
@@ -131,25 +183,27 @@ const App: React.FC = () => {
             justifyContent: 'flex-start',
             flexGrow: 1,
             pt: 8, // 为顶部按钮留出空间
-            px: 2
+            px: 2,
+            width: '100%', // 确保内容区域占满宽度
+            boxSizing: 'border-box' // 包含padding在宽度计算内
           }}
         >
           <Typography variant="h4" sx={{ mb: 3 }}>设置页面</Typography>
           
-          <Paper sx={{ width: '100%', maxWidth: 600, p: 3, mb: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">API 密钥管理</Typography>
+          <Paper sx={{ width: '100%', maxWidth: 600, p: 3, mb: 3, boxSizing: 'border-box' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="h6">API 管理</Typography>
               <Button 
                 variant="contained" 
                 startIcon={<AddIcon />} 
                 onClick={() => setOpenDialog(true)}
               >
-                添加密钥
+                添加Key
               </Button>
             </Box>
             
             {apiKeys.length === 0 ? (
-              <Typography sx={{ textAlign: 'center', py: 2 }}>暂无 API 密钥，请添加一个</Typography>
+              <Typography sx={{ textAlign: 'center', py: 2 }}>暂无 API Key，请添加一个</Typography>
             ) : (
               <List>
                 {apiKeys.map((apiKey) => (
@@ -160,6 +214,14 @@ const App: React.FC = () => {
                         secondary={apiKey.baseUrl ? `Base URL: ${apiKey.baseUrl}` : '默认 OpenAI API'} 
                       />
                       <ListItemSecondaryAction>
+                        <IconButton 
+                          edge="end" 
+                          aria-label="edit"
+                          onClick={() => handleEditKey(apiKey.id)}
+                          sx={{ mr: 1 }}
+                        >
+                          <EditIcon />
+                        </IconButton>
                         <IconButton 
                           edge="end" 
                           aria-label="delete" 
@@ -177,14 +239,14 @@ const App: React.FC = () => {
           </Paper>
         </Box>
         
-        {/* 添加 API 密钥对话框 */}
+        {/* 添加 API Key对话框 */}
         <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-          <DialogTitle>添加新的 API 密钥</DialogTitle>
+          <DialogTitle>添加新的 API Key</DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
               margin="dense"
-              label="密钥名称"
+              label="渠道名称"
               type="text"
               fullWidth
               variant="standard"
@@ -194,7 +256,7 @@ const App: React.FC = () => {
             />
             <TextField
               margin="dense"
-              label="API 密钥"
+              label="API Key"
               type="password"
               fullWidth
               variant="standard"
@@ -216,6 +278,48 @@ const App: React.FC = () => {
           <DialogActions>
             <Button onClick={() => setOpenDialog(false)}>取消</Button>
             <Button onClick={handleAddKey} variant="contained">添加</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 编辑 API Key对话框 */}
+        <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)}>
+          <DialogTitle>编辑 API Key</DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="渠道名称"
+              type="text"
+              fullWidth
+              variant="standard"
+              value={newKeyName}
+              onChange={(e) => setNewKeyName(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              margin="dense"
+              label="API Key"
+              type="password"
+              fullWidth
+              variant="standard"
+              value={newKeyValue}
+              onChange={(e) => setNewKeyValue(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              margin="dense"
+              label="Base URL (可选)"
+              type="text"
+              fullWidth
+              variant="standard"
+              value={newKeyBaseUrl}
+              onChange={(e) => setNewKeyBaseUrl(e.target.value)}
+              helperText="对于兼容 OpenAI 格式的第三方 API，如本地部署的模型"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditDialogOpen(false)}>取消</Button>
+            <Button onClick={handleUpdateKey} variant="contained">更新</Button>
           </DialogActions>
         </Dialog>
       </Box>
