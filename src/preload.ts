@@ -3,12 +3,29 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 
+// 定义语音识别结果的类型
+interface SpeechRecognitionResult {
+  text: string;
+  isFinal: boolean;
+  confidence?: number;
+  language?: string;
+}
+
 // 定义API接口以提高类型安全性
 interface IElectronAPI {
   // IPC通信方法
   ipcRenderer: {
     on: (channel: string, func: (...args: any[]) => void) => void;
     removeListener: (channel: string, func: (...args: any[]) => void) => void;
+    invoke: (channel: string, ...args: any[]) => Promise<any>;
+  };
+  
+  // 语音识别方法
+  speechRecognition: {
+    start: () => Promise<{ success: boolean; error?: string }>;
+    stop: () => Promise<{ success: boolean; error?: string }>;
+    onResult: (callback: (result: SpeechRecognitionResult) => void) => void;
+    onError: (callback: (error: string) => void) => void;
   };
 }
 
@@ -20,6 +37,17 @@ const electronAPI: IElectronAPI = {
     },
     removeListener: (channel, func) => {
       ipcRenderer.removeListener(channel, func);
+    },
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
+  },
+  speechRecognition: {
+    start: () => ipcRenderer.invoke('start-speech-recognition'),
+    stop: () => ipcRenderer.invoke('stop-speech-recognition'),
+    onResult: (callback) => {
+      ipcRenderer.on('speech-recognition-result', (event, result) => callback(result));
+    },
+    onError: (callback) => {
+      ipcRenderer.on('speech-recognition-error', (event, error) => callback(error));
     }
   }
 };

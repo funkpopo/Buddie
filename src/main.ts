@@ -1,5 +1,10 @@
-import { app, BrowserWindow, Tray, Menu, globalShortcut } from 'electron';
+import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain } from 'electron';
 import path from 'path';
+import { SpeechRecognizer } from './speech-recognition';
+
+// Electron Forge Vite 插件生成的全局变量
+declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
+declare const MAIN_WINDOW_VITE_NAME: string;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -8,6 +13,7 @@ if (require('electron-squirrel-startup')) {
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let speechRecognizer: SpeechRecognizer | null = null;
 
 const createWindow = () => {
   // Create the browser window.
@@ -42,7 +48,7 @@ const createTray = () => {
   
   // 在开发模式下，图标路径不同
   if (process.env.NODE_ENV === 'development') {
-    iconPath = path.join(__dirname, '../src/assets/icon.png');
+    iconPath = path.join(__dirname, '../../assets/icon.png');
   }
   
   // 如果图标不存在，尝试其他路径
@@ -51,6 +57,12 @@ const createTray = () => {
     const alternativePath = path.join(__dirname, 'icon.png');
     if (require('fs').existsSync(alternativePath)) {
       iconPath = alternativePath;
+    } else {
+      // 最后尝试从项目根目录加载
+      const rootIconPath = path.join(__dirname, '../../../assets/icon.png');
+      if (require('fs').existsSync(rootIconPath)) {
+        iconPath = rootIconPath;
+      }
     }
   }
   
@@ -141,6 +153,21 @@ app.on('ready', () => {
   createWindow();
   createTray();
   registerGlobalShortcut();
+  
+  // 初始化语音识别器
+  speechRecognizer = new SpeechRecognizer();
+  
+  // 监听语音识别事件
+  speechRecognizer.on('result', (result) => {
+    sendRecognitionResult(result);
+  });
+  
+  speechRecognizer.on('error', (error) => {
+    console.error('Speech recognition error:', error);
+    if (mainWindow) {
+      mainWindow.webContents.send('speech-recognition-error', error.message);
+    }
+  });
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -159,6 +186,41 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
+// IPC 处理程序：开始语音识别
+ipcMain.handle('start-speech-recognition', async () => {
+  if (!speechRecognizer) {
+    return { success: false, error: 'Speech recognizer not initialized' };
+  }
+  
+  try {
+    await speechRecognizer.startListening();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// IPC 处理程序：停止语音识别
+ipcMain.handle('stop-speech-recognition', async () => {
+  if (!speechRecognizer) {
+    return { success: false, error: 'Speech recognizer not initialized' };
+  }
+  
+  try {
+    await speechRecognizer.stopListening();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// 发送识别结果到渲染进程的函数
+const sendRecognitionResult = (result: any) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('speech-recognition-result', result);
+  }
+};
 
 app.on('will-quit', () => {
   // 注销所有快捷键
