@@ -27,6 +27,11 @@ interface IElectronAPI {
     onResult: (callback: (result: SpeechRecognitionResult) => void) => void;
     onError: (callback: (error: string) => void) => void;
   };
+  
+  // 系统方法
+  system: {
+    getModelCacheDir: () => Promise<string>;
+  };
 }
 
 // 创建安全的API桥接
@@ -49,6 +54,9 @@ const electronAPI: IElectronAPI = {
     onError: (callback) => {
       ipcRenderer.on('speech-recognition-error', (event, error) => callback(error));
     }
+  },
+  system: {
+    getModelCacheDir: () => ipcRenderer.invoke('get-model-cache-dir')
   }
 };
 

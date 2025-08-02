@@ -20,6 +20,11 @@ export interface IElectronAPI {
     onResult: (callback: (result: SpeechRecognitionResult) => void) => void;
     onError: (callback: (error: string) => void) => void;
   };
+  
+  // 系统方法
+  system: {
+    getModelCacheDir: () => Promise<string>;
+  };
 }
 
 declare global {

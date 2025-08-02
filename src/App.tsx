@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, memo, useMemo, useEffect, useRef } from 'react';
 import { 
   IconButton, 
   Box, 
@@ -15,7 +15,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  LinearProgress
 } from '@mui/material';
 import { 
   Settings as SettingsIcon, 
@@ -30,11 +31,21 @@ import {
 } from '@mui/icons-material';
 import { useTheme } from './ThemeContext';
 import { useApiKeys } from './ApiKeyContext';
+import { getTransformersASRInstance, TransformersASRResult, ModelInfo, ModelDownloadProgress } from './transformers-asr';
 
 const App: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const [currentPage, setCurrentPage] = useState<'home' | 'settings'>('home');
   const [isListening, setIsListening] = useState<boolean>(false);
+  const [transcript, setTranscript] = useState<string>('');
+  const [isInitializing, setIsInitializing] = useState<boolean>(false);
+  
+  // 模型管理相关状态
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+  const [currentModelId, setCurrentModelId] = useState<string>('');
+  const [modelDownloadProgress, setModelDownloadProgress] = useState<Record<string, number>>({});
+  
+  const asrRef = useRef(getTransformersASRInstance());
 
   // 添加 IPC 消息监听
   useEffect(() => {
@@ -66,13 +77,99 @@ const App: React.FC = () => {
     handleSetCurrentPage('settings');
   }, [handleSetCurrentPage]);
 
-  const toggleListening = useCallback(() => {
-    setIsListening(prev => {
-      const newState = !prev;
-      console.log(`语音聆听状态: ${newState ? '开启' : '关闭'}`);
-      // 这里可以添加实际的语音处理逻辑
-      return newState;
-    });
+  const toggleListening = useCallback(async () => {
+    try {
+      if (isListening) {
+        // 停止监听
+        await asrRef.current.stopListening();
+        setIsListening(false);
+        console.log('语音识别已停止');
+      } else {
+        // 开始监听
+        setIsInitializing(true);
+        
+        if (!asrRef.current.initialized) {
+          console.log('正在初始化ASR模型...');
+          await asrRef.current.initialize();
+        }
+        
+        await asrRef.current.startListening();
+        setIsListening(true);
+        setIsInitializing(false);
+        console.log('语音识别已开始');
+      }
+    } catch (error) {
+      console.error('语音识别操作失败:', error);
+      setIsListening(false);
+      setIsInitializing(false);
+      
+      // 提供更友好的错误提示
+      let errorMessage = '语音识别失败';
+      if (error instanceof Error) {
+        if (error.message.includes('internet connection') || error.message.includes('network')) {
+          errorMessage = '网络连接问题，请检查网络连接后重试';
+        } else if (error.message.includes('model')) {
+          errorMessage = '语音识别模型加载失败，请稍后重试';
+        } else if (error.message.includes('microphone') || error.message.includes('getUserMedia')) {
+          errorMessage = '无法访问麦克风，请检查麦克风权限';
+        } else {
+          errorMessage = `语音识别错误: ${error.message}`;
+        }
+      }
+      
+      // 这里可以添加用户通知逻辑，比如显示Toast
+      console.warn('用户友好错误提示:', errorMessage);
+    }
+  }, [isListening]);
+
+  // 设置ASR事件监听器
+  useEffect(() => {
+    const asr = asrRef.current;
+    
+    const handleResult = (result: TransformersASRResult) => {
+      setTranscript(prev => prev + (prev ? ' ' : '') + result.text);
+      console.log('识别结果:', result.text);
+    };
+    
+    const handleError = (error: Error) => {
+      console.error('ASR错误:', error);
+      setIsListening(false);
+      setIsInitializing(false);
+    };
+    
+    const handleModelProgress = (progress: { status: string; progress?: number }) => {
+      console.log('模型下载进度:', progress);
+    };
+
+    // 模型管理事件监听器
+    const handleModelListUpdated = (models: ModelInfo[]) => {
+      setAvailableModels(models);
+    };
+
+    const handleModelDownloadProgress = (progress: ModelDownloadProgress) => {
+      setModelDownloadProgress(prev => ({
+        ...prev,
+        [progress.modelId]: progress.progress
+      }));
+    };
+    
+    asr.on('result', handleResult);
+    asr.on('error', handleError);
+    asr.on('modelProgress', handleModelProgress);
+    asr.on('modelListUpdated', handleModelListUpdated);
+    asr.on('modelDownloadProgress', handleModelDownloadProgress);
+    
+    // 初始化模型列表
+    setAvailableModels(asr.getAvailableModels());
+    setCurrentModelId(asr.getCurrentModelId());
+    
+    return () => {
+      asr.off('result', handleResult);
+      asr.off('error', handleError);
+      asr.off('modelProgress', handleModelProgress);
+      asr.off('modelListUpdated', handleModelListUpdated);
+      asr.off('modelDownloadProgress', handleModelDownloadProgress);
+    };
   }, []);
 
   // 使用useMemo优化组件渲染
@@ -83,6 +180,10 @@ const App: React.FC = () => {
     const [newKeyValue, setNewKeyValue] = useState('');
     const [newKeyBaseUrl, setNewKeyBaseUrl] = useState('');
     const [editingKeyId, setEditingKeyId] = useState<string | null>(null);
+    const [micTestResult, setMicTestResult] = useState<{ success: boolean; error?: string; audioLevel?: number } | null>(null);
+    const [isTesting, setIsTesting] = useState(false);
+    const [currentAudioLevel, setCurrentAudioLevel] = useState(0);
+    const [currentDecibels, setCurrentDecibels] = useState(-60);
     const { apiKeys, addApiKey, removeApiKey, updateApiKey } = useApiKeys();
 
     const handleAddKey = () => {
@@ -124,6 +225,100 @@ const App: React.FC = () => {
         setEditDialogOpen(false);
       }
     };
+
+    // 模型管理处理函数
+    const handleDownloadModel = async (modelId: string) => {
+      try {
+        await asrRef.current.downloadModel(modelId);
+        console.log(`模型 ${modelId} 下载完成`);
+      } catch (error) {
+        console.error(`模型 ${modelId} 下载失败:`, error);
+        // 这里可以添加用户通知
+      }
+    };
+
+    const handleSwitchModel = async (modelId: string) => {
+      try {
+        await asrRef.current.switchToModel(modelId);
+        setCurrentModelId(modelId);
+        console.log(`已切换到模型 ${modelId}`);
+      } catch (error) {
+        console.error(`切换模型失败:`, error);
+        // 这里可以添加用户通知
+      }
+    };
+
+    const handleDeleteModel = async (modelId: string) => {
+      try {
+        await asrRef.current.deleteModel(modelId);
+        console.log(`模型 ${modelId} 已删除`);
+      } catch (error) {
+        console.error(`删除模型失败:`, error);
+        // 这里可以添加用户通知
+      }
+    };
+
+    const handleMicrophoneTest = async () => {
+      if (isTesting) {
+        // 停止测试
+        try {
+          await asrRef.current.stopMicrophoneTest();
+          setIsTesting(false);
+          setMicTestResult({ success: true, audioLevel: currentAudioLevel });
+        } catch (error) {
+          setMicTestResult({
+            success: false,
+            error: (error as Error).message
+          });
+          setIsTesting(false);
+        }
+      } else {
+        // 开始测试
+        setIsTesting(true);
+        setMicTestResult(null);
+        setCurrentAudioLevel(0);
+        setCurrentDecibels(-60);
+        
+        try {
+          const result = await asrRef.current.startMicrophoneTest();
+          if (!result.success) {
+            setMicTestResult({
+              success: false,
+              error: result.error
+            });
+            setIsTesting(false);
+          }
+        } catch (error) {
+          setMicTestResult({
+            success: false,
+            error: (error as Error).message
+          });
+          setIsTesting(false);
+        }
+      }
+    };
+
+    // 监听麦克风测试级别
+    useEffect(() => {
+      const asr = asrRef.current;
+      
+      const handleMicTestLevel = (data: { level: number; decibels: number }) => {
+        setCurrentAudioLevel(data.level);
+        setCurrentDecibels(data.decibels);
+      };
+
+      const handleMicTestStopped = () => {
+        setIsTesting(false);
+      };
+
+      asr.on('micTestLevel', handleMicTestLevel);
+      asr.on('micTestStopped', handleMicTestStopped);
+
+      return () => {
+        asr.off('micTestLevel', handleMicTestLevel);
+        asr.off('micTestStopped', handleMicTestStopped);
+      };
+    }, []);
 
     return (
       <Box 
@@ -237,6 +432,237 @@ const App: React.FC = () => {
               </List>
             )}
           </Paper>
+          
+          {/* 麦克风测试部分 */}
+          <Paper sx={{ width: '100%', maxWidth: 600, p: 3, mb: 3, boxSizing: 'border-box' }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>麦克风测试</Typography>
+            
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Button 
+                variant="contained" 
+                color={isTesting ? "error" : "secondary"}
+                onClick={handleMicrophoneTest}
+                startIcon={isTesting ? <Typography>⏹️</Typography> : <Typography>🎤</Typography>}
+              >
+                {isTesting ? '停止测试' : '开始测试麦克风'}
+              </Button>
+              
+              {/* 分贝进度条 */}
+              {isTesting && (
+                <Box sx={{ width: '100%' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      音量级别
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {currentDecibels.toFixed(1)} dB
+                    </Typography>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={currentAudioLevel} 
+                    sx={{ 
+                      height: 10, 
+                      borderRadius: 5,
+                      backgroundColor: theme === 'dark' ? 'grey.700' : 'grey.300',
+                      '& .MuiLinearProgress-bar': {
+                        borderRadius: 5,
+                        backgroundColor: currentAudioLevel > 80 ? '#f44336' : 
+                                       currentAudioLevel > 50 ? '#ff9800' : 
+                                       currentAudioLevel > 20 ? '#4caf50' : '#2196f3'
+                      }
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">静音</Typography>
+                    <Typography variant="caption" color="text.secondary">适中</Typography>
+                    <Typography variant="caption" color="text.secondary">过大</Typography>
+                  </Box>
+                </Box>
+              )}
+              
+              {micTestResult && !isTesting && (
+                <Paper 
+                  variant="outlined" 
+                  sx={{ 
+                    p: 2, 
+                    backgroundColor: micTestResult.success ? 'success.light' : 'error.light',
+                    color: micTestResult.success ? 'success.contrastText' : 'error.contrastText'
+                  }}
+                >
+                  {micTestResult.success ? (
+                    <Box>
+                      <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                        ✅ 麦克风测试完成！
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        最大音频级别: {micTestResult.audioLevel?.toFixed(1) || 'N/A'}%
+                      </Typography>
+                      <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
+                        您的麦克风工作正常，可以进行语音识别。
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Box>
+                      <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                        ❌ 麦克风测试失败
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        错误: {micTestResult.error}
+                      </Typography>
+                      <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
+                        请检查麦克风权限或设备连接。
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              )}
+              
+              <Typography variant="caption" color="text.secondary">
+                {isTesting 
+                  ? '麦克风正在测试中，请对着麦克风说话或制造声音。完成后点击"停止测试"按钮。'
+                  : '点击"开始测试麦克风"按钮检查您的麦克风是否正常工作。测试将实时显示音频级别。'
+                }
+              </Typography>
+            </Box>
+          </Paper>
+          
+          {/* ASR 模型管理部分 */}
+          <Paper sx={{ width: '100%', maxWidth: 600, p: 3, mb: 3, boxSizing: 'border-box' }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>语音识别模型管理</Typography>
+            
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                选择和管理用于语音识别的模型。所有模型都经过优化，可在CPU上高效运行。
+              </Typography>
+              
+              {availableModels.map((model) => (
+                <Paper 
+                  key={model.id}
+                  variant="outlined" 
+                  sx={{ 
+                    p: 2,
+                    backgroundColor: currentModelId === model.id ? 
+                      (theme === 'dark' ? 'rgba(144, 202, 249, 0.1)' : 'rgba(25, 118, 210, 0.05)') : 
+                      'transparent',
+                    border: currentModelId === model.id ? 
+                      (theme === 'dark' ? '1px solid rgba(144, 202, 249, 0.3)' : '1px solid rgba(25, 118, 210, 0.2)') : 
+                      '1px solid rgba(0, 0, 0, 0.12)'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                          {model.name}
+                        </Typography>
+                        {currentModelId === model.id && (
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              backgroundColor: 'primary.main',
+                              color: 'primary.contrastText',
+                              px: 1,
+                              py: 0.25,
+                              borderRadius: 1,
+                              fontSize: '0.7rem'
+                            }}
+                          >
+                            当前使用
+                          </Typography>
+                        )}
+                      </Box>
+                      
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {model.description}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                        <Typography variant="caption">
+                          <strong>大小:</strong> {model.size}
+                        </Typography>
+                        <Typography variant="caption">
+                          <strong>语言:</strong> {model.languages.join(', ')}
+                        </Typography>
+                      </Box>
+                      
+                      {/* 下载进度 */}
+                      {model.downloading && (
+                        <Box sx={{ mt: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            下载中: {model.downloadProgress.toFixed(1)}%
+                          </Typography>
+                          <LinearProgress 
+                            variant="determinate" 
+                            value={model.downloadProgress} 
+                            sx={{ mt: 0.5, height: 6, borderRadius: 3 }}
+                          />
+                        </Box>
+                      )}
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, ml: 2 }}>
+                      {!model.downloaded && !model.downloading && (
+                        <Button 
+                          variant="contained" 
+                          size="small"
+                          onClick={() => handleDownloadModel(model.id)}
+                          sx={{ minWidth: 80 }}
+                        >
+                          下载
+                        </Button>
+                      )}
+                      
+                      {model.downloading && (
+                        <Button 
+                          variant="outlined" 
+                          size="small"
+                          disabled
+                          sx={{ minWidth: 80 }}
+                        >
+                          下载中...
+                        </Button>
+                      )}
+                      
+                      {model.downloaded && !model.downloading && (
+                        <>
+                          {currentModelId !== model.id && (
+                            <Button 
+                              variant="outlined" 
+                              size="small"
+                              onClick={() => handleSwitchModel(model.id)}
+                              sx={{ minWidth: 80 }}
+                            >
+                              使用
+                            </Button>
+                          )}
+                          
+                          <Button 
+                            variant="outlined" 
+                            color="error"
+                            size="small"
+                            onClick={() => handleDeleteModel(model.id)}
+                            disabled={currentModelId === model.id}
+                            sx={{ minWidth: 80 }}
+                          >
+                            删除
+                          </Button>
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                </Paper>
+              ))}
+              
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                💡 建议：
+                <br />• 中英混合识别：选择 "Whisper Tiny (多语言)" 或 "Whisper Base (多语言)"
+                <br />• 纯英文识别：选择对应的 English 版本以获得更高准确度
+                <br />• 设备性能较低：优先选择 Tiny 版本
+                <br />• 追求准确度：选择 Base 版本
+              </Typography>
+            </Box>
+          </Paper>
         </Box>
         
         {/* 添加 API Key对话框 */}
@@ -324,7 +750,7 @@ const App: React.FC = () => {
         </Dialog>
       </Box>
     );
-  }), [handleSetCurrentPage, theme, toggleTheme]);
+  }), [handleSetCurrentPage, theme, toggleTheme, availableModels, currentModelId]);
 
   const HomePage = useMemo(() => memo(() => (
     <Box 
@@ -339,12 +765,54 @@ const App: React.FC = () => {
       }}
     >
       {/* 语音按钮 */}
-      <button 
-        className={`voice-button ${isListening ? 'listening' : ''}`}
-        onClick={toggleListening}
-      >
-        {isListening ? <MicOffIcon sx={{ fontSize: 50, color: 'white' }} /> : <MicIcon sx={{ fontSize: 50, color: 'white' }} />}
-      </button>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+        <button 
+          className={`voice-button ${isListening ? 'listening' : ''} ${isInitializing ? 'initializing' : ''}`}
+          onClick={toggleListening}
+          disabled={isInitializing}
+        >
+          {isInitializing ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography sx={{ fontSize: 14, color: 'white' }}>初始化中...</Typography>
+            </Box>
+          ) : isListening ? (
+            <MicOffIcon sx={{ fontSize: 50, color: 'white' }} />
+          ) : (
+            <MicIcon sx={{ fontSize: 50, color: 'white' }} />
+          )}
+        </button>
+        
+        {/* 状态指示 */}
+        <Typography variant="h6" color="text.secondary">
+          {isInitializing ? '正在初始化语音识别...' : isListening ? '正在监听...' : '点击开始语音识别'}
+        </Typography>
+        
+        {/* 转录结果显示 */}
+        {transcript && (
+          <Paper 
+            elevation={3}
+            sx={{ 
+              p: 2, 
+              maxWidth: '80%', 
+              minHeight: 100,
+              backgroundColor: theme === 'dark' ? 'grey.800' : 'grey.100',
+              borderRadius: 2
+            }}
+          >
+            <Typography variant="h6" gutterBottom>识别结果:</Typography>
+            <Typography sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {transcript}
+            </Typography>
+            <Button 
+              size="small" 
+              onClick={() => setTranscript('')}
+              sx={{ mt: 1 }}
+            >
+              清除
+            </Button>
+          </Paper>
+        )}
+      </Box>
       
       {/* 设置按钮 - 左上角 */}
       <IconButton
@@ -384,7 +852,7 @@ const App: React.FC = () => {
         <DarkModeIcon sx={{ fontSize: 20, ml: 1, color: theme === 'dark' ? 'primary.main' : 'text.secondary' }} />
       </Box>
     </Box>
-  )), [handleSettingsClick, isListening, toggleListening, theme, toggleTheme]);
+  )), [handleSettingsClick, isListening, isInitializing, toggleListening, theme, toggleTheme, transcript]);
 
   if (currentPage === 'settings') {
     return <SettingsPage />;

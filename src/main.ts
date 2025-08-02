@@ -215,6 +215,24 @@ ipcMain.handle('stop-speech-recognition', async () => {
   }
 });
 
+// IPC 处理程序：获取模型缓存目录
+ipcMain.handle('get-model-cache-dir', async () => {
+  try {
+    if (process.env.NODE_ENV === 'development') {
+      // 开发环境：项目根目录下的models文件夹
+      return path.join(process.cwd(), 'models');
+    } else {
+      // 生产环境：exe同级的models文件夹
+      const exePath = app.getPath('exe');
+      const exeDir = path.dirname(exePath);
+      return path.join(exeDir, 'models');
+    }
+  } catch (error) {
+    console.error('Failed to get model cache directory:', error);
+    return './models'; // 回退到默认路径
+  }
+});
+
 // 发送识别结果到渲染进程的函数
 const sendRecognitionResult = (result: any) => {
   if (mainWindow) {
