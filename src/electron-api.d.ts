@@ -6,6 +6,20 @@ interface SpeechRecognitionResult {
   language?: string;
 }
 
+// 定义代理配置类型
+interface ProxyConfig {
+  enabled: boolean;
+  useSystemProxy: boolean;
+  manualProxy?: {
+    host: string;
+    port: number;
+    auth?: {
+      username: string;
+      password: string;
+    };
+  };
+}
+
 export interface IElectronAPI {
   ipcRenderer: {
     on: (channel: string, func: (...args: any[]) => void) => void;
@@ -24,6 +38,13 @@ export interface IElectronAPI {
   // 系统方法
   system: {
     getModelCacheDir: () => Promise<string>;
+  };
+  
+  // 代理方法
+  proxy: {
+    getConfig: () => Promise<ProxyConfig>;
+    setConfig: (config: ProxyConfig) => Promise<{ success: boolean; error?: string }>;
+    testConnection: () => Promise<{ success: boolean; error?: string; statusCode?: number }>;
   };
 }
 

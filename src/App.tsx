@@ -16,7 +16,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  LinearProgress
+  LinearProgress,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import { 
   Settings as SettingsIcon, 
@@ -45,6 +47,11 @@ const App: React.FC = () => {
   const [currentModelId, setCurrentModelId] = useState<string>('');
   const [modelDownloadProgress, setModelDownloadProgress] = useState<Record<string, number>>({});
   
+  // 错误提示状态
+  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string>('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'error' | 'warning' | 'info' | 'success'>('error');
+  
   const asrRef = useRef(getTransformersASRInstance());
 
   // 添加 IPC 消息监听
@@ -71,6 +78,18 @@ const App: React.FC = () => {
 
   const handleSetCurrentPage = useCallback((page: 'home' | 'settings') => {
     setCurrentPage(page);
+  }, []);
+
+  // 显示用户提示消息的函数
+  const showMessage = useCallback((message: string, severity: 'error' | 'warning' | 'info' | 'success' = 'error') => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  }, []);
+
+  // 关闭提示消息
+  const handleSnackbarClose = useCallback(() => {
+    setSnackbarOpen(false);
   }, []);
 
   const handleSettingsClick = useCallback(() => {
@@ -109,7 +128,7 @@ const App: React.FC = () => {
         if (error.message.includes('internet connection') || error.message.includes('network')) {
           errorMessage = '网络连接问题，请检查网络连接后重试';
         } else if (error.message.includes('model')) {
-          errorMessage = '语音识别模型加载失败，请稍后重试';
+          errorMessage = '未检测到本地模型，请在设置页面下载语音识别模型';
         } else if (error.message.includes('microphone') || error.message.includes('getUserMedia')) {
           errorMessage = '无法访问麦克风，请检查麦克风权限';
         } else {
@@ -117,10 +136,10 @@ const App: React.FC = () => {
         }
       }
       
-      // 这里可以添加用户通知逻辑，比如显示Toast
-      console.warn('用户友好错误提示:', errorMessage);
+      // 显示用户友好的错误提示
+      showMessage(errorMessage, 'error');
     }
-  }, [isListening]);
+  }, [isListening, showMessage]);
 
   // 设置ASR事件监听器
   useEffect(() => {
@@ -135,6 +154,15 @@ const App: React.FC = () => {
       console.error('ASR错误:', error);
       setIsListening(false);
       setIsInitializing(false);
+      
+      // 显示用户友好的错误提示
+      let errorMessage = 'ASR错误';
+      if (error.message.includes('model')) {
+        errorMessage = '未检测到本地模型，请在设置页面下载语音识别模型';
+      } else {
+        errorMessage = `语音识别错误: ${error.message}`;
+      }
+      showMessage(errorMessage, 'error');
     };
     
     const handleModelProgress = (progress: { status: string; progress?: number }) => {
@@ -170,7 +198,7 @@ const App: React.FC = () => {
       asr.off('modelListUpdated', handleModelListUpdated);
       asr.off('modelDownloadProgress', handleModelDownloadProgress);
     };
-  }, []);
+  }, [showMessage]);
 
   // 使用useMemo优化组件渲染
   const SettingsPage = useMemo(() => memo(() => {
@@ -230,10 +258,10 @@ const App: React.FC = () => {
     const handleDownloadModel = async (modelId: string) => {
       try {
         await asrRef.current.downloadModel(modelId);
-        console.log(`模型 ${modelId} 下载完成`);
+        showMessage(`模型 ${modelId} 下载完成`, 'success');
       } catch (error) {
         console.error(`模型 ${modelId} 下载失败:`, error);
-        // 这里可以添加用户通知
+        showMessage(`模型 ${modelId} 下载失败: ${(error as Error).message}`, 'error');
       }
     };
 
@@ -241,20 +269,20 @@ const App: React.FC = () => {
       try {
         await asrRef.current.switchToModel(modelId);
         setCurrentModelId(modelId);
-        console.log(`已切换到模型 ${modelId}`);
+        showMessage(`已切换到模型 ${modelId}`, 'success');
       } catch (error) {
         console.error(`切换模型失败:`, error);
-        // 这里可以添加用户通知
+        showMessage(`切换模型失败: ${(error as Error).message}`, 'error');
       }
     };
 
     const handleDeleteModel = async (modelId: string) => {
       try {
         await asrRef.current.deleteModel(modelId);
-        console.log(`模型 ${modelId} 已删除`);
+        showMessage(`模型 ${modelId} 已删除`, 'success');
       } catch (error) {
         console.error(`删除模型失败:`, error);
-        // 这里可以添加用户通知
+        showMessage(`删除模型失败: ${(error as Error).message}`, 'error');
       }
     };
 
@@ -750,7 +778,7 @@ const App: React.FC = () => {
         </Dialog>
       </Box>
     );
-  }), [handleSetCurrentPage, theme, toggleTheme, availableModels, currentModelId]);
+  }), [handleSetCurrentPage, theme, toggleTheme, availableModels, currentModelId, showMessage]);
 
   const HomePage = useMemo(() => memo(() => (
     <Box 
@@ -855,10 +883,46 @@ const App: React.FC = () => {
   )), [handleSettingsClick, isListening, isInitializing, toggleListening, theme, toggleTheme, transcript]);
 
   if (currentPage === 'settings') {
-    return <SettingsPage />;
+    return (
+      <>
+        <SettingsPage />
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={handleSnackbarClose}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleSnackbarClose} 
+            severity={snackbarSeverity}
+            sx={{ width: '100%' }}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
+      </>
+    );
   }
 
-  return <HomePage />;
+  return (
+    <>
+      <HomePage />
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleSnackbarClose} 
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+    </>
+  );
 };
 
 export default memo(App);

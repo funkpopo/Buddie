@@ -13,5 +13,13 @@ export default defineConfig({
       ],
       hook: 'writeBundle' // 在写入 bundle 后复制
     })
-  ]
+  ],
+  build: {
+    rollupOptions: {
+      external: [
+        'onnxruntime-node',
+        '@xenova/transformers'
+      ]
+    }
+  }
 });

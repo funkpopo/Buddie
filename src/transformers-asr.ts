@@ -604,6 +604,24 @@ export class TransformersASR extends EventEmitter {
 
   // 模型管理方法
   
+  // 检测网络连接
+  private async checkNetworkConnection(): Promise<void> {
+    try {
+      // 尝试访问 Hugging Face 来检测连接
+      const response = await fetch('https://huggingface.co/Xenova/whisper-tiny/resolve/main/config.json', {
+        method: 'HEAD',
+        cache: 'no-cache'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('网络连接检测失败:', error);
+      throw new Error(`无法连接到 Hugging Face CDN: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  }
+  
   // 获取可用模型列表
   getAvailableModels(): ModelInfo[] {
     return [...this.availableModels];
@@ -649,6 +667,157 @@ export class TransformersASR extends EventEmitter {
     console.log(`已切换到模型: ${model.name}`);
   }
   
+  // 直接下载Whisper Tiny ONNX模型文件
+  async downloadWhisperTinyONNX(): Promise<void> {
+    const url = 'https://huggingface.co/Xenova/whisper-tiny/resolve/main/onnx/decoder_model_q4.onnx';
+    const modelId = 'Xenova/whisper-tiny';
+    const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
+    
+    if (modelIndex === -1) {
+      throw new Error(`模型 ${modelId} 不存在`);
+    }
+    
+    const model = this.availableModels[modelIndex];
+    if (model.downloaded) {
+      console.log(`模型 ${model.name} 已经下载完成`);
+      return;
+    }
+    
+    if (model.downloading) {
+      throw new Error(`模型 ${model.name} 正在下载中`);
+    }
+    
+    // 确保缓存目录已初始化
+    if (this.modelCacheDir === './models') {
+      await this.initializeModelCacheDir();
+    }
+    
+    // 标记为下载中
+    this.availableModels[modelIndex] = {
+      ...model,
+      downloading: true,
+      downloadProgress: 0
+    };
+    
+    this.emit('modelListUpdated', this.getAvailableModels());
+    
+    try {
+      console.log(`开始下载Whisper Tiny ONNX模型: ${url}`);
+      console.log(`模型缓存目录: ${this.modelCacheDir}`);
+      
+      // 确保缓存目录存在
+      const fs = require('fs');
+      const path = require('path');
+      if (!fs.existsSync(this.modelCacheDir)) {
+        fs.mkdirSync(this.modelCacheDir, { recursive: true });
+      }
+      
+      // 创建模型特定目录
+      const modelDir = path.join(this.modelCacheDir, 'Xenova--whisper-tiny', 'onnx');
+      if (!fs.existsSync(modelDir)) {
+        fs.mkdirSync(modelDir, { recursive: true });
+      }
+      
+      const filePath = path.join(modelDir, 'decoder_model_q4.onnx');
+      
+      // 下载文件
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const total = parseInt(response.headers.get('content-length') || '0');
+      let loaded = 0;
+      
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('无法获取响应流');
+      }
+      
+      const chunks: Uint8Array[] = [];
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        chunks.push(value);
+        loaded += value.length;
+        
+        const progress = total > 0 ? (loaded / total) * 100 : 0;
+        
+        // 更新下载进度
+        this.availableModels[modelIndex] = {
+          ...this.availableModels[modelIndex],
+          downloadProgress: progress
+        };
+        
+        const downloadProgress: ModelDownloadProgress = {
+          modelId,
+          progress,
+          status: 'downloading'
+        };
+        
+        this.emit('modelDownloadProgress', downloadProgress);
+        this.emit('modelListUpdated', this.getAvailableModels());
+        
+        console.log(`下载进度: ${progress.toFixed(1)}%`);
+      }
+      
+      // 合并所有块并写入文件
+      const fileData = new Uint8Array(loaded);
+      let offset = 0;
+      for (const chunk of chunks) {
+        fileData.set(chunk, offset);
+        offset += chunk.length;
+      }
+      
+      fs.writeFileSync(filePath, fileData);
+      
+      // 下载成功
+      this.availableModels[modelIndex] = {
+        ...model,
+        downloaded: true,
+        downloading: false,
+        downloadProgress: 100
+      };
+      
+      const downloadProgress: ModelDownloadProgress = {
+        modelId,
+        progress: 100,
+        status: 'completed'
+      };
+      
+      this.emit('modelDownloadProgress', downloadProgress);
+      this.emit('modelListUpdated', this.getAvailableModels());
+      this.saveModelStatus();
+      
+      console.log(`Whisper Tiny ONNX模型下载完成: ${filePath}`);
+      
+    } catch (error) {
+      // 下载失败
+      this.availableModels[modelIndex] = {
+        ...model,
+        downloading: false,
+        downloadProgress: 0
+      };
+      
+      const errorMessage = (error as Error).message;
+      
+      const downloadProgress: ModelDownloadProgress = {
+        modelId,
+        progress: 0,
+        status: 'error',
+        error: errorMessage
+      };
+      
+      this.emit('modelDownloadProgress', downloadProgress);
+      this.emit('modelListUpdated', this.getAvailableModels());
+      
+      console.error(`Whisper Tiny ONNX模型下载失败:`, error);
+      throw new Error(errorMessage);
+    }
+  }
+
   // 下载指定模型
   async downloadModel(modelId: string): Promise<void> {
     const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
@@ -683,13 +852,25 @@ export class TransformersASR extends EventEmitter {
     try {
       console.log(`开始下载模型: ${model.name}`);
       console.log(`模型缓存目录: ${this.modelCacheDir}`);
+      console.log(`模型ID: ${modelId}`);
+      console.log(`Hugging Face URL: https://huggingface.co/${modelId}/tree/main`);
       
-      // 配置环境变量
+      // 检测网络连接
+      await this.checkNetworkConnection();
+      
+      // 配置环境变量以支持应用内下载
       env.allowRemoteModels = true;
       env.allowLocalModels = true;
-      env.useBrowserCache = true;
+      env.useBrowserCache = false; // 禁用浏览器缓存避免冲突
       env.remoteURL = 'https://huggingface.co/';
       env.remotePathTemplate = '{model}/resolve/{revision}/{file}';
+      
+      // 添加请求头以避免CORS问题
+      if (!env.customHeaders) {
+        env.customHeaders = {};
+      }
+      env.customHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+      env.customHeaders['Accept'] = 'application/json, application/octet-stream, */*';
       
       // 下载模型
       const testPipeline = await pipeline(
@@ -700,6 +881,8 @@ export class TransformersASR extends EventEmitter {
           revision: 'main',
           cache_dir: this.modelCacheDir,
           local_files_only: false,
+          trust_remote_code: false, // 安全考虑，不执行远程代码
+          use_auth_token: false, // 公开模型无需认证
           progress_callback: (progress: { status: string; progress?: number; file?: string }) => {
             if (progress.status === 'downloading' || progress.status === 'loading') {
               const progressPercent = progress.progress || 0;
@@ -756,18 +939,33 @@ export class TransformersASR extends EventEmitter {
         downloadProgress: 0
       };
       
+      let errorMessage = (error as Error).message;
+      
+      // 检查是否是网络或CDN相关错误，提供更详细的错误信息
+      if (errorMessage.includes('SyntaxError') && errorMessage.includes('<!DOCTYPE')) {
+        errorMessage = '网络连接问题或CDN暂时不可用。可能原因：1) 网络代理阻止了Hugging Face访问 2) DNS解析问题 3) 防火墙限制。请检查网络连接后重试';
+      } else if (errorMessage.includes('fetch')) {
+        errorMessage = '网络连接失败，无法访问Hugging Face模型库，请检查网络连接';
+      } else if (errorMessage.includes('timeout')) {
+        errorMessage = '下载超时，请检查网络连接后重试';
+      } else if (errorMessage.includes('CORS')) {
+        errorMessage = '跨域请求被阻止，这可能是浏览器安全限制导致的';
+      } else if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+        errorMessage = `模型 ${modelId} 在Hugging Face上不存在或已被移动`;
+      }
+      
       const downloadProgress: ModelDownloadProgress = {
         modelId,
         progress: 0,
         status: 'error',
-        error: (error as Error).message
+        error: errorMessage
       };
       
       this.emit('modelDownloadProgress', downloadProgress);
       this.emit('modelListUpdated', this.getAvailableModels());
       
       console.error(`模型下载失败 ${model.name}:`, error);
-      throw error;
+      throw new Error(errorMessage);
     }
   }
   
@@ -822,13 +1020,48 @@ export class TransformersASR extends EventEmitter {
       currentModelId: this.currentModelId
     };
     
-    localStorage.setItem('transformers-asr-models', JSON.stringify(statusData));
+    // 检查是否在浏览器环境中
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('transformers-asr-models', JSON.stringify(statusData));
+    } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
+      // 在 Electron 主进程中，使用文件系统存储
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const { app } = require('electron');
+        
+        const configPath = path.join(app.getPath('userData'), 'transformers-asr-models.json');
+        fs.writeFileSync(configPath, JSON.stringify(statusData, null, 2));
+      } catch (error) {
+        console.warn('保存模型状态到文件失败:', error);
+      }
+    }
   }
   
   // 从本地存储加载模型状态
   private loadModelStatus(): void {
     try {
-      const savedData = localStorage.getItem('transformers-asr-models');
+      let savedData: string | null = null;
+      
+      // 检查是否在浏览器环境中
+      if (typeof window !== 'undefined' && window.localStorage) {
+        savedData = localStorage.getItem('transformers-asr-models');
+      } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
+        // 在 Electron 主进程中，从文件系统读取
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const { app } = require('electron');
+          
+          const configPath = path.join(app.getPath('userData'), 'transformers-asr-models.json');
+          if (fs.existsSync(configPath)) {
+            savedData = fs.readFileSync(configPath, 'utf8');
+          }
+        } catch (error) {
+          console.warn('从文件加载模型状态失败:', error);
+        }
+      }
+      
       if (savedData) {
         const statusData = JSON.parse(savedData);
         

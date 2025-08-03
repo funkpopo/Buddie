@@ -11,6 +11,20 @@ interface SpeechRecognitionResult {
   language?: string;
 }
 
+// 定义代理配置类型
+interface ProxyConfig {
+  enabled: boolean;
+  useSystemProxy: boolean;
+  manualProxy?: {
+    host: string;
+    port: number;
+    auth?: {
+      username: string;
+      password: string;
+    };
+  };
+}
+
 // 定义API接口以提高类型安全性
 interface IElectronAPI {
   // IPC通信方法
@@ -24,6 +38,7 @@ interface IElectronAPI {
   speechRecognition: {
     start: () => Promise<{ success: boolean; error?: string }>;
     stop: () => Promise<{ success: boolean; error?: string }>;
+    downloadWhisperTinyONNX: () => Promise<{ success: boolean; error?: string }>;
     onResult: (callback: (result: SpeechRecognitionResult) => void) => void;
     onError: (callback: (error: string) => void) => void;
   };
@@ -31,6 +46,13 @@ interface IElectronAPI {
   // 系统方法
   system: {
     getModelCacheDir: () => Promise<string>;
+  };
+  
+  // 代理方法
+  proxy: {
+    getConfig: () => Promise<ProxyConfig>;
+    setConfig: (config: ProxyConfig) => Promise<{ success: boolean; error?: string }>;
+    testConnection: () => Promise<{ success: boolean; error?: string; statusCode?: number }>;
   };
 }
 
@@ -48,6 +70,7 @@ const electronAPI: IElectronAPI = {
   speechRecognition: {
     start: () => ipcRenderer.invoke('start-speech-recognition'),
     stop: () => ipcRenderer.invoke('stop-speech-recognition'),
+    downloadWhisperTinyONNX: () => ipcRenderer.invoke('download-whisper-tiny-onnx'),
     onResult: (callback) => {
       ipcRenderer.on('speech-recognition-result', (event, result) => callback(result));
     },
@@ -57,6 +80,11 @@ const electronAPI: IElectronAPI = {
   },
   system: {
     getModelCacheDir: () => ipcRenderer.invoke('get-model-cache-dir')
+  },
+  proxy: {
+    getConfig: () => ipcRenderer.invoke('get-proxy-config'),
+    setConfig: (config) => ipcRenderer.invoke('set-proxy-config', config),
+    testConnection: () => ipcRenderer.invoke('test-proxy-connection')
   }
 };
 
