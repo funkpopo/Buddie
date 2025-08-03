@@ -420,9 +420,257 @@ ipcMain.handle('test-proxy-connection', async () => {
 // IPC 处理程序：下载Whisper Tiny ONNX模型
 ipcMain.handle('download-whisper-tiny-onnx', async () => {
   try {
-    await speechRecognizer.downloadWhisperTinyONNX();
+    const fs = require('fs');
+    const path = require('path');
+    const { net } = require('electron'); // 使用 Electron 的 net 模块，支持代理
+    
+    // 获取模型缓存目录
+    let modelCacheDir: string;
+    if (process.env.NODE_ENV === 'development') {
+      modelCacheDir = path.join(process.cwd(), 'models');
+    } else {
+      const exePath = app.getPath('exe');
+      const exeDir = path.dirname(exePath);
+      modelCacheDir = path.join(exeDir, 'models');
+    }
+    
+    // 确保缓存目录存在
+    if (!fs.existsSync(modelCacheDir)) {
+      fs.mkdirSync(modelCacheDir, { recursive: true });
+    }
+
+    // 定义需要下载的文件
+    const filesToDownload = [
+      {
+        url: 'https://huggingface.co/Xenova/whisper-tiny/resolve/main/onnx/decoder_model_q4.onnx',
+        filename: 'decoder_model_q4.onnx',
+        name: 'Decoder模型'
+      },
+      {
+        url: 'https://huggingface.co/Xenova/whisper-tiny/resolve/main/onnx/encoder_model_q4.onnx',
+        filename: 'encoder_model_q4.onnx',
+        name: 'Encoder模型'
+      }
+    ];
+
+    // 检查所有文件是否已存在
+    const allFilesExist = filesToDownload.every(file => {
+      const filePath = path.join(modelCacheDir, file.filename);
+      return fs.existsSync(filePath);
+    });
+
+    if (allFilesExist) {
+      console.log('所有Whisper Tiny ONNX模型文件已存在');
+      return { success: true };
+    }
+
+    console.log('开始下载Whisper Tiny ONNX模型文件...');
+
+    // 下载单个文件的函数
+    const downloadFile = (fileInfo: typeof filesToDownload[0]): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const filePath = path.join(modelCacheDir, fileInfo.filename);
+        
+        // 如果文件已存在，跳过下载
+        if (fs.existsSync(filePath)) {
+          console.log(`${fileInfo.name}已存在: ${filePath}`);
+          resolve();
+          return;
+        }
+
+        console.log(`开始下载${fileInfo.name}: ${fileInfo.url}`);
+        console.log(`保存到: ${filePath}`);
+
+        const file = fs.createWriteStream(filePath);
+        let downloadedBytes = 0;
+        let totalBytes = 0;
+
+        const makeRequest = (requestUrl: string, maxRedirects = 5) => {
+          if (maxRedirects <= 0) {
+            reject(new Error('重定向次数过多'));
+            return;
+          }
+
+          const request = net.request({
+            method: 'GET',
+            url: requestUrl
+          });
+
+          // 增加超时时间到 5 分钟
+          const timeoutId = setTimeout(() => {
+            request.abort();
+            file.close();
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+            reject(new Error(`${fileInfo.name}下载超时`));
+          }, 300000); // 5 分钟
+
+          request.on('response', (response) => {
+            // 处理重定向
+            if (response.statusCode >= 300 && response.statusCode < 400) {
+              const location = response.headers.location;
+              if (location) {
+                console.log(`${fileInfo.name}重定向到: ${location}`);
+                makeRequest(location as string, maxRedirects - 1);
+                return;
+              }
+            }
+
+            if (response.statusCode !== 200) {
+              clearTimeout(timeoutId);
+              file.close();
+              if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+              }
+              reject(new Error(`${fileInfo.name}下载失败 - HTTP ${response.statusCode}: ${response.statusMessage}`));
+              return;
+            }
+
+            const contentLength = response.headers['content-length'];
+            totalBytes = contentLength ? parseInt(contentLength as string) : 0;
+            console.log(`${fileInfo.name}文件大小: ${(totalBytes / 1024 / 1024).toFixed(2)} MB`);
+
+            response.on('data', (chunk: Buffer) => {
+              downloadedBytes += chunk.length;
+              const progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
+
+              // 每 10MB 或每 10% 更新一次进度
+              if (downloadedBytes % (10 * 1024 * 1024) < chunk.length || Math.floor(progress) % 10 === 0) {
+                console.log(`${fileInfo.name}下载进度: ${progress.toFixed(1)}% (${(downloadedBytes / 1024 / 1024).toFixed(1)} MB)`);
+              }
+
+              file.write(chunk);
+            });
+
+            response.on('end', () => {
+              clearTimeout(timeoutId);
+              file.close();
+              console.log(`${fileInfo.name}下载完成: ${filePath}`);
+              console.log(`${fileInfo.name}文件大小: ${(downloadedBytes / 1024 / 1024).toFixed(2)} MB`);
+              resolve();
+            });
+
+            response.on('error', (err) => {
+              clearTimeout(timeoutId);
+              file.close();
+              if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+              }
+              console.error(`${fileInfo.name}响应错误:`, err);
+              reject(err);
+            });
+          });
+
+          request.on('error', (err) => {
+            file.close();
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+            console.error(`${fileInfo.name}请求错误:`, err);
+            reject(err);
+          });
+
+          file.on('error', (err) => {
+            file.close();
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+            console.error(`${fileInfo.name}文件写入错误:`, err);
+            reject(err);
+          });
+
+          request.end();
+        };
+
+        makeRequest(fileInfo.url);
+      });
+    };
+
+    // 依次下载所有文件
+    let totalProgress = 0;
+    for (let i = 0; i < filesToDownload.length; i++) {
+      const fileInfo = filesToDownload[i];
+      try {
+        await downloadFile(fileInfo);
+        totalProgress = ((i + 1) / filesToDownload.length) * 100;
+        
+        // 发送整体进度更新到渲染进程
+        if (mainWindow) {
+          mainWindow.webContents.send('download-progress', { 
+            progress: totalProgress,
+            loaded: i + 1,
+            total: filesToDownload.length,
+            currentFile: fileInfo.name
+          });
+        }
+      } catch (error) {
+        console.error(`下载${fileInfo.name}失败:`, error);
+        throw error;
+      }
+    }
+
+    console.log('所有Whisper Tiny ONNX模型文件下载完成');
     return { success: true };
+    
   } catch (error) {
+    console.error('下载Whisper Tiny ONNX模型失败:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// IPC 处理程序：验证模型文件存在状态
+ipcMain.handle('verify-model-files', async () => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // 获取模型缓存目录
+    let modelCacheDir: string;
+    if (process.env.NODE_ENV === 'development') {
+      modelCacheDir = path.join(process.cwd(), 'models');
+    } else {
+      const exePath = app.getPath('exe');
+      const exeDir = path.dirname(exePath);
+      modelCacheDir = path.join(exeDir, 'models');
+    }
+    
+    const downloadedModels: string[] = [];
+    
+    // 检查 Whisper Tiny ONNX 文件
+    const whisperTinyDecoderPath = path.join(modelCacheDir, 'decoder_model_q4.onnx');
+    const whisperTinyEncoderPath = path.join(modelCacheDir, 'encoder_model_q4.onnx');
+    if (fs.existsSync(whisperTinyDecoderPath) && fs.existsSync(whisperTinyEncoderPath)) {
+      downloadedModels.push('Xenova/whisper-tiny');
+    }
+    
+    // 检查其他模型 (transformers.js 标准缓存结构)
+    const modelIds = ['Xenova/whisper-tiny.en', 'Xenova/whisper-base', 'Xenova/whisper-base.en'];
+    
+    for (const modelId of modelIds) {
+      const modelDir = path.join(modelCacheDir, 'models--' + modelId.replace('/', '--'));
+      if (fs.existsSync(modelDir)) {
+        // 检查是否有必要的模型文件
+        const configPath = path.join(modelDir, 'snapshots');
+        if (fs.existsSync(configPath)) {
+          const snapshots = fs.readdirSync(configPath);
+          if (snapshots.length > 0) {
+            // 检查快照目录中是否有模型文件
+            const snapshotDir = path.join(configPath, snapshots[0]);
+            const files = fs.readdirSync(snapshotDir);
+            if (files.some((file: string) => file.endsWith('.onnx') || file.endsWith('.bin'))) {
+              downloadedModels.push(modelId);
+            }
+          }
+        }
+      }
+    }
+    
+    console.log('已下载的模型:', downloadedModels);
+    return { success: true, downloadedModels };
+    
+  } catch (error) {
+    console.error('验证模型文件失败:', error);
     return { success: false, error: (error as Error).message };
   }
 });

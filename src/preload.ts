@@ -46,6 +46,7 @@ interface IElectronAPI {
   // 系统方法
   system: {
     getModelCacheDir: () => Promise<string>;
+    verifyModelFiles: () => Promise<{ success: boolean; downloadedModels: string[]; error?: string }>;
   };
   
   // 代理方法
@@ -79,7 +80,8 @@ const electronAPI: IElectronAPI = {
     }
   },
   system: {
-    getModelCacheDir: () => ipcRenderer.invoke('get-model-cache-dir')
+    getModelCacheDir: () => ipcRenderer.invoke('get-model-cache-dir'),
+    verifyModelFiles: () => ipcRenderer.invoke('verify-model-files')
   },
   proxy: {
     getConfig: () => ipcRenderer.invoke('get-proxy-config'),

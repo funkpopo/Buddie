@@ -687,11 +687,6 @@ export class TransformersASR extends EventEmitter {
       throw new Error(`模型 ${model.name} 正在下载中`);
     }
     
-    // 确保缓存目录已初始化
-    if (this.modelCacheDir === './models') {
-      await this.initializeModelCacheDir();
-    }
-    
     // 标记为下载中
     this.availableModels[modelIndex] = {
       ...model,
@@ -703,95 +698,22 @@ export class TransformersASR extends EventEmitter {
     
     try {
       console.log(`开始下载Whisper Tiny ONNX模型: ${url}`);
-      console.log(`模型缓存目录: ${this.modelCacheDir}`);
       
-      // 确保缓存目录存在
-      const fs = require('fs');
-      const path = require('path');
-      if (!fs.existsSync(this.modelCacheDir)) {
-        fs.mkdirSync(this.modelCacheDir, { recursive: true });
+      // 检查是否在Electron环境中
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        // 在Electron渲染进程中，使用IPC调用主进程
+        const result = await window.electronAPI.speechRecognition.downloadWhisperTinyONNX();
+        if (!result.success) {
+          throw new Error(result.error || '下载失败');
+        }
+        
+        // 下载成功，但不在这里设置完成状态，由updateWhisperTinyONNXProgress处理
+        console.log(`Whisper Tiny ONNX模型下载完成`);
+        return;
       }
       
-      // 创建模型特定目录
-      const modelDir = path.join(this.modelCacheDir, 'Xenova--whisper-tiny', 'onnx');
-      if (!fs.existsSync(modelDir)) {
-        fs.mkdirSync(modelDir, { recursive: true });
-      }
-      
-      const filePath = path.join(modelDir, 'decoder_model_q4.onnx');
-      
-      // 下载文件
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const total = parseInt(response.headers.get('content-length') || '0');
-      let loaded = 0;
-      
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('无法获取响应流');
-      }
-      
-      const chunks: Uint8Array[] = [];
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        chunks.push(value);
-        loaded += value.length;
-        
-        const progress = total > 0 ? (loaded / total) * 100 : 0;
-        
-        // 更新下载进度
-        this.availableModels[modelIndex] = {
-          ...this.availableModels[modelIndex],
-          downloadProgress: progress
-        };
-        
-        const downloadProgress: ModelDownloadProgress = {
-          modelId,
-          progress,
-          status: 'downloading'
-        };
-        
-        this.emit('modelDownloadProgress', downloadProgress);
-        this.emit('modelListUpdated', this.getAvailableModels());
-        
-        console.log(`下载进度: ${progress.toFixed(1)}%`);
-      }
-      
-      // 合并所有块并写入文件
-      const fileData = new Uint8Array(loaded);
-      let offset = 0;
-      for (const chunk of chunks) {
-        fileData.set(chunk, offset);
-        offset += chunk.length;
-      }
-      
-      fs.writeFileSync(filePath, fileData);
-      
-      // 下载成功
-      this.availableModels[modelIndex] = {
-        ...model,
-        downloaded: true,
-        downloading: false,
-        downloadProgress: 100
-      };
-      
-      const downloadProgress: ModelDownloadProgress = {
-        modelId,
-        progress: 100,
-        status: 'completed'
-      };
-      
-      this.emit('modelDownloadProgress', downloadProgress);
-      this.emit('modelListUpdated', this.getAvailableModels());
-      this.saveModelStatus();
-      
-      console.log(`Whisper Tiny ONNX模型下载完成: ${filePath}`);
+      // 浏览器环境的fallback实现
+      throw new Error('浏览器环境下暂不支持直接下载模型文件，请在Electron应用中使用此功能');
       
     } catch (error) {
       // 下载失败
@@ -815,6 +737,34 @@ export class TransformersASR extends EventEmitter {
       
       console.error(`Whisper Tiny ONNX模型下载失败:`, error);
       throw new Error(errorMessage);
+    }
+  }
+
+  // 更新 Whisper Tiny ONNX 模型下载进度
+  updateWhisperTinyONNXProgress(progress: number): void {
+    const modelId = 'Xenova/whisper-tiny';
+    const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
+    
+    if (modelIndex !== -1) {
+      this.availableModels[modelIndex] = {
+        ...this.availableModels[modelIndex],
+        downloading: progress < 100,
+        downloadProgress: progress,
+        downloaded: progress >= 100
+      };
+      
+      const downloadProgress: ModelDownloadProgress = {
+        modelId,
+        progress,
+        status: progress >= 100 ? 'completed' : 'downloading'
+      };
+      
+      this.emit('modelDownloadProgress', downloadProgress);
+      this.emit('modelListUpdated', this.getAvailableModels());
+      
+      if (progress >= 100) {
+        this.saveModelStatus();
+      }
     }
   }
 
@@ -1038,6 +988,65 @@ export class TransformersASR extends EventEmitter {
     }
   }
   
+  // 验证模型文件实际存在状态
+  private async verifyModelFiles(): Promise<void> {
+    try {
+      // 确保缓存目录已初始化
+      if (this.modelCacheDir === './models') {
+        await this.initializeModelCacheDir();
+      }
+
+      // 检查是否在Electron环境中
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        // 在渲染进程中，使用IPC调用主进程检查文件
+        try {
+          const result = await window.electronAPI.system.verifyModelFiles();
+          if (result.success) {
+            // 更新模型状态
+            this.availableModels.forEach((model, index) => {
+              const isDownloaded = result.downloadedModels.includes(model.id);
+              this.availableModels[index].downloaded = isDownloaded;
+            });
+            this.emit('modelListUpdated', this.getAvailableModels());
+          }
+        } catch (error) {
+          console.warn('验证模型文件失败:', error);
+        }
+      } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
+        // 在主进程中直接检查文件系统
+        const fs = require('fs');
+        const path = require('path');
+        
+        this.availableModels.forEach((model, index) => {
+          let isDownloaded = false;
+          
+          if (model.id === 'Xenova/whisper-tiny') {
+            // 对于Whisper Tiny，检查decoder和encoder文件
+            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
+            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
+            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
+          } else {
+            // 对于其他模型，检查标准的transformers.js缓存结构
+            const modelDir = path.join(this.modelCacheDir, 'models--' + model.id.replace('/', '--'));
+            isDownloaded = fs.existsSync(modelDir);
+          }
+          
+          this.availableModels[index].downloaded = isDownloaded;
+        });
+        
+        this.emit('modelListUpdated', this.getAvailableModels());
+      }
+    } catch (error) {
+      console.warn('验证模型文件失败:', error);
+    }
+  }
+
+  // 手动刷新模型状态
+  async refreshModelStatus(): Promise<void> {
+    await this.verifyModelFiles();
+    this.saveModelStatus();
+  }
+
   // 从本地存储加载模型状态
   private loadModelStatus(): void {
     try {
@@ -1081,6 +1090,11 @@ export class TransformersASR extends EventEmitter {
           this.options.model = statusData.currentModelId;
         }
       }
+      
+      // 在加载配置后，验证实际文件存在状态
+      setTimeout(() => {
+        this.verifyModelFiles();
+      }, 100);
     } catch (error) {
       console.warn('加载模型状态失败:', error);
     }

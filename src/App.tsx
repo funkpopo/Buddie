@@ -29,7 +29,8 @@ import {
   Brightness7 as LightModeIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useTheme } from './ThemeContext';
 import { useApiKeys } from './ApiKeyContext';
@@ -66,13 +67,24 @@ const App: React.FC = () => {
       setIsListening(prev => !prev);
     };
 
+    // 监听下载进度更新
+    const handleDownloadProgress = (data: { progress: number; loaded: number; total: number }) => {
+      console.log(`下载进度: ${data.progress.toFixed(1)}% (${(data.loaded / 1024 / 1024).toFixed(2)} MB / ${(data.total / 1024 / 1024).toFixed(2)} MB)`);
+      // 更新 Whisper Tiny ONNX 模型的下载进度
+      if (asrRef.current) {
+        asrRef.current.updateWhisperTinyONNXProgress(data.progress);
+      }
+    };
+
     window.electronAPI.ipcRenderer.on('navigate-to-settings', navigateToSettings);
     window.electronAPI.ipcRenderer.on('trigger-home-dialog', triggerHomeDialog);
+    window.electronAPI.ipcRenderer.on('download-progress', handleDownloadProgress);
 
     // 清理监听器
     return () => {
       window.electronAPI.ipcRenderer.removeListener('navigate-to-settings', navigateToSettings);
       window.electronAPI.ipcRenderer.removeListener('trigger-home-dialog', triggerHomeDialog);
+      window.electronAPI.ipcRenderer.removeListener('download-progress', handleDownloadProgress);
     };
   }, []);
 
@@ -86,6 +98,18 @@ const App: React.FC = () => {
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   }, []);
+
+  // 刷新模型状态
+  const handleRefreshModels = useCallback(async () => {
+    try {
+      const asr = asrRef.current;
+      await asr.refreshModelStatus();
+      showMessage('模型状态已刷新', 'success');
+    } catch (error) {
+      console.error('刷新模型状态失败:', error);
+      showMessage('刷新模型状态失败: ' + (error as Error).message, 'error');
+    }
+  }, [showMessage]);
 
   // 关闭提示消息
   const handleSnackbarClose = useCallback(() => {
@@ -265,6 +289,7 @@ const App: React.FC = () => {
       }
     };
 
+    // 下载 Whisper Tiny ONNX 模型
     const handleSwitchModel = async (modelId: string) => {
       try {
         await asrRef.current.switchToModel(modelId);
@@ -557,7 +582,17 @@ const App: React.FC = () => {
           
           {/* ASR 模型管理部分 */}
           <Paper sx={{ width: '100%', maxWidth: 600, p: 3, mb: 3, boxSizing: 'border-box' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>语音识别模型管理</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">语音识别模型管理</Typography>
+              <IconButton 
+                onClick={handleRefreshModels}
+                size="small"
+                title="刷新模型状态"
+                sx={{ ml: 1 }}
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Box>
             
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Typography variant="body2" color="text.secondary">
