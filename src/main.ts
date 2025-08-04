@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, session } from 'electron';
 import path from 'path';
-import { getTransformersASRInstance } from './transformers-asr';
+import { getTransformersASRInstance, TransformersASRResult } from './transformers-asr';
 
 // Electron Forge Vite 插件生成的全局变量
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -229,11 +229,11 @@ app.on('ready', () => {
   registerGlobalShortcut();
   
   // 监听语音识别事件
-  speechRecognizer.on('result', (result) => {
+  speechRecognizer.on('result', (result: TransformersASRResult) => {
     sendRecognitionResult(result);
   });
   
-  speechRecognizer.on('error', (error) => {
+  speechRecognizer.on('error', (error: Error) => {
     console.error('Speech recognition error:', error);
     if (mainWindow) {
       mainWindow.webContents.send('speech-recognition-error', error.message);
@@ -332,7 +332,7 @@ ipcMain.handle('test-proxy-connection', async () => {
         }
       }, 10000);
       
-      request.on('response', (response) => {
+      request.on('response', (response: any) => {
         responseReceived = true;
         clearTimeout(timeout);
         resolve({ 
@@ -438,7 +438,7 @@ async function downloadWhisperModel(modelConfig: {
             reject(new Error(`${fileInfo.name}下载超时`));
           }, 300000); // 5 分钟
 
-          request.on('response', (response) => {
+          request.on('response', (response: any) => {
             // 处理重定向
             if (response.statusCode >= 300 && response.statusCode < 400) {
               const location = response.headers.location;
@@ -494,7 +494,7 @@ async function downloadWhisperModel(modelConfig: {
             });
           });
 
-          request.on('error', (err) => {
+          request.on('error', (err: any) => {
             file.close();
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath);
@@ -692,7 +692,7 @@ ipcMain.handle('verify-model-files', async () => {
 });
 
 // 发送识别结果到渲染进程的函数
-const sendRecognitionResult = (result: any) => {
+const sendRecognitionResult = (result: TransformersASRResult) => {
   if (mainWindow) {
     mainWindow.webContents.send('speech-recognition-result', result);
   }
