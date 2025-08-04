@@ -215,8 +215,6 @@ export class TransformersASR extends EventEmitter {
       env.allowRemoteModels = true;
       env.allowLocalModels = true;
       env.useBrowserCache = true;
-      env.remoteURL = 'https://huggingface.co/';
-      env.remotePathTemplate = '{model}/resolve/{revision}/{file}';
       
       console.log(`Loading model: ${this.currentModelId}`);
       console.log(`Model cache dir: ${this.modelCacheDir}`);
