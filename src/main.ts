@@ -625,13 +625,28 @@ ipcMain.handle('download-whisper-tiny-en', async () => {
   return await downloadWhisperModel(modelConfigs['whisper-tiny-en']);
 });
 
+// IPC 处理程序：下载Whisper Tiny EN ONNX模型
+ipcMain.handle('download-whisper-tiny-en-onnx', async () => {
+  return await downloadWhisperModel(modelConfigs['whisper-tiny-en']);
+});
+
 // IPC 处理程序：下载Whisper Base EN模型
 ipcMain.handle('download-whisper-base-en', async () => {
   return await downloadWhisperModel(modelConfigs['whisper-base-en']);
 });
 
+// IPC 处理程序：下载Whisper Base EN ONNX模型
+ipcMain.handle('download-whisper-base-en-onnx', async () => {
+  return await downloadWhisperModel(modelConfigs['whisper-base-en']);
+});
+
 // IPC 处理程序：下载Whisper Base模型
 ipcMain.handle('download-whisper-base', async () => {
+  return await downloadWhisperModel(modelConfigs['whisper-base']);
+});
+
+// IPC 处理程序：下载Whisper Base ONNX模型
+ipcMain.handle('download-whisper-base-onnx', async () => {
   return await downloadWhisperModel(modelConfigs['whisper-base']);
 });
 
