@@ -25,6 +25,12 @@ export interface IElectronAPI {
     stop: () => Promise<{ success: boolean; error?: string }>;
     onResult: (callback: (result: SpeechRecognitionResult) => void) => void;
     onError: (callback: (error: string) => void) => void;
+    // 模型下载方法
+    downloadWhisperTinyONNX: () => Promise<{ success: boolean; error?: string }>;
+    downloadWhisperTinyENONNX: () => Promise<{ success: boolean; error?: string }>;
+    downloadWhisperBaseENONNX: () => Promise<{ success: boolean; error?: string }>;
+    downloadWhisperBaseONNX: () => Promise<{ success: boolean; error?: string }>;
+    verifyModelFiles: () => Promise<{ success: boolean; downloadedModels?: string[] }>;
   };
   
   // 系统方法

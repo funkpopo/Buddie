@@ -382,16 +382,28 @@ export class TransformersASR extends EventEmitter {
       });
 
       // 处理结果
-      if (result && result.text && result.text.trim()) {
-        const asrResult: TransformersASRResult = {
-          text: result.text.trim(),
-          confidence: 0.9, // transformers.js doesn't provide confidence scores
-          isFinal: true,
-          timestamp: Date.now()
-        };
+      if (result) {
+        // 处理可能的数组或单个对象结果
+        let text = '';
+        if (Array.isArray(result)) {
+          // 如果是数组，取第一个元素或合并所有文本
+          text = result.length > 0 ? result[0].text || '' : '';
+        } else {
+          // 如果是单个对象
+          text = result.text || '';
+        }
+        
+        if (text && text.trim()) {
+          const asrResult: TransformersASRResult = {
+            text: text.trim(),
+            confidence: 0.9, // transformers.js doesn't provide confidence scores
+            isFinal: true,
+            timestamp: Date.now()
+          };
 
-        this.emit('result', asrResult);
-        console.log('ASR Result:', asrResult.text);
+          this.emit('result', asrResult);
+          console.log('ASR Result:', asrResult.text);
+        }
       }
 
     } catch (error) {
@@ -1061,12 +1073,91 @@ export class TransformersASR extends EventEmitter {
       // 检查是否在Electron环境中
       if (typeof window !== 'undefined' && window.electronAPI) {
         // 在渲染进程中，使用IPC调用主进程检查文件
+        // 注意：这里不能使用await，因为方法不是异步的
+        // 如果需要验证文件，应该调用verifyModelFiles方法
+      } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
+        // 在主进程中直接检查文件系统
+        const fs = require('fs');
+        const path = require('path');
+        
+        this.availableModels.forEach((model, index) => {
+          let isDownloaded = false;
+          
+          if (model.id === 'Xenova/whisper-tiny') {
+            // 对于Whisper Tiny，检查decoder和encoder文件
+            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
+            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
+            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
+          } else if (model.id === 'Xenova/whisper-tiny.en') {
+            // 对于Whisper Tiny EN，检查decoder和encoder文件
+            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
+            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
+            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
+          } else if (model.id === 'Xenova/whisper-base.en') {
+            // 对于Whisper Base EN，检查decoder和encoder文件
+            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
+            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
+            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
+          } else if (model.id === 'Xenova/whisper-base') {
+            // 对于Whisper Base，检查decoder和encoder文件
+            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
+            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
+            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
+          }
+          this.availableModels[index].downloaded = isDownloaded;
+        });
+        
+        this.emit('modelListUpdated', this.getAvailableModels());
+      }
+    }
+  }
+
+  // 保存模型状态到本地存储
+  private saveModelStatus(): void {
+    try {
+      const statusData = {
+        models: this.availableModels.map(model => ({
+          id: model.id,
+          downloaded: model.downloaded
+        })),
+        currentModelId: this.currentModelId
+      };
+      
+      const statusJson = JSON.stringify(statusData);
+      
+      // 检查是否在浏览器环境中
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('transformers-asr-models', statusJson);
+      } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
+        // 在 Electron 主进程中，保存到文件系统
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const { app } = require('electron');
+          
+          const configPath = path.join(app.getPath('userData'), 'transformers-asr-models.json');
+          fs.writeFileSync(configPath, statusJson, 'utf8');
+        } catch (error) {
+          console.warn('保存模型状态到文件失败:', error);
+        }
+      }
+    } catch (error) {
+      console.warn('保存模型状态失败:', error);
+    }
+  }
+
+  // 验证模型文件是否存在
+  private async verifyModelFiles(): Promise<void> {
+    try {
+      // 检查是否在Electron环境中
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        // 在渲染进程中，使用IPC调用主进程检查文件
         try {
           const result = await window.electronAPI.speechRecognition.verifyModelFiles();
           if (result.success) {
             // 更新模型状态
             this.availableModels.forEach((model, index) => {
-              const isDownloaded = result.downloadedModels.includes(model.id);
+              const isDownloaded = result.downloadedModels?.includes(model.id) || false;
               this.availableModels[index].downloaded = isDownloaded;
             });
             this.emit('modelListUpdated', this.getAvailableModels());
