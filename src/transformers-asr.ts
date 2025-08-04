@@ -8,7 +8,7 @@ async function getModelCacheDir(): Promise<string> {
       return await window.electronAPI.system.getModelCacheDir();
     } catch (error) {
       console.warn('Failed to get model cache dir from main process:', error);
-      return './models';
+      return './models/onnx';
     }
   } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
     // 在Electron主进程或Node.js环境中
@@ -16,17 +16,17 @@ async function getModelCacheDir(): Promise<string> {
     const { app } = require('electron');
     
     if (process.env.NODE_ENV === 'development') {
-      // 开发环境：项目根目录下的models文件夹
-      return path.join(process.cwd(), 'models');
+      // 开发环境：项目根目录下的models/onnx文件夹
+      return path.join(process.cwd(), 'models', 'onnx');
     } else {
-      // 生产环境：exe同级的models文件夹
+      // 生产环境：exe同级的models/onnx文件夹
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      return path.join(exeDir, 'models');
+      return path.join(exeDir, 'models', 'onnx');
     }
   } else {
     // 浏览器环境，使用相对路径
-    return './models';
+    return './models/onnx';
   }
 }
 
@@ -176,7 +176,7 @@ export class TransformersASR extends EventEmitter {
       ...options
     };
     this.currentModelId = this.options.model!;
-    this.modelCacheDir = './models'; // 初始默认值
+    this.modelCacheDir = './models/onnx'; // 初始默认值
     this.loadModelStatus();
     this.initializeModelCacheDir(); // 异步初始化缓存目录
   }
@@ -188,7 +188,7 @@ export class TransformersASR extends EventEmitter {
       console.log('Model cache directory set to:', this.modelCacheDir);
     } catch (error) {
       console.warn('Failed to initialize model cache directory:', error);
-      this.modelCacheDir = './models'; // 回退到默认值
+      this.modelCacheDir = './models/onnx'; // 回退到默认值
     }
   }
 
@@ -201,12 +201,17 @@ export class TransformersASR extends EventEmitter {
       console.log('Initializing Transformers ASR...');
       
       // 确保缓存目录已初始化
-      if (this.modelCacheDir === './models') {
+      if (this.modelCacheDir === './models/onnx') {
         await this.initializeModelCacheDir();
       }
       
+      // 在初始化前先验证模型文件状态
+      console.log('ASR: 初始化前验证模型文件状态');
+      await this.verifyModelFiles();
+      
       // 检查当前模型是否已下载
       const currentModel = this.availableModels.find(m => m.id === this.currentModelId);
+      console.log('ASR: 当前模型信息:', currentModel);
       if (!currentModel || !currentModel.downloaded) {
         throw new Error(`当前模型 ${this.currentModelId} 尚未下载，请先在设置中下载模型`);
       }
@@ -644,10 +649,13 @@ export class TransformersASR extends EventEmitter {
   
   // 切换到指定模型
   async switchToModel(modelId: string): Promise<void> {
+    console.log(`ASR: 开始切换到模型 ${modelId}`);
     const model = this.availableModels.find(m => m.id === modelId);
     if (!model) {
       throw new Error(`模型 ${modelId} 不存在`);
     }
+    
+    console.log(`ASR: 找到模型 ${model.name}, 已下载: ${model.downloaded}`);
     
     if (!model.downloaded) {
       throw new Error(`模型 ${model.name} 尚未下载，请先下载模型`);
@@ -655,11 +663,15 @@ export class TransformersASR extends EventEmitter {
     
     // 如果当前正在使用相同模型，无需切换
     if (this.currentModelId === modelId) {
+      console.log(`ASR: 模型 ${modelId} 已经是当前使用的模型`);
       return;
     }
     
+    console.log(`ASR: 当前模型 ${this.currentModelId}, 目标模型 ${modelId}`);
+    
     // 停止当前的识别
     if (this.isListening) {
+      console.log(`ASR: 停止当前语音识别`);
       await this.stopListening();
     }
     
@@ -671,8 +683,12 @@ export class TransformersASR extends EventEmitter {
     this.currentModelId = modelId;
     this.options.model = modelId;
     
+    console.log(`ASR: 更新模型配置完成`);
+    
     // 保存模型状态
-    this.saveModelStatus();
+    console.log(`ASR: 开始保存模型状态`);
+    await this.saveModelStatus();
+    console.log(`ASR: 模型状态保存完成`);
     
     console.log(`已切换到模型: ${model.name}`);
   }
@@ -756,23 +772,27 @@ export class TransformersASR extends EventEmitter {
     const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
     
     if (modelIndex !== -1) {
+      const isCompleted = progress >= 100;
+      const wasCompleted = this.availableModels[modelIndex].downloaded;
+      
       this.availableModels[modelIndex] = {
         ...this.availableModels[modelIndex],
         downloading: progress < 100,
         downloadProgress: progress,
-        downloaded: progress >= 100
+        downloaded: isCompleted
       };
       
       const downloadProgress: ModelDownloadProgress = {
         modelId,
         progress,
-        status: progress >= 100 ? 'completed' : 'downloading'
+        status: isCompleted ? 'completed' : 'downloading'
       };
       
       this.emit('modelDownloadProgress', downloadProgress);
       this.emit('modelListUpdated', this.getAvailableModels());
       
-      if (progress >= 100) {
+      // 仅在下载完成时保存模型状态
+      if (isCompleted && !wasCompleted) {
         this.saveModelStatus();
       }
     }
@@ -857,23 +877,27 @@ export class TransformersASR extends EventEmitter {
     const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
     
     if (modelIndex !== -1) {
+      const isCompleted = progress >= 100;
+      const wasCompleted = this.availableModels[modelIndex].downloaded;
+      
       this.availableModels[modelIndex] = {
         ...this.availableModels[modelIndex],
         downloading: progress < 100,
         downloadProgress: progress,
-        downloaded: progress >= 100
+        downloaded: isCompleted
       };
       
       const downloadProgress: ModelDownloadProgress = {
         modelId,
         progress,
-        status: progress >= 100 ? 'completed' : 'downloading'
+        status: isCompleted ? 'completed' : 'downloading'
       };
       
       this.emit('modelDownloadProgress', downloadProgress);
       this.emit('modelListUpdated', this.getAvailableModels());
       
-      if (progress >= 100) {
+      // 仅在下载完成时保存模型状态
+      if (isCompleted && !wasCompleted) {
         this.saveModelStatus();
       }
     }
@@ -958,23 +982,27 @@ export class TransformersASR extends EventEmitter {
     const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
     
     if (modelIndex !== -1) {
+      const isCompleted = progress >= 100;
+      const wasCompleted = this.availableModels[modelIndex].downloaded;
+      
       this.availableModels[modelIndex] = {
         ...this.availableModels[modelIndex],
         downloading: progress < 100,
         downloadProgress: progress,
-        downloaded: progress >= 100
+        downloaded: isCompleted
       };
       
       const downloadProgress: ModelDownloadProgress = {
         modelId,
         progress,
-        status: progress >= 100 ? 'completed' : 'downloading'
+        status: isCompleted ? 'completed' : 'downloading'
       };
       
       this.emit('modelDownloadProgress', downloadProgress);
       this.emit('modelListUpdated', this.getAvailableModels());
       
-      if (progress >= 100) {
+      // 仅在下载完成时保存模型状态
+      if (isCompleted && !wasCompleted) {
         this.saveModelStatus();
       }
     }
@@ -1054,67 +1082,36 @@ export class TransformersASR extends EventEmitter {
     const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
     
     if (modelIndex !== -1) {
+      const isCompleted = progress >= 100;
+      const wasCompleted = this.availableModels[modelIndex].downloaded;
+      
       this.availableModels[modelIndex] = {
         ...this.availableModels[modelIndex],
         downloading: progress < 100,
         downloadProgress: progress,
-        downloaded: progress >= 100
+        downloaded: isCompleted
       };
       
       const downloadProgress: ModelDownloadProgress = {
         modelId,
         progress,
-        status: progress >= 100 ? 'completed' : 'downloading'
+        status: isCompleted ? 'completed' : 'downloading'
       };
       
       this.emit('modelDownloadProgress', downloadProgress);
       this.emit('modelListUpdated', this.getAvailableModels());
       
-      // 检查是否在Electron环境中
-      if (typeof window !== 'undefined' && window.electronAPI) {
-        // 在渲染进程中，使用IPC调用主进程检查文件
-        // 注意：这里不能使用await，因为方法不是异步的
-        // 如果需要验证文件，应该调用verifyModelFiles方法
-      } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
-        // 在主进程中直接检查文件系统
-        const fs = require('fs');
-        const path = require('path');
-        
-        this.availableModels.forEach((model, index) => {
-          let isDownloaded = false;
-          
-          if (model.id === 'Xenova/whisper-tiny') {
-            // 对于Whisper Tiny，检查decoder和encoder文件
-            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
-            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
-            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
-          } else if (model.id === 'Xenova/whisper-tiny.en') {
-            // 对于Whisper Tiny EN，检查decoder和encoder文件
-            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
-            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
-            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
-          } else if (model.id === 'Xenova/whisper-base.en') {
-            // 对于Whisper Base EN，检查decoder和encoder文件
-            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
-            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
-            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
-          } else if (model.id === 'Xenova/whisper-base') {
-            // 对于Whisper Base，检查decoder和encoder文件
-            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
-            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
-            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
-          }
-          this.availableModels[index].downloaded = isDownloaded;
-        });
-        
-        this.emit('modelListUpdated', this.getAvailableModels());
+      // 仅在下载完成时保存模型状态
+      if (isCompleted && !wasCompleted) {
+        this.saveModelStatus();
       }
     }
   }
 
   // 保存模型状态到本地存储
-  private saveModelStatus(): void {
+  private async saveModelStatus(): Promise<void> {
     try {
+      console.log('ASR: 开始保存模型状态');
       const statusData = {
         models: this.availableModels.map(model => ({
           id: model.id,
@@ -1123,11 +1120,22 @@ export class TransformersASR extends EventEmitter {
         currentModelId: this.currentModelId
       };
       
-      const statusJson = JSON.stringify(statusData);
+      console.log('ASR: 状态数据:', statusData);
       
-      // 检查是否在浏览器环境中
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('transformers-asr-models', statusJson);
+      // 检查是否在Electron环境中
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        console.log('ASR: 在Electron渲染进程中，使用IPC调用主进程');
+        // 在Electron渲染进程中，使用IPC调用主进程保存模型状态
+        try {
+          const result = await window.electronAPI.speechRecognition.saveModelStatus(statusData);
+          if (!result.success) {
+            console.warn('保存模型状态失败:', result.error);
+          } else {
+            console.log('ASR: 模型状态保存成功');
+          }
+        } catch (error) {
+          console.warn('保存模型状态失败:', error);
+        }
       } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
         // 在 Electron 主进程中，保存到文件系统
         try {
@@ -1136,10 +1144,15 @@ export class TransformersASR extends EventEmitter {
           const { app } = require('electron');
           
           const configPath = path.join(app.getPath('userData'), 'transformers-asr-models.json');
+          const statusJson = JSON.stringify(statusData);
           fs.writeFileSync(configPath, statusJson, 'utf8');
         } catch (error) {
           console.warn('保存模型状态到文件失败:', error);
         }
+      } else if (typeof window !== 'undefined' && window.localStorage) {
+        // 浏览器环境
+        const statusJson = JSON.stringify(statusData);
+        localStorage.setItem('transformers-asr-models', statusJson);
       }
     } catch (error) {
       console.warn('保存模型状态失败:', error);
@@ -1149,15 +1162,20 @@ export class TransformersASR extends EventEmitter {
   // 验证模型文件是否存在
   private async verifyModelFiles(): Promise<void> {
     try {
+      console.log('ASR: 开始验证模型文件');
       // 检查是否在Electron环境中
       if (typeof window !== 'undefined' && window.electronAPI) {
+        console.log('ASR: 在渲染进程中，使用IPC调用主进程');
         // 在渲染进程中，使用IPC调用主进程检查文件
         try {
           const result = await window.electronAPI.speechRecognition.verifyModelFiles();
+          console.log('ASR: IPC调用结果:', result);
           if (result.success) {
+            console.log('ASR: 已下载的模型:', result.downloadedModels);
             // 更新模型状态
             this.availableModels.forEach((model, index) => {
               const isDownloaded = result.downloadedModels?.includes(model.id) || false;
+              console.log(`ASR: 模型 ${model.id} 下载状态: ${isDownloaded}`);
               this.availableModels[index].downloaded = isDownloaded;
             });
             this.emit('modelListUpdated', this.getAvailableModels());
@@ -1170,31 +1188,23 @@ export class TransformersASR extends EventEmitter {
         const fs = require('fs');
         const path = require('path');
         
+        // 定义每个模型对应的文件名
+        const modelFileConfigs = {
+          'Xenova/whisper-tiny': ['whisper-tiny-encoder_model_q4.onnx', 'whisper-tiny-decoder_model_q4.onnx'],
+          'Xenova/whisper-tiny.en': ['whisper-tiny-en-encoder_model_q4.onnx', 'whisper-tiny-en-decoder_model_q4.onnx'],
+          'Xenova/whisper-base': ['whisper-base-encoder_model_q4.onnx', 'whisper-base-decoder_model_q4.onnx'],
+          'Xenova/whisper-base.en': ['whisper-base-en-encoder_model_q4.onnx', 'whisper-base-en-decoder_model_q4.onnx']
+        };
+        
         this.availableModels.forEach((model, index) => {
-          let isDownloaded = false;
-          
-          if (model.id === 'Xenova/whisper-tiny') {
-            // 对于Whisper Tiny，检查decoder和encoder文件
-            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
-            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
-            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
-          } else if (model.id === 'Xenova/whisper-tiny.en') {
-            // 对于Whisper Tiny EN，检查decoder和encoder文件
-            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
-            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
-            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
-          } else if (model.id === 'Xenova/whisper-base.en') {
-            // 对于Whisper Base EN，检查decoder和encoder文件
-            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
-            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
-            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
-          } else if (model.id === 'Xenova/whisper-base') {
-            // 对于Whisper Base，检查decoder和encoder文件
-            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
-            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
-            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
+          const filenames = modelFileConfigs[model.id as keyof typeof modelFileConfigs];
+          if (filenames) {
+            const allFilesExist = filenames.every(filename => {
+              const filePath = path.join(this.modelCacheDir, filename);
+              return fs.existsSync(filePath);
+            });
+            this.availableModels[index].downloaded = allFilesExist;
           }
-          this.availableModels[index].downloaded = isDownloaded;
         });
         
         this.emit('modelListUpdated', this.getAvailableModels());
@@ -1206,13 +1216,18 @@ export class TransformersASR extends EventEmitter {
 
   // 手动刷新模型状态
   async refreshModelStatus(): Promise<void> {
-    await this.verifyModelFiles();
-    this.saveModelStatus();
+    try {
+      await this.verifyModelFiles();
+      this.saveModelStatus();
+    } catch (error) {
+      console.warn('刷新模型状态失败:', error);
+    }
   }
 
   // 从本地存储加载模型状态
   private loadModelStatus(): void {
     try {
+      console.log('ASR: 开始加载模型状态');
       let savedData: string | null = null;
       
       // 检查是否在浏览器环境中
@@ -1236,6 +1251,7 @@ export class TransformersASR extends EventEmitter {
       
       if (savedData) {
         const statusData = JSON.parse(savedData);
+        console.log('ASR: 加载的模型状态:', statusData);
         
         // 更新模型下载状态
         if (statusData.models) {
@@ -1243,6 +1259,7 @@ export class TransformersASR extends EventEmitter {
             const modelIndex = this.availableModels.findIndex(m => m.id === saved.id);
             if (modelIndex !== -1) {
               this.availableModels[modelIndex].downloaded = saved.downloaded;
+              console.log(`ASR: 从保存状态设置模型 ${saved.id} 下载状态为 ${saved.downloaded}`);
             }
           });
         }
@@ -1251,12 +1268,15 @@ export class TransformersASR extends EventEmitter {
         if (statusData.currentModelId) {
           this.currentModelId = statusData.currentModelId;
           this.options.model = statusData.currentModelId;
+          console.log(`ASR: 从保存状态设置当前模型为 ${statusData.currentModelId}`);
         }
       }
       
       // 在加载配置后，验证实际文件存在状态
-      setTimeout(() => {
-        this.verifyModelFiles();
+      // 注意：这里仅在初始化时验证，避免在切换模型时触发
+      setTimeout(async () => {
+        console.log('ASR: 延迟验证模型文件');
+        await this.verifyModelFiles();
       }, 100);
     } catch (error) {
       console.warn('加载模型状态失败:', error);

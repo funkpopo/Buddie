@@ -31,6 +31,8 @@ export interface IElectronAPI {
     downloadWhisperBaseENONNX: () => Promise<{ success: boolean; error?: string }>;
     downloadWhisperBaseONNX: () => Promise<{ success: boolean; error?: string }>;
     verifyModelFiles: () => Promise<{ success: boolean; downloadedModels?: string[] }>;
+    refreshModelStatus: () => Promise<{ success: boolean; downloadedModels?: string[]; error?: string }>;
+    saveModelStatus: (statusData: any) => Promise<{ success: boolean; error?: string }>;
   };
   
   // 系统方法

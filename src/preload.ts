@@ -26,6 +26,11 @@ interface IElectronAPI {
     invoke: (channel: string, ...args: any[]) => Promise<any>;
   };
   
+  // 页面导航方法
+  navigation: {
+    navigateToPage: (page: string) => Promise<void>;
+  };
+  
   // 语音识别方法
   speechRecognition: {
     start: () => Promise<{ success: boolean; error?: string }>;
@@ -34,6 +39,9 @@ interface IElectronAPI {
     downloadWhisperTinyENONNX: () => Promise<{ success: boolean; error?: string }>;
     downloadWhisperBaseENONNX: () => Promise<{ success: boolean; error?: string }>;
     downloadWhisperBaseONNX: () => Promise<{ success: boolean; error?: string }>;
+    verifyModelFiles: () => Promise<{ success: boolean; downloadedModels?: string[] }>;
+    refreshModelStatus: () => Promise<{ success: boolean; downloadedModels?: string[] }>;
+    saveModelStatus: (statusData: any) => Promise<{ success: boolean; error?: string }>;
     onResult: (callback: (result: SpeechRecognitionResult) => void) => void;
     onError: (callback: (error: string) => void) => void;
   };
@@ -63,6 +71,9 @@ const electronAPI: IElectronAPI = {
     },
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
   },
+  navigation: {
+    navigateToPage: (page: string) => ipcRenderer.invoke('navigate-to-page', page)
+  },
   speechRecognition: {
     start: () => ipcRenderer.invoke('start-speech-recognition'),
     stop: () => ipcRenderer.invoke('stop-speech-recognition'),
@@ -70,6 +81,9 @@ const electronAPI: IElectronAPI = {
     downloadWhisperTinyENONNX: () => ipcRenderer.invoke('download-whisper-tiny-en-onnx'),
     downloadWhisperBaseENONNX: () => ipcRenderer.invoke('download-whisper-base-en-onnx'),
     downloadWhisperBaseONNX: () => ipcRenderer.invoke('download-whisper-base-onnx'),
+    verifyModelFiles: () => ipcRenderer.invoke('verify-model-files'),
+    refreshModelStatus: () => ipcRenderer.invoke('refresh-model-status'),
+    saveModelStatus: (statusData) => ipcRenderer.invoke('save-model-status', statusData),
     onResult: (callback) => {
       ipcRenderer.on('speech-recognition-result', (event, result) => callback(result));
     },

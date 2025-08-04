@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, session } from 'electron';
 import path from 'path';
 import { getTransformersASRInstance, TransformersASRResult } from './transformers-asr';
+import * as fs from 'fs';
 
 // Electron Forge Vite 插件生成的全局变量
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -14,6 +15,10 @@ if (require('electron-squirrel-startup')) {
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let speechRecognizer = getTransformersASRInstance();
+let modelFileWatcher: fs.FSWatcher | null = null;
+let isSavingModelStatus = false; // 防止重复保存
+let isRefreshingModelStatus = false; // 防止重复刷新
+let currentPage: string | null = null; // 跟踪当前页面
 
 // 代理配置接口
 interface ProxyConfig {
@@ -112,8 +117,145 @@ const createWindow = () => {
   mainWindow.webContents.openDevTools();
 };
 
+// 防止在保存模型状态时触发文件监控的标志
+// let isSavingModelStatus = false; // 已在全局变量中定义
+
+// 设置模型文件监控
+const setupModelFileWatcher = () => {
+  try {
+    // 获取模型缓存目录
+    let modelCacheDir: string;
+    if (process.env.NODE_ENV === 'development') {
+      modelCacheDir = path.join(process.cwd(), 'models', 'onnx');
+    } else {
+      const exePath = app.getPath('exe');
+      const exeDir = path.dirname(exePath);
+      modelCacheDir = path.join(exeDir, 'models', 'onnx');
+    }
+    
+    // 确保目录存在
+    if (!fs.existsSync(modelCacheDir)) {
+      fs.mkdirSync(modelCacheDir, { recursive: true });
+    }
+    
+    // 防抖定时器
+    let fileChangeTimeout: NodeJS.Timeout | null = null;
+    
+    // 监控目录变化
+    modelFileWatcher = fs.watch(modelCacheDir, { recursive: false }, (eventType, filename) => {
+      // 如果正在保存模型状态，则跳过监控
+      if (isSavingModelStatus) {
+        console.log('跳过模型状态保存期间的文件监控');
+        return;
+      }
+      
+      if (filename && filename.endsWith('.onnx')) {
+        console.log(`检测到ONNX文件变化: ${eventType} ${filename}`);
+        
+        // 清除之前的定时器
+        if (fileChangeTimeout) {
+          clearTimeout(fileChangeTimeout);
+        }
+        
+        // 设置防抖延迟，避免频繁检查
+        fileChangeTimeout = setTimeout(() => {
+          verifyAndUpdateModelStatus();
+        }, 2000); // 2秒防抖延迟
+      }
+    });
+    
+    console.log(`已开始监控模型目录: ${modelCacheDir}`);
+    
+    // 初始检查一次模型状态
+    setTimeout(() => {
+      verifyAndUpdateModelStatus();
+    }, 1000);
+  } catch (error) {
+    console.error('设置模型文件监控失败:', error);
+  }
+};
+
+// 验证并更新模型状态
+const verifyAndUpdateModelStatus = async () => {
+  // 防止重复检查
+  if (isRefreshingModelStatus) {
+    console.log('正在刷新模型状态，跳过重复检查');
+    return;
+  }
+  
+  try {
+    isRefreshingModelStatus = true;
+    console.log('正在验证模型文件状态...');
+    
+    // 直接验证文件存在状态
+    const result = await verifyModelFilesSync();
+    
+    if (mainWindow) {
+      // 通知渲染进程更新模型状态
+      mainWindow.webContents.send('model-files-changed');
+      console.log('已通知渲染进程更新模型状态');
+    }
+  } catch (error) {
+    console.error('验证模型状态失败:', error);
+  } finally {
+    // 延迟重置标志，避免频繁触发
+    setTimeout(() => {
+      isRefreshingModelStatus = false;
+    }, 3000);
+  }
+};
+
+// 同步验证模型文件
+const verifyModelFilesSync = () => {
+  try {
+    // 获取模型缓存目录
+    let modelCacheDir: string;
+    if (process.env.NODE_ENV === 'development') {
+      modelCacheDir = path.join(process.cwd(), 'models', 'onnx');
+    } else {
+      const exePath = app.getPath('exe');
+      const exeDir = path.dirname(exePath);
+      modelCacheDir = path.join(exeDir, 'models', 'onnx');
+    }
+    
+    // 确保目录存在
+    if (!fs.existsSync(modelCacheDir)) {
+      fs.mkdirSync(modelCacheDir, { recursive: true });
+    }
+    
+    const downloadedModels: string[] = [];
+    
+    // 检查每个模型的ONNX文件
+    const modelConfigs = {
+      'Xenova/whisper-tiny': ['whisper-tiny-encoder_model_q4.onnx', 'whisper-tiny-decoder_model_q4.onnx'],
+      'Xenova/whisper-tiny.en': ['whisper-tiny-en-encoder_model_q4.onnx', 'whisper-tiny-en-decoder_model_q4.onnx'],
+      'Xenova/whisper-base': ['whisper-base-encoder_model_q4.onnx', 'whisper-base-decoder_model_q4.onnx'],
+      'Xenova/whisper-base.en': ['whisper-base-en-encoder_model_q4.onnx', 'whisper-base-en-decoder_model_q4.onnx']
+    };
+    
+    for (const [modelId, filenames] of Object.entries(modelConfigs)) {
+      const allFilesExist = filenames.every(filename => {
+        const filePath = path.join(modelCacheDir, filename);
+        const exists = fs.existsSync(filePath);
+        console.log(`检查模型文件 ${filename}: ${exists ? '存在' : '不存在'}`);
+        return exists;
+      });
+      
+      if (allFilesExist) {
+        downloadedModels.push(modelId);
+      }
+    }
+    
+    console.log('当前已下载的模型:', downloadedModels);
+    return { success: true, downloadedModels };
+    
+  } catch (error) {
+    console.error('同步验证模型文件失败:', error);
+    return { success: false, error: (error as Error).message };
+  }
+};
+
 const createTray = () => {
-  // 创建系统托盘图标
   let iconPath = path.join(__dirname, 'assets/icon.png');
   
   // 在开发模式下，图标路径不同
@@ -227,6 +369,7 @@ app.on('ready', () => {
   createWindow();
   createTray();
   registerGlobalShortcut();
+  setupModelFileWatcher(); // 设置模型文件监控
   
   // 监听语音识别事件
   speechRecognizer.on('result', (result: TransformersASRResult) => {
@@ -238,6 +381,12 @@ app.on('ready', () => {
     if (mainWindow) {
       mainWindow.webContents.send('speech-recognition-error', error.message);
     }
+  });
+  
+  // 监听页面导航变化
+  ipcMain.on('navigate-to-page', (event, page: string) => {
+    currentPage = page;
+    console.log(`导航到页面: ${page}`);
   });
 });
 
@@ -282,17 +431,17 @@ ipcMain.handle('stop-speech-recognition', async () => {
 ipcMain.handle('get-model-cache-dir', async () => {
   try {
     if (process.env.NODE_ENV === 'development') {
-      // 开发环境：项目根目录下的models文件夹
-      return path.join(process.cwd(), 'models');
+      // 开发环境：项目根目录下的models/onnx文件夹
+      return path.join(process.cwd(), 'models', 'onnx');
     } else {
-      // 生产环境：exe同级的models文件夹
+      // 生产环境：exe同级的models/onnx文件夹
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      return path.join(exeDir, 'models');
+      return path.join(exeDir, 'models', 'onnx');
     }
   } catch (error) {
     console.error('Failed to get model cache directory:', error);
-    return './models'; // 回退到默认路径
+    return './models/onnx'; // 回退到默认路径
   }
 });
 
@@ -371,11 +520,11 @@ async function downloadWhisperModel(modelConfig: {
     // 获取模型缓存目录
     let modelCacheDir: string;
     if (process.env.NODE_ENV === 'development') {
-      modelCacheDir = path.join(process.cwd(), 'models');
+      modelCacheDir = path.join(process.cwd(), 'models', 'onnx');
     } else {
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      modelCacheDir = path.join(exeDir, 'models');
+      modelCacheDir = path.join(exeDir, 'models', 'onnx');
     }
     
     // 确保缓存目录存在
@@ -617,7 +766,12 @@ const modelConfigs = {
 
 // IPC 处理程序：下载Whisper Tiny ONNX模型（保持向后兼容）
 ipcMain.handle('download-whisper-tiny-onnx', async () => {
-  return await downloadWhisperModel(modelConfigs['whisper-tiny']);
+  const result = await downloadWhisperModel(modelConfigs['whisper-tiny']);
+  // 下载完成后通知渲染进程刷新模型状态
+  if (result.success && mainWindow) {
+    mainWindow.webContents.send('model-files-changed');
+  }
+  return result;
 });
 
 // IPC 处理程序：下载Whisper Tiny EN模型
@@ -659,41 +813,36 @@ ipcMain.handle('verify-model-files', async () => {
     // 获取模型缓存目录
     let modelCacheDir: string;
     if (process.env.NODE_ENV === 'development') {
-      modelCacheDir = path.join(process.cwd(), 'models');
+      modelCacheDir = path.join(process.cwd(), 'models', 'onnx');
     } else {
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      modelCacheDir = path.join(exeDir, 'models');
+      modelCacheDir = path.join(exeDir, 'models', 'onnx');
+    }
+    
+    // 确保目录存在
+    if (!fs.existsSync(modelCacheDir)) {
+      fs.mkdirSync(modelCacheDir, { recursive: true });
     }
     
     const downloadedModels: string[] = [];
     
-    // 检查 Whisper Tiny ONNX 文件
-    const whisperTinyDecoderPath = path.join(modelCacheDir, 'decoder_model_q4.onnx');
-    const whisperTinyEncoderPath = path.join(modelCacheDir, 'encoder_model_q4.onnx');
-    if (fs.existsSync(whisperTinyDecoderPath) && fs.existsSync(whisperTinyEncoderPath)) {
-      downloadedModels.push('Xenova/whisper-tiny');
-    }
+    // 检查每个模型的ONNX文件
+    const modelConfigs = {
+      'Xenova/whisper-tiny': ['whisper-tiny-encoder_model_q4.onnx', 'whisper-tiny-decoder_model_q4.onnx'],
+      'Xenova/whisper-tiny.en': ['whisper-tiny-en-encoder_model_q4.onnx', 'whisper-tiny-en-decoder_model_q4.onnx'],
+      'Xenova/whisper-base': ['whisper-base-encoder_model_q4.onnx', 'whisper-base-decoder_model_q4.onnx'],
+      'Xenova/whisper-base.en': ['whisper-base-en-encoder_model_q4.onnx', 'whisper-base-en-decoder_model_q4.onnx']
+    };
     
-    // 检查其他模型 (transformers.js 标准缓存结构)
-    const modelIds = ['Xenova/whisper-tiny.en', 'Xenova/whisper-base', 'Xenova/whisper-base.en'];
-    
-    for (const modelId of modelIds) {
-      const modelDir = path.join(modelCacheDir, 'models--' + modelId.replace('/', '--'));
-      if (fs.existsSync(modelDir)) {
-        // 检查是否有必要的模型文件
-        const configPath = path.join(modelDir, 'snapshots');
-        if (fs.existsSync(configPath)) {
-          const snapshots = fs.readdirSync(configPath);
-          if (snapshots.length > 0) {
-            // 检查快照目录中是否有模型文件
-            const snapshotDir = path.join(configPath, snapshots[0]);
-            const files = fs.readdirSync(snapshotDir);
-            if (files.some((file: string) => file.endsWith('.onnx') || file.endsWith('.bin'))) {
-              downloadedModels.push(modelId);
-            }
-          }
-        }
+    for (const [modelId, filenames] of Object.entries(modelConfigs)) {
+      const allFilesExist = filenames.every(filename => {
+        const filePath = path.join(modelCacheDir, filename);
+        return fs.existsSync(filePath);
+      });
+      
+      if (allFilesExist) {
+        downloadedModels.push(modelId);
       }
     }
     
@@ -702,6 +851,56 @@ ipcMain.handle('verify-model-files', async () => {
     
   } catch (error) {
     console.error('验证模型文件失败:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// IPC 处理程序：保存模型状态
+ipcMain.handle('save-model-status', async (event, statusData: any) => {
+  try {
+    // 设置标志以防止在保存模型状态时触发文件监控
+    isSavingModelStatus = true;
+    
+    // 保存到文件系统
+    const fs = require('fs');
+    const path = require('path');
+    
+    const configPath = path.join(app.getPath('userData'), 'transformers-asr-models.json');
+    const statusJson = JSON.stringify(statusData);
+    fs.writeFileSync(configPath, statusJson, 'utf8');
+    
+    // 延迟重置标志，确保文件操作完成
+    setTimeout(() => {
+      isSavingModelStatus = false;
+    }, 1000);
+    
+    console.log('模型状态保存成功');
+    return { success: true };
+  } catch (error) {
+    isSavingModelStatus = false;
+    console.error('保存模型状态失败:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// IPC 处理程序：手动刷新模型状态
+ipcMain.handle('refresh-model-status', async () => {
+  try {
+    // 检查是否在设置页面，如果是则拒绝执行
+    if (currentPage === 'settings') {
+      console.log('在设置页面不允许手动刷新模型状态');
+      return { success: false, error: '在设置页面不允许手动刷新模型状态' };
+    }
+    
+    console.log('手动刷新模型状态...');
+    const result = verifyModelFilesSync();
+    
+    // 不在这里发送 model-files-changed 事件，避免无限循环
+    // 只有在文件系统实际变化时才发送该事件
+    
+    return result;
+  } catch (error) {
+    console.error('手动刷新模型状态失败:', error);
     return { success: false, error: (error as Error).message };
   }
 });
@@ -716,6 +915,12 @@ const sendRecognitionResult = (result: TransformersASRResult) => {
 app.on('will-quit', () => {
   // 注销所有快捷键
   globalShortcut.unregisterAll();
+  
+  // 清理文件监控器
+  if (modelFileWatcher) {
+    modelFileWatcher.close();
+    modelFileWatcher = null;
+  }
 });
 
 // In this file you can include the rest of your app's specific main process
