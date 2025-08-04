@@ -281,7 +281,23 @@ const App: React.FC = () => {
     // 模型管理处理函数
     const handleDownloadModel = async (modelId: string) => {
       try {
-        await asrRef.current.downloadModel(modelId);
+        // 根据模型ID调用对应的下载方法
+        switch (modelId) {
+          case 'Xenova/whisper-tiny':
+            await asrRef.current.downloadWhisperTinyONNX();
+            break;
+          case 'Xenova/whisper-tiny.en':
+            await asrRef.current.downloadWhisperTinyENONNX();
+            break;
+          case 'Xenova/whisper-base':
+            await asrRef.current.downloadWhisperBaseONNX();
+            break;
+          case 'Xenova/whisper-base.en':
+            await asrRef.current.downloadWhisperBaseENONNX();
+            break;
+          default:
+            throw new Error(`不支持的模型: ${modelId}`);
+        }
         showMessage(`模型 ${modelId} 下载完成`, 'success');
       } catch (error) {
         console.error(`模型 ${modelId} 下载失败:`, error);
@@ -303,8 +319,16 @@ const App: React.FC = () => {
 
     const handleDeleteModel = async (modelId: string) => {
       try {
-        await asrRef.current.deleteModel(modelId);
-        showMessage(`模型 ${modelId} 已删除`, 'success');
+        // 暂时显示功能未实现的提示
+        showMessage('模型删除功能正在开发中，请手动删除模型文件', 'info');
+        
+        // TODO: 实现模型删除功能
+        // 可以通过以下方式实现：
+        // 1. 在 electron-api.d.ts 中添加 deleteModelFiles 方法
+        // 2. 在主进程中实现删除模型文件的逻辑
+        // 3. 通过 IPC 调用删除功能
+        
+        console.log(`请求删除模型: ${modelId}`);
       } catch (error) {
         console.error(`删除模型失败:`, error);
         showMessage(`删除模型失败: ${(error as Error).message}`, 'error');

@@ -768,9 +768,12 @@ export class TransformersASR extends EventEmitter {
     }
   }
 
-  // 下载指定模型
-  async downloadModel(modelId: string): Promise<void> {
+  // 下载Whisper Tiny EN ONNX模型文件
+  async downloadWhisperTinyENONNX(): Promise<void> {
+    const url = 'https://huggingface.co/Xenova/whisper-tiny.en/resolve/main/onnx/decoder_model_q4.onnx';
+    const modelId = 'Xenova/whisper-tiny.en';
     const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
+    
     if (modelIndex === -1) {
       throw new Error(`模型 ${modelId} 不存在`);
     }
@@ -785,9 +788,105 @@ export class TransformersASR extends EventEmitter {
       throw new Error(`模型 ${model.name} 正在下载中`);
     }
     
-    // 确保缓存目录已初始化
-    if (this.modelCacheDir === './models') {
-      await this.initializeModelCacheDir();
+    // 标记为下载中
+    this.availableModels[modelIndex] = {
+      ...model,
+      downloading: true,
+      downloadProgress: 0
+    };
+    
+    this.emit('modelListUpdated', this.getAvailableModels());
+    
+    try {
+      console.log(`开始下载Whisper Tiny EN ONNX模型: ${url}`);
+      
+      // 检查是否在Electron环境中
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        // 在Electron渲染进程中，使用IPC调用主进程
+        const result = await window.electronAPI.speechRecognition.downloadWhisperTinyENONNX();
+        if (!result.success) {
+          throw new Error(result.error || '下载失败');
+        }
+
+        // 下载成功，但不在这里设置完成状态，由updateWhisperTinyENONNXProgress处理
+        console.log(`Whisper Tiny EN ONNX模型下载完成`);
+        return;
+      }
+      
+      // 浏览器环境的fallback实现
+      throw new Error('浏览器环境下暂不支持直接下载模型文件，请在Electron应用中使用此功能');
+      
+    } catch (error) {
+      // 下载失败
+      this.availableModels[modelIndex] = {
+        ...model,
+        downloading: false,
+        downloadProgress: 0
+      };
+      
+      const errorMessage = (error as Error).message;
+      
+      const downloadProgress: ModelDownloadProgress = {
+        modelId,
+        progress: 0,
+        status: 'error',
+        error: errorMessage
+      };
+      
+      this.emit('modelDownloadProgress', downloadProgress);
+      this.emit('modelListUpdated', this.getAvailableModels());
+      
+      console.error(`Whisper Tiny EN ONNX模型下载失败:`, error);
+      throw new Error(errorMessage);
+    }
+  }
+  
+  // 更新 Whisper Tiny EN ONNX 模型下载进度
+  updateWhisperTinyENONNXProgress(progress: number): void {
+    const modelId = 'Xenova/whisper-tiny.en';
+    const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
+    
+    if (modelIndex !== -1) {
+      this.availableModels[modelIndex] = {
+        ...this.availableModels[modelIndex],
+        downloading: progress < 100,
+        downloadProgress: progress,
+        downloaded: progress >= 100
+      };
+      
+      const downloadProgress: ModelDownloadProgress = {
+        modelId,
+        progress,
+        status: progress >= 100 ? 'completed' : 'downloading'
+      };
+      
+      this.emit('modelDownloadProgress', downloadProgress);
+      this.emit('modelListUpdated', this.getAvailableModels());
+      
+      if (progress >= 100) {
+        this.saveModelStatus();
+      }
+    }
+  }
+  
+  // 下载Whisper Base EN ONNX模型文件
+  async downloadWhisperBaseENONNX(): Promise<void> {
+    const url = 'https://huggingface.co/Xenova/whisper-base.en/resolve/main/onnx/decoder_model_q4.onnx';
+    const modelId = 'Xenova/whisper-base.en';
+    const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
+    
+    if (modelIndex === -1) {
+      throw new Error(`模型 ${modelId} 不存在`);
+    }
+    
+    const model = this.availableModels[modelIndex];
+    if (model.downloaded) {
+      console.log(`模型 ${model.name} 已经下载完成`);
+      return;
+    }
+    
+    if (model.downloading) {
+      throw new Error(`模型 ${model.name} 正在下载中`);
     }
     
     // 标记为下载中
@@ -800,86 +899,23 @@ export class TransformersASR extends EventEmitter {
     this.emit('modelListUpdated', this.getAvailableModels());
     
     try {
-      console.log(`开始下载模型: ${model.name}`);
-      console.log(`模型缓存目录: ${this.modelCacheDir}`);
-      console.log(`模型ID: ${modelId}`);
-      console.log(`Hugging Face URL: https://huggingface.co/${modelId}/tree/main`);
+      console.log(`开始下载Whisper Base EN ONNX模型: ${url}`);
       
-      // 检测网络连接
-      await this.checkNetworkConnection();
-      
-      // 配置环境变量以支持应用内下载
-      env.allowRemoteModels = true;
-      env.allowLocalModels = true;
-      env.useBrowserCache = false; // 禁用浏览器缓存避免冲突
-      env.remoteURL = 'https://huggingface.co/';
-      env.remotePathTemplate = '{model}/resolve/{revision}/{file}';
-      
-      // 添加请求头以避免CORS问题
-      if (!env.customHeaders) {
-        env.customHeaders = {};
-      }
-      env.customHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
-      env.customHeaders['Accept'] = 'application/json, application/octet-stream, */*';
-      
-      // 下载模型
-      const testPipeline = await pipeline(
-        'automatic-speech-recognition',
-        modelId,
-        {
-          quantized: true,
-          revision: 'main',
-          cache_dir: this.modelCacheDir,
-          local_files_only: false,
-          trust_remote_code: false, // 安全考虑，不执行远程代码
-          use_auth_token: false, // 公开模型无需认证
-          progress_callback: (progress: { status: string; progress?: number; file?: string }) => {
-            if (progress.status === 'downloading' || progress.status === 'loading') {
-              const progressPercent = progress.progress || 0;
-              
-              // 更新下载进度
-              this.availableModels[modelIndex] = {
-                ...this.availableModels[modelIndex],
-                downloadProgress: progressPercent
-              };
-              
-              const downloadProgress: ModelDownloadProgress = {
-                modelId,
-                progress: progressPercent,
-                status: 'downloading'
-              };
-              
-              this.emit('modelDownloadProgress', downloadProgress);
-              this.emit('modelListUpdated', this.getAvailableModels());
-              
-              console.log(`下载进度 ${model.name}: ${progressPercent.toFixed(1)}%`);
-            }
-          }
+      // 检查是否在Electron环境中
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        // 在Electron渲染进程中，使用IPC调用主进程
+        const result = await window.electronAPI.speechRecognition.downloadWhisperBaseENONNX();
+        if (!result.success) {
+          throw new Error(result.error || '下载失败');
         }
-      );
+        
+        // 下载成功，但不在这里设置完成状态，由updateWhisperBaseENONNXProgress处理
+        console.log(`Whisper Base EN ONNX模型下载完成`);
+        return;
+      }
       
-      // 下载成功
-      this.availableModels[modelIndex] = {
-        ...model,
-        downloaded: true,
-        downloading: false,
-        downloadProgress: 100
-      };
-      
-      // 释放测试pipeline资源
-      testPipeline.dispose?.();
-      
-      const downloadProgress: ModelDownloadProgress = {
-        modelId,
-        progress: 100,
-        status: 'completed'
-      };
-      
-      this.emit('modelDownloadProgress', downloadProgress);
-      this.emit('modelListUpdated', this.getAvailableModels());
-      this.saveModelStatus();
-      
-      console.log(`模型下载完成: ${model.name}`);
+      // 浏览器环境的fallback实现
+      throw new Error('浏览器环境下暂不支持直接下载模型文件，请在Electron应用中使用此功能');
       
     } catch (error) {
       // 下载失败
@@ -889,20 +925,7 @@ export class TransformersASR extends EventEmitter {
         downloadProgress: 0
       };
       
-      let errorMessage = (error as Error).message;
-      
-      // 检查是否是网络或CDN相关错误，提供更详细的错误信息
-      if (errorMessage.includes('SyntaxError') && errorMessage.includes('<!DOCTYPE')) {
-        errorMessage = '网络连接问题或CDN暂时不可用。可能原因：1) 网络代理阻止了Hugging Face访问 2) DNS解析问题 3) 防火墙限制。请检查网络连接后重试';
-      } else if (errorMessage.includes('fetch')) {
-        errorMessage = '网络连接失败，无法访问Hugging Face模型库，请检查网络连接';
-      } else if (errorMessage.includes('timeout')) {
-        errorMessage = '下载超时，请检查网络连接后重试';
-      } else if (errorMessage.includes('CORS')) {
-        errorMessage = '跨域请求被阻止，这可能是浏览器安全限制导致的';
-      } else if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
-        errorMessage = `模型 ${modelId} 在Hugging Face上不存在或已被移动`;
-      }
+      const errorMessage = (error as Error).message;
       
       const downloadProgress: ModelDownloadProgress = {
         modelId,
@@ -914,93 +937,134 @@ export class TransformersASR extends EventEmitter {
       this.emit('modelDownloadProgress', downloadProgress);
       this.emit('modelListUpdated', this.getAvailableModels());
       
-      console.error(`模型下载失败 ${model.name}:`, error);
+      console.error(`Whisper Base EN ONNX模型下载失败:`, error);
       throw new Error(errorMessage);
     }
   }
   
-  // 删除模型（清除缓存）
-  async deleteModel(modelId: string): Promise<void> {
+  // 更新 Whisper Base EN ONNX 模型下载进度
+  updateWhisperBaseENONNXProgress(progress: number): void {
+    const modelId = 'Xenova/whisper-base.en';
     const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
+    
+    if (modelIndex !== -1) {
+      this.availableModels[modelIndex] = {
+        ...this.availableModels[modelIndex],
+        downloading: progress < 100,
+        downloadProgress: progress,
+        downloaded: progress >= 100
+      };
+      
+      const downloadProgress: ModelDownloadProgress = {
+        modelId,
+        progress,
+        status: progress >= 100 ? 'completed' : 'downloading'
+      };
+      
+      this.emit('modelDownloadProgress', downloadProgress);
+      this.emit('modelListUpdated', this.getAvailableModels());
+      
+      if (progress >= 100) {
+        this.saveModelStatus();
+      }
+    }
+  }
+  
+  // 下载Whisper Base ONNX模型文件
+  async downloadWhisperBaseONNX(): Promise<void> {
+    const url = 'https://huggingface.co/Xenova/whisper-base/resolve/main/onnx/decoder_model_q4.onnx';
+    const modelId = 'Xenova/whisper-base';
+    const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
+    
     if (modelIndex === -1) {
       throw new Error(`模型 ${modelId} 不存在`);
     }
     
     const model = this.availableModels[modelIndex];
-    
-    // 如果是当前使用的模型，先切换到默认模型
-    if (this.currentModelId === modelId) {
-      const defaultModel = this.availableModels.find(m => m.id === 'Xenova/whisper-tiny');
-      if (defaultModel && defaultModel.downloaded) {
-        await this.switchToModel('Xenova/whisper-tiny');
-      } else {
-        // 停止当前的识别并重置状态
-        if (this.isListening) {
-          await this.stopListening();
-        }
-        this.isInitialized = false;
-        this.pipeline = null;
-        this.currentModelId = 'Xenova/whisper-tiny';
-      }
+    if (model.downloaded) {
+      console.log(`模型 ${model.name} 已经下载完成`);
+      return;
     }
     
-    // 标记为未下载
+    if (model.downloading) {
+      throw new Error(`模型 ${model.name} 正在下载中`);
+    }
+    
+    // 标记为下载中
     this.availableModels[modelIndex] = {
       ...model,
-      downloaded: false,
-      downloading: false,
+      downloading: true,
       downloadProgress: 0
     };
     
     this.emit('modelListUpdated', this.getAvailableModels());
-    this.saveModelStatus();
     
-    console.log(`已删除模型: ${model.name}`);
-  }
-  
-  // 保存模型状态到本地存储
-  private saveModelStatus(): void {
-    const modelStatus = this.availableModels.map(model => ({
-      id: model.id,
-      downloaded: model.downloaded
-    }));
-    
-    const statusData = {
-      models: modelStatus,
-      currentModelId: this.currentModelId
-    };
-    
-    // 检查是否在浏览器环境中
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem('transformers-asr-models', JSON.stringify(statusData));
-    } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
-      // 在 Electron 主进程中，使用文件系统存储
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const { app } = require('electron');
+    try {
+      console.log(`开始下载Whisper Base ONNX模型: ${url}`);
+      
+      // 检查是否在Electron环境中
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        // 在Electron渲染进程中，使用IPC调用主进程
+        const result = await window.electronAPI.speechRecognition.downloadWhisperBaseONNX();
+        if (!result.success) {
+          throw new Error(result.error || '下载失败');
+        }
         
-        const configPath = path.join(app.getPath('userData'), 'transformers-asr-models.json');
-        fs.writeFileSync(configPath, JSON.stringify(statusData, null, 2));
-      } catch (error) {
-        console.warn('保存模型状态到文件失败:', error);
+        // 下载成功，但不在这里设置完成状态，由updateWhisperBaseONNXProgress处理
+        console.log(`Whisper Base ONNX模型下载完成`);
+        return;
       }
+      
+      // 浏览器环境的fallback实现
+      throw new Error('浏览器环境下暂不支持直接下载模型文件，请在Electron应用中使用此功能');
+      
+    } catch (error) {
+      // 下载失败
+  
+      const errorMessage = (error as Error).message;
+      
+      const downloadProgress: ModelDownloadProgress = {
+        modelId,
+        progress: 0,
+        status: 'error',
+        error: errorMessage
+      };
+      
+      this.emit('modelDownloadProgress', downloadProgress);
+      this.emit('modelListUpdated', this.getAvailableModels());
+      
+      console.error(`Whisper Base ONNX模型下载失败:`, error);
+      throw new Error(errorMessage);
     }
   }
   
-  // 验证模型文件实际存在状态
-  private async verifyModelFiles(): Promise<void> {
-    try {
-      // 确保缓存目录已初始化
-      if (this.modelCacheDir === './models') {
-        await this.initializeModelCacheDir();
-      }
-
+  // 更新 Whisper Base ONNX 模型下载进度
+  updateWhisperBaseONNXProgress(progress: number): void {
+    const modelId = 'Xenova/whisper-base';
+    const modelIndex = this.availableModels.findIndex(m => m.id === modelId);
+    
+    if (modelIndex !== -1) {
+      this.availableModels[modelIndex] = {
+        ...this.availableModels[modelIndex],
+        downloading: progress < 100,
+        downloadProgress: progress,
+        downloaded: progress >= 100
+      };
+      
+      const downloadProgress: ModelDownloadProgress = {
+        modelId,
+        progress,
+        status: progress >= 100 ? 'completed' : 'downloading'
+      };
+      
+      this.emit('modelDownloadProgress', downloadProgress);
+      this.emit('modelListUpdated', this.getAvailableModels());
+      
       // 检查是否在Electron环境中
       if (typeof window !== 'undefined' && window.electronAPI) {
         // 在渲染进程中，使用IPC调用主进程检查文件
         try {
-          const result = await window.electronAPI.system.verifyModelFiles();
+          const result = await window.electronAPI.speechRecognition.verifyModelFiles();
           if (result.success) {
             // 更新模型状态
             this.availableModels.forEach((model, index) => {
@@ -1025,12 +1089,22 @@ export class TransformersASR extends EventEmitter {
             const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
             const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
             isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
-          } else {
-            // 对于其他模型，检查标准的transformers.js缓存结构
-            const modelDir = path.join(this.modelCacheDir, 'models--' + model.id.replace('/', '--'));
-            isDownloaded = fs.existsSync(modelDir);
+          } else if (model.id === 'Xenova/whisper-tiny.en') {
+            // 对于Whisper Tiny EN，检查decoder和encoder文件
+            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
+            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
+            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
+          } else if (model.id === 'Xenova/whisper-base.en') {
+            // 对于Whisper Base EN，检查decoder和encoder文件
+            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
+            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
+            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
+          } else if (model.id === 'Xenova/whisper-base') {
+            // 对于Whisper Base，检查decoder和encoder文件
+            const decoderPath = path.join(this.modelCacheDir, 'decoder_model_q4.onnx');
+            const encoderPath = path.join(this.modelCacheDir, 'encoder_model_q4.onnx');
+            isDownloaded = fs.existsSync(decoderPath) && fs.existsSync(encoderPath);
           }
-          
           this.availableModels[index].downloaded = isDownloaded;
         });
         

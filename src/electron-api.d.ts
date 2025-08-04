@@ -10,14 +10,6 @@ interface SpeechRecognitionResult {
 interface ProxyConfig {
   enabled: boolean;
   useSystemProxy: boolean;
-  manualProxy?: {
-    host: string;
-    port: number;
-    auth?: {
-      username: string;
-      password: string;
-    };
-  };
 }
 
 export interface IElectronAPI {

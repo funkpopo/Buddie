@@ -15,14 +15,6 @@ interface SpeechRecognitionResult {
 interface ProxyConfig {
   enabled: boolean;
   useSystemProxy: boolean;
-  manualProxy?: {
-    host: string;
-    port: number;
-    auth?: {
-      username: string;
-      password: string;
-    };
-  };
 }
 
 // 定义API接口以提高类型安全性
@@ -39,6 +31,9 @@ interface IElectronAPI {
     start: () => Promise<{ success: boolean; error?: string }>;
     stop: () => Promise<{ success: boolean; error?: string }>;
     downloadWhisperTinyONNX: () => Promise<{ success: boolean; error?: string }>;
+    downloadWhisperTinyEN: () => Promise<{ success: boolean; error?: string }>;
+    downloadWhisperBaseEN: () => Promise<{ success: boolean; error?: string }>;
+    downloadWhisperBase: () => Promise<{ success: boolean; error?: string }>;
     onResult: (callback: (result: SpeechRecognitionResult) => void) => void;
     onError: (callback: (error: string) => void) => void;
   };
@@ -72,6 +67,9 @@ const electronAPI: IElectronAPI = {
     start: () => ipcRenderer.invoke('start-speech-recognition'),
     stop: () => ipcRenderer.invoke('stop-speech-recognition'),
     downloadWhisperTinyONNX: () => ipcRenderer.invoke('download-whisper-tiny-onnx'),
+    downloadWhisperTinyEN: () => ipcRenderer.invoke('download-whisper-tiny-en'),
+    downloadWhisperBaseEN: () => ipcRenderer.invoke('download-whisper-base-en'),
+    downloadWhisperBase: () => ipcRenderer.invoke('download-whisper-base'),
     onResult: (callback) => {
       ipcRenderer.on('speech-recognition-result', (event, result) => callback(result));
     },

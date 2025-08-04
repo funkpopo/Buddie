@@ -19,14 +19,6 @@ let speechRecognizer = getTransformersASRInstance();
 interface ProxyConfig {
   enabled: boolean;
   useSystemProxy: boolean;
-  manualProxy?: {
-    host: string;
-    port: number;
-    auth?: {
-      username: string;
-      password: string;
-    };
-  };
 }
 
 // 默认代理配置
@@ -85,66 +77,12 @@ function configureProxy(config: ProxyConfig): void {
       ses.setProxy({ mode: 'auto_detect' });
       console.log('使用自动代理检测');
     }
-  } else if (config.manualProxy) {
-    // 使用手动配置的代理
-    const { host, port, auth } = config.manualProxy;
-    let proxyRules = `http://${host}:${port};https://${host}:${port}`;
-    
-    const proxyConfig: any = {
-      mode: 'fixed_servers',
-      proxyRules
-    };
-    
-    if (auth) {
-      // 注意：Electron 不直接支持在 proxyRules 中设置认证
-      // 需要通过 login 事件处理认证
-      setupProxyAuthentication(auth.username, auth.password);
-    }
-    
-    ses.setProxy(proxyConfig);
-    console.log('使用手动代理:', proxyRules);
   }
 }
 
-// 设置代理认证
-function setupProxyAuthentication(username: string, password: string): void {
-  const ses = session.defaultSession;
-  
-  ses.on('login', (event, authenticationResponseDetails, authInfo, callback) => {
-    if (authInfo.isProxy) {
-      event.preventDefault();
-      callback(username, password);
-    }
-  });
-}
-
-// 加载代理配置
-function loadProxyConfig(): ProxyConfig {
-  try {
-    const fs = require('fs');
-    const configPath = path.join(app.getPath('userData'), 'proxy-config.json');
-    
-    if (fs.existsSync(configPath)) {
-      const configData = fs.readFileSync(configPath, 'utf8');
-      return { ...defaultProxyConfig, ...JSON.parse(configData) };
-    }
-  } catch (error) {
-    console.log('加载代理配置失败，使用默认配置:', error);
-  }
-  
+// 获取默认代理配置
+function getDefaultProxyConfig(): ProxyConfig {
   return defaultProxyConfig;
-}
-
-// 保存代理配置
-function saveProxyConfig(config: ProxyConfig): void {
-  try {
-    const fs = require('fs');
-    const configPath = path.join(app.getPath('userData'), 'proxy-config.json');
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    console.log('代理配置已保存');
-  } catch (error) {
-    console.error('保存代理配置失败:', error);
-  }
 }
 
 const createWindow = () => {
@@ -283,7 +221,7 @@ const registerGlobalShortcut = () => {
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
   // 初始化代理配置
-  const proxyConfig = loadProxyConfig();
+  const proxyConfig = getDefaultProxyConfig();
   configureProxy(proxyConfig);
   
   createWindow();
@@ -361,7 +299,7 @@ ipcMain.handle('get-model-cache-dir', async () => {
 // IPC 处理程序：获取代理配置
 ipcMain.handle('get-proxy-config', async () => {
   try {
-    return loadProxyConfig();
+    return getDefaultProxyConfig();
   } catch (error) {
     console.error('Failed to get proxy config:', error);
     return defaultProxyConfig;
@@ -371,7 +309,6 @@ ipcMain.handle('get-proxy-config', async () => {
 // IPC 处理程序：设置代理配置
 ipcMain.handle('set-proxy-config', async (event, config: ProxyConfig) => {
   try {
-    saveProxyConfig(config);
     configureProxy(config);
     return { success: true };
   } catch (error) {
@@ -404,7 +341,7 @@ ipcMain.handle('test-proxy-connection', async () => {
         });
       });
       
-      request.on('error', (error) => {
+      request.on('error', (error: any) => {
         responseReceived = true;
         clearTimeout(timeout);
         resolve({ success: false, error: error.message });
@@ -417,12 +354,19 @@ ipcMain.handle('test-proxy-connection', async () => {
   }
 });
 
-// IPC 处理程序：下载Whisper Tiny ONNX模型
-ipcMain.handle('download-whisper-tiny-onnx', async () => {
+// 通用模型下载函数
+async function downloadWhisperModel(modelConfig: {
+  name: string;
+  files: Array<{
+    url: string;
+    filename: string;
+    name: string;
+  }>;
+}) {
   try {
     const fs = require('fs');
     const path = require('path');
-    const { net } = require('electron'); // 使用 Electron 的 net 模块，支持代理
+    const { net } = require('electron');
     
     // 获取模型缓存目录
     let modelCacheDir: string;
@@ -439,19 +383,7 @@ ipcMain.handle('download-whisper-tiny-onnx', async () => {
       fs.mkdirSync(modelCacheDir, { recursive: true });
     }
 
-    // 定义需要下载的文件
-    const filesToDownload = [
-      {
-        url: 'https://huggingface.co/Xenova/whisper-tiny/resolve/main/onnx/decoder_model_q4.onnx',
-        filename: 'decoder_model_q4.onnx',
-        name: 'Decoder模型'
-      },
-      {
-        url: 'https://huggingface.co/Xenova/whisper-tiny/resolve/main/onnx/encoder_model_q4.onnx',
-        filename: 'encoder_model_q4.onnx',
-        name: 'Encoder模型'
-      }
-    ];
+    const filesToDownload = modelConfig.files;
 
     // 检查所有文件是否已存在
     const allFilesExist = filesToDownload.every(file => {
@@ -460,11 +392,11 @@ ipcMain.handle('download-whisper-tiny-onnx', async () => {
     });
 
     if (allFilesExist) {
-      console.log('所有Whisper Tiny ONNX模型文件已存在');
+      console.log(`所有${modelConfig.name}模型文件已存在`);
       return { success: true };
     }
 
-    console.log('开始下载Whisper Tiny ONNX模型文件...');
+    console.log(`开始下载${modelConfig.name}模型文件...`);
 
     // 下载单个文件的函数
     const downloadFile = (fileInfo: typeof filesToDownload[0]): Promise<void> => {
@@ -551,7 +483,7 @@ ipcMain.handle('download-whisper-tiny-onnx', async () => {
               resolve();
             });
 
-            response.on('error', (err) => {
+            response.on('error', (err: any) => {
               clearTimeout(timeoutId);
               file.close();
               if (fs.existsSync(filePath)) {
@@ -571,7 +503,7 @@ ipcMain.handle('download-whisper-tiny-onnx', async () => {
             reject(err);
           });
 
-          file.on('error', (err) => {
+          file.on('error', (err: any) => {
             file.close();
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath);
@@ -610,13 +542,97 @@ ipcMain.handle('download-whisper-tiny-onnx', async () => {
       }
     }
 
-    console.log('所有Whisper Tiny ONNX模型文件下载完成');
+    console.log(`所有${modelConfig.name}模型文件下载完成`);
     return { success: true };
     
   } catch (error) {
-    console.error('下载Whisper Tiny ONNX模型失败:', error);
+    console.error(`下载${modelConfig.name}模型失败:`, error);
     return { success: false, error: (error as Error).message };
   }
+}
+
+// 模型配置
+const modelConfigs = {
+  'whisper-tiny': {
+    name: 'Whisper Tiny',
+    files: [
+      {
+        url: 'https://huggingface.co/Xenova/whisper-tiny/resolve/main/onnx/encoder_model_q4.onnx',
+        filename: 'whisper-tiny-encoder_model_q4.onnx',
+        name: 'Whisper Tiny Encoder模型'
+      },
+      {
+        url: 'https://huggingface.co/Xenova/whisper-tiny/resolve/main/onnx/decoder_model_q4.onnx',
+        filename: 'whisper-tiny-decoder_model_q4.onnx',
+        name: 'Whisper Tiny Decoder模型'
+      }
+    ]
+  },
+  'whisper-tiny-en': {
+    name: 'Whisper Tiny EN',
+    files: [
+      {
+        url: 'https://huggingface.co/Xenova/whisper-tiny.en/resolve/main/onnx/encoder_model_q4.onnx',
+        filename: 'whisper-tiny-en-encoder_model_q4.onnx',
+        name: 'Whisper Tiny EN Encoder模型'
+      },
+      {
+        url: 'https://huggingface.co/Xenova/whisper-tiny.en/resolve/main/onnx/decoder_model_q4.onnx',
+        filename: 'whisper-tiny-en-decoder_model_q4.onnx',
+        name: 'Whisper Tiny EN Decoder模型'
+      }
+    ]
+  },
+  'whisper-base-en': {
+    name: 'Whisper Base EN',
+    files: [
+      {
+        url: 'https://huggingface.co/Xenova/whisper-base.en/resolve/main/onnx/encoder_model_q4.onnx',
+        filename: 'whisper-base-en-encoder_model_q4.onnx',
+        name: 'Whisper Base EN Encoder模型'
+      },
+      {
+        url: 'https://huggingface.co/Xenova/whisper-base.en/resolve/main/onnx/decoder_model_q4.onnx',
+        filename: 'whisper-base-en-decoder_model_q4.onnx',
+        name: 'Whisper Base EN Decoder模型'
+      }
+    ]
+  },
+  'whisper-base': {
+    name: 'Whisper Base',
+    files: [
+      {
+        url: 'https://huggingface.co/Xenova/whisper-base/resolve/main/onnx/encoder_model_q4.onnx',
+        filename: 'whisper-base-encoder_model_q4.onnx',
+        name: 'Whisper Base Encoder模型'
+      },
+      {
+        url: 'https://huggingface.co/Xenova/whisper-base/resolve/main/onnx/decoder_model_q4.onnx',
+        filename: 'whisper-base-decoder_model_q4.onnx',
+        name: 'Whisper Base Decoder模型'
+      }
+    ]
+  }
+};
+
+// IPC 处理程序：下载Whisper Tiny ONNX模型（保持向后兼容）
+ipcMain.handle('download-whisper-tiny-onnx', async () => {
+  return await downloadWhisperModel(modelConfigs['whisper-tiny']);
+});
+
+// IPC 处理程序：下载Whisper Tiny EN模型
+ipcMain.handle('download-whisper-tiny-en', async () => {
+  return await downloadWhisperModel(modelConfigs['whisper-tiny-en']);
+});
+
+// IPC 处理程序：下载Whisper Base EN模型
+ipcMain.handle('download-whisper-base-en', async () => {
+  return await downloadWhisperModel(modelConfigs['whisper-base-en']);
+});
+
+// IPC 处理程序：下载Whisper Base模型
+ipcMain.handle('download-whisper-base', async () => {
+  return await downloadWhisperModel(modelConfigs['whisper-base']);
 });
 
 // IPC 处理程序：验证模型文件存在状态
