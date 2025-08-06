@@ -37,7 +37,7 @@ import { useApiKeys } from './ApiKeyContext';
 import { getTransformersASRInstance, TransformersASRResult, ModelInfo, ModelDownloadProgress } from './transformers-asr';
 
 const App: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, isTransitioning } = useTheme();
   const [currentPage, setCurrentPage] = useState<'home' | 'settings'>('home');
   const [isListening, setIsListening] = useState<boolean>(false);
   const [transcript, setTranscript] = useState<string>('');
@@ -564,16 +564,45 @@ const App: React.FC = () => {
             alignItems: 'center',
             backgroundColor: 'rgba(0, 0, 0, 0.05)',
             borderRadius: 4,
-            padding: '4px 8px'
+            padding: '4px 8px',
+            transition: 'all 0.3s ease',
+            transform: isTransitioning ? 'scale(1.05)' : 'scale(1)',
+            boxShadow: isTransitioning ? '0 4px 12px rgba(0,0,0,0.15)' : 'none'
           }}
         >
-          <LightModeIcon sx={{ fontSize: 20, mr: 1, color: theme === 'light' ? 'primary.main' : 'text.secondary' }} />
+          <LightModeIcon 
+            sx={{ 
+              fontSize: 20, 
+              mr: 1, 
+              color: theme === 'light' ? 'primary.main' : 'text.secondary',
+              transition: 'all 0.3s ease',
+              transform: theme === 'light' ? 'rotate(0deg)' : 'rotate(180deg)',
+              opacity: theme === 'light' ? 1 : 0.7
+            }} 
+          />
           <Switch
             checked={theme === 'dark'}
             onChange={toggleTheme}
             size="small"
+            sx={{
+              '& .MuiSwitch-thumb': {
+                transition: 'all 0.3s ease'
+              },
+              '& .MuiSwitch-track': {
+                transition: 'all 0.3s ease'
+              }
+            }}
           />
-          <DarkModeIcon sx={{ fontSize: 20, ml: 1, color: theme === 'dark' ? 'primary.main' : 'text.secondary' }} />
+          <DarkModeIcon 
+            sx={{ 
+              fontSize: 20, 
+              ml: 1, 
+              color: theme === 'dark' ? 'primary.main' : 'text.secondary',
+              transition: 'all 0.3s ease',
+              transform: theme === 'dark' ? 'rotate(0deg)' : 'rotate(-180deg)',
+              opacity: theme === 'dark' ? 1 : 0.7
+            }} 
+          />
         </Box>
         
         <Box 
@@ -1081,7 +1110,7 @@ const App: React.FC = () => {
         
       </Box>
     );
-  }), [handleSetCurrentPage, theme, toggleTheme, availableModels, currentModelId, showMessage]);
+  }), [handleSetCurrentPage, theme, toggleTheme, isTransitioning, availableModels, currentModelId, showMessage]);
 
   const HomePage = useMemo(() => memo(() => (
     <Box 
@@ -1171,19 +1200,48 @@ const App: React.FC = () => {
           alignItems: 'center',
           backgroundColor: 'rgba(0, 0, 0, 0.05)',
           borderRadius: 4,
-          padding: '4px 8px'
+          padding: '4px 8px',
+          transition: 'all 0.3s ease',
+          transform: isTransitioning ? 'scale(1.05)' : 'scale(1)',
+          boxShadow: isTransitioning ? '0 4px 12px rgba(0,0,0,0.15)' : 'none'
         }}
       >
-        <LightModeIcon sx={{ fontSize: 20, mr: 1, color: theme === 'light' ? 'primary.main' : 'text.secondary' }} />
+        <LightModeIcon 
+          sx={{ 
+            fontSize: 20, 
+            mr: 1, 
+            color: theme === 'light' ? 'primary.main' : 'text.secondary',
+            transition: 'all 0.3s ease',
+            transform: theme === 'light' ? 'rotate(0deg)' : 'rotate(180deg)',
+            opacity: theme === 'light' ? 1 : 0.7
+          }} 
+        />
         <Switch
           checked={theme === 'dark'}
           onChange={toggleTheme}
           size="small"
+          sx={{
+            '& .MuiSwitch-thumb': {
+              transition: 'all 0.3s ease'
+            },
+            '& .MuiSwitch-track': {
+              transition: 'all 0.3s ease'
+            }
+          }}
         />
-        <DarkModeIcon sx={{ fontSize: 20, ml: 1, color: theme === 'dark' ? 'primary.main' : 'text.secondary' }} />
+        <DarkModeIcon 
+          sx={{ 
+            fontSize: 20, 
+            ml: 1, 
+            color: theme === 'dark' ? 'primary.main' : 'text.secondary',
+            transition: 'all 0.3s ease',
+            transform: theme === 'dark' ? 'rotate(0deg)' : 'rotate(-180deg)',
+            opacity: theme === 'dark' ? 1 : 0.7
+          }} 
+        />
       </Box>
     </Box>
-  )), [handleSettingsClick, isListening, isInitializing, toggleListening, theme, toggleTheme, transcript]);
+  )), [handleSettingsClick, isListening, isInitializing, toggleListening, theme, toggleTheme, isTransitioning, transcript]);
 
   if (currentPage === 'settings') {
     return (

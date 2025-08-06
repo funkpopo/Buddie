@@ -53,25 +53,32 @@ const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children })
         paper: themeMode === 'dark' ? '#424242' : '#ffffff',
       },
     },
-    // 禁用过渡动画以提高性能
     components: {
       MuiCssBaseline: {
         styleOverrides: `
-          *, *::before, *::after {
-            transition: none !important;
-            animation: none !important;
-          }
-          
           body.dark {
             background-color: #303030;
             color: #ffffff;
+            transition: background-color 0.3s ease, color 0.3s ease;
           }
           
           body.light {
             background-color: #fafafa;
             color: #000000;
+            transition: background-color 0.3s ease, color 0.3s ease;
           }
         `,
+      },
+    },
+    transitions: {
+      duration: {
+        shortest: 150,
+        shorter: 200,
+        short: 250,
+        standard: 300,
+        complex: 375,
+        enteringScreen: 225,
+        leavingScreen: 195,
       },
     },
   }), [themeMode]);
