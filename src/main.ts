@@ -123,34 +123,34 @@ const createWindow = () => {
 // 设置模型文件监控
 const setupModelFileWatcher = () => {
   try {
-    // 获取模型缓存目录
-    let modelCacheDir: string;
+    // 获取模型根目录
+    let modelsRootDir: string;
     if (process.env.NODE_ENV === 'development') {
-      modelCacheDir = path.join(process.cwd(), 'models', 'onnx');
+      modelsRootDir = path.join(process.cwd(), 'models');
     } else {
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      modelCacheDir = path.join(exeDir, 'models', 'onnx');
+      modelsRootDir = path.join(exeDir, 'models');
     }
     
     // 确保目录存在
-    if (!fs.existsSync(modelCacheDir)) {
-      fs.mkdirSync(modelCacheDir, { recursive: true });
+    if (!fs.existsSync(modelsRootDir)) {
+      fs.mkdirSync(modelsRootDir, { recursive: true });
     }
     
     // 防抖定时器
     let fileChangeTimeout: NodeJS.Timeout | null = null;
     
     // 监控目录变化
-    modelFileWatcher = fs.watch(modelCacheDir, { recursive: false }, (eventType, filename) => {
+    modelFileWatcher = fs.watch(modelsRootDir, { recursive: true }, (eventType, filename) => {
       // 如果正在保存模型状态，则跳过监控
       if (isSavingModelStatus) {
         console.log('跳过模型状态保存期间的文件监控');
         return;
       }
       
-      if (filename && filename.endsWith('.onnx')) {
-        console.log(`检测到ONNX文件变化: ${eventType} ${filename}`);
+      if (filename && (filename.endsWith('.onnx') || filename.endsWith('.json') || filename.endsWith('.txt'))) {
+        console.log(`检测到模型文件变化: ${eventType} ${filename}`);
         
         // 清除之前的定时器
         if (fileChangeTimeout) {
@@ -164,7 +164,7 @@ const setupModelFileWatcher = () => {
       }
     });
     
-    console.log(`已开始监控模型目录: ${modelCacheDir}`);
+    console.log(`已开始监控模型目录: ${modelsRootDir}`);
     
     // 初始检查一次模型状态
     setTimeout(() => {
@@ -208,45 +208,75 @@ const verifyAndUpdateModelStatus = async () => {
 // 同步验证模型文件
 const verifyModelFilesSync = () => {
   try {
-    // 获取模型缓存目录
-    let modelCacheDir: string;
+    // 获取模型根目录
+    let modelsRootDir: string;
     if (process.env.NODE_ENV === 'development') {
-      modelCacheDir = path.join(process.cwd(), 'models', 'onnx');
+      modelsRootDir = path.join(process.cwd(), 'models');
     } else {
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      modelCacheDir = path.join(exeDir, 'models', 'onnx');
+      modelsRootDir = path.join(exeDir, 'models');
     }
     
     // 确保目录存在
-    if (!fs.existsSync(modelCacheDir)) {
-      fs.mkdirSync(modelCacheDir, { recursive: true });
+    if (!fs.existsSync(modelsRootDir)) {
+      fs.mkdirSync(modelsRootDir, { recursive: true });
     }
     
     const downloadedModels: string[] = [];
     
-    // 检查每个模型的ONNX文件
+    // 模型映射
     const modelConfigs = {
-      'Xenova/whisper-tiny': ['whisper-tiny-encoder_model_q4.onnx', 'whisper-tiny-decoder_model_q4.onnx'],
-      'Xenova/whisper-tiny.en': ['whisper-tiny-en-encoder_model_q4.onnx', 'whisper-tiny-en-decoder_model_q4.onnx'],
-      'Xenova/whisper-base': ['whisper-base-encoder_model_q4.onnx', 'whisper-base-decoder_model_q4.onnx'],
-      'Xenova/whisper-base.en': ['whisper-base-en-encoder_model_q4.onnx', 'whisper-base-en-decoder_model_q4.onnx']
+      'Xenova/whisper-tiny': 'whisper-tiny',
+      'Xenova/whisper-tiny.en': 'whisper-tiny-en',
+      'Xenova/whisper-base': 'whisper-base',
+      'Xenova/whisper-base.en': 'whisper-base-en'
     };
     
-    for (const [modelId, filenames] of Object.entries(modelConfigs)) {
-      const allFilesExist = filenames.every(filename => {
-        const filePath = path.join(modelCacheDir, filename);
+    // 配置文件列表
+    const configFiles = [
+      'added_tokens.json', 'config.json', 'generation_config.json', 'merges.txt',
+      'normalizer.json', 'preprocessor_config.json', 'quant_config.json',
+      'quantize_config.json', 'special_tokens_map.json', 'tokenizer.json',
+      'tokenizer_config.json', 'vocab.json'
+    ];
+    
+    // ONNX文件列表
+    const onnxFiles = ['encoder_model_q4.onnx', 'decoder_model_q4.onnx'];
+    
+    for (const [modelId, modelName] of Object.entries(modelConfigs)) {
+      const modelDir = path.join(modelsRootDir, modelName);
+      const onnxDir = path.join(modelDir, 'onnx');
+      
+      // 检查配置文件
+      const configFilesExist = configFiles.every(filename => {
+        const filePath = path.join(modelDir, filename);
         const exists = fs.existsSync(filePath);
-        console.log(`检查模型文件 ${filename}: ${exists ? '存在' : '不存在'}`);
+        if (!exists) {
+          console.log(`配置文件不存在: ${filePath}`);
+        }
         return exists;
       });
       
-      if (allFilesExist) {
+      // 检查ONNX文件
+      const onnxFilesExist = onnxFiles.every(filename => {
+        const filePath = path.join(onnxDir, filename);
+        const exists = fs.existsSync(filePath);
+        if (!exists) {
+          console.log(`ONNX文件不存在: ${filePath}`);
+        }
+        return exists;
+      });
+      
+      if (configFilesExist && onnxFilesExist) {
         downloadedModels.push(modelId);
+        console.log(`模型 ${modelId} 所有文件已完整下载`);
+      } else {
+        console.log(`模型 ${modelId} 文件不完整 - 配置文件: ${configFilesExist}, ONNX文件: ${onnxFilesExist}`);
       }
     }
     
-    console.log('当前已下载的模型:', downloadedModels);
+    console.log('当前已完整下载的模型:', downloadedModels);
     return { success: true, downloadedModels };
     
   } catch (error) {
@@ -427,21 +457,21 @@ ipcMain.handle('stop-speech-recognition', async () => {
   }
 });
 
-// IPC 处理程序：获取模型缓存目录
-ipcMain.handle('get-model-cache-dir', async () => {
+// IPC 处理程序：获取模型根目录
+ipcMain.handle('get-models-root-dir', async () => {
   try {
     if (process.env.NODE_ENV === 'development') {
-      // 开发环境：项目根目录下的models/onnx文件夹
-      return path.join(process.cwd(), 'models', 'onnx');
+      // 开发环境：项目根目录下的models文件夹
+      return path.join(process.cwd(), 'models');
     } else {
-      // 生产环境：exe同级的models/onnx文件夹
+      // 生产环境：exe同级的models文件夹
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      return path.join(exeDir, 'models', 'onnx');
+      return path.join(exeDir, 'models');
     }
   } catch (error) {
-    console.error('Failed to get model cache directory:', error);
-    return './models/onnx'; // 回退到默认路径
+    console.error('Failed to get models root directory:', error);
+    return './models'; // 回退到默认路径
   }
 });
 
@@ -503,40 +533,65 @@ ipcMain.handle('test-proxy-connection', async () => {
   }
 });
 
-// 通用模型下载函数
+// 通用模型下载函数 - 下载ONNX和配置文件
 async function downloadWhisperModel(modelConfig: {
+  id: string;
   name: string;
-  files: Array<{
-    url: string;
-    filename: string;
-    name: string;
-  }>;
+  folderName: string;
 }) {
   try {
     const fs = require('fs');
     const path = require('path');
     const { net } = require('electron');
     
-    // 获取模型缓存目录
-    let modelCacheDir: string;
+    // 获取模型根目录
+    let modelsRootDir: string;
     if (process.env.NODE_ENV === 'development') {
-      modelCacheDir = path.join(process.cwd(), 'models', 'onnx');
+      modelsRootDir = path.join(process.cwd(), 'models');
     } else {
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      modelCacheDir = path.join(exeDir, 'models', 'onnx');
+      modelsRootDir = path.join(exeDir, 'models');
     }
     
-    // 确保缓存目录存在
-    if (!fs.existsSync(modelCacheDir)) {
-      fs.mkdirSync(modelCacheDir, { recursive: true });
+    // 创建模型文件夹和onnx子文件夹
+    const modelDir = path.join(modelsRootDir, modelConfig.folderName);
+    const onnxDir = path.join(modelDir, 'onnx');
+    
+    if (!fs.existsSync(modelDir)) {
+      fs.mkdirSync(modelDir, { recursive: true });
+    }
+    if (!fs.existsSync(onnxDir)) {
+      fs.mkdirSync(onnxDir, { recursive: true });
     }
 
-    const filesToDownload = modelConfig.files;
+    // 配置文件列表
+    const configFiles = [
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/added_tokens.json`, filename: 'added_tokens.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/config.json`, filename: 'config.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/generation_config.json`, filename: 'generation_config.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/merges.txt`, filename: 'merges.txt', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/normalizer.json`, filename: 'normalizer.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/preprocessor_config.json`, filename: 'preprocessor_config.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/quant_config.json`, filename: 'quant_config.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/quantize_config.json`, filename: 'quantize_config.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/special_tokens_map.json`, filename: 'special_tokens_map.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/tokenizer.json`, filename: 'tokenizer.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/tokenizer_config.json`, filename: 'tokenizer_config.json', targetDir: modelDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/vocab.json`, filename: 'vocab.json', targetDir: modelDir },
+    ];
+
+    // ONNX文件列表
+    const onnxFiles = [
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/onnx/encoder_model_q4.onnx`, filename: 'encoder_model_q4.onnx', targetDir: onnxDir },
+      { url: `https://huggingface.co/${modelConfig.id}/resolve/main/onnx/decoder_model_q4.onnx`, filename: 'decoder_model_q4.onnx', targetDir: onnxDir },
+    ];
+
+    const allFiles = [...configFiles, ...onnxFiles];
 
     // 检查所有文件是否已存在
-    const allFilesExist = filesToDownload.every(file => {
-      const filePath = path.join(modelCacheDir, file.filename);
+    const allFilesExist = allFiles.every(file => {
+      const filePath = path.join(file.targetDir, file.filename);
       return fs.existsSync(filePath);
     });
 
@@ -548,18 +603,18 @@ async function downloadWhisperModel(modelConfig: {
     console.log(`开始下载${modelConfig.name}模型文件...`);
 
     // 下载单个文件的函数
-    const downloadFile = (fileInfo: typeof filesToDownload[0]): Promise<void> => {
+    const downloadFile = (fileInfo: typeof allFiles[0]): Promise<void> => {
       return new Promise((resolve, reject) => {
-        const filePath = path.join(modelCacheDir, fileInfo.filename);
+        const filePath = path.join(fileInfo.targetDir, fileInfo.filename);
         
         // 如果文件已存在，跳过下载
         if (fs.existsSync(filePath)) {
-          console.log(`${fileInfo.name}已存在: ${filePath}`);
+          console.log(`${fileInfo.filename}已存在: ${filePath}`);
           resolve();
           return;
         }
 
-        console.log(`开始下载${fileInfo.name}: ${fileInfo.url}`);
+        console.log(`开始下载${fileInfo.filename}: ${fileInfo.url}`);
         console.log(`保存到: ${filePath}`);
 
         const file = fs.createWriteStream(filePath);
@@ -584,7 +639,7 @@ async function downloadWhisperModel(modelConfig: {
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath);
             }
-            reject(new Error(`${fileInfo.name}下载超时`));
+            reject(new Error(`${fileInfo.filename}下载超时`));
           }, 300000); // 5 分钟
 
           request.on('response', (response: any) => {
@@ -592,7 +647,7 @@ async function downloadWhisperModel(modelConfig: {
             if (response.statusCode >= 300 && response.statusCode < 400) {
               const location = response.headers.location;
               if (location) {
-                console.log(`${fileInfo.name}重定向到: ${location}`);
+                console.log(`${fileInfo.filename}重定向到: ${location}`);
                 makeRequest(location as string, maxRedirects - 1);
                 return;
               }
@@ -604,13 +659,13 @@ async function downloadWhisperModel(modelConfig: {
               if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
               }
-              reject(new Error(`${fileInfo.name}下载失败 - HTTP ${response.statusCode}: ${response.statusMessage}`));
+              reject(new Error(`${fileInfo.filename}下载失败 - HTTP ${response.statusCode}: ${response.statusMessage}`));
               return;
             }
 
             const contentLength = response.headers['content-length'];
             totalBytes = contentLength ? parseInt(contentLength as string) : 0;
-            console.log(`${fileInfo.name}文件大小: ${(totalBytes / 1024 / 1024).toFixed(2)} MB`);
+            console.log(`${fileInfo.filename}文件大小: ${(totalBytes / 1024 / 1024).toFixed(2)} MB`);
 
             response.on('data', (chunk: Buffer) => {
               downloadedBytes += chunk.length;
@@ -618,7 +673,7 @@ async function downloadWhisperModel(modelConfig: {
 
               // 每 10MB 或每 10% 更新一次进度
               if (downloadedBytes % (10 * 1024 * 1024) < chunk.length || Math.floor(progress) % 10 === 0) {
-                console.log(`${fileInfo.name}下载进度: ${progress.toFixed(1)}% (${(downloadedBytes / 1024 / 1024).toFixed(1)} MB)`);
+                console.log(`${fileInfo.filename}下载进度: ${progress.toFixed(1)}% (${(downloadedBytes / 1024 / 1024).toFixed(1)} MB)`);
               }
 
               file.write(chunk);
@@ -627,8 +682,8 @@ async function downloadWhisperModel(modelConfig: {
             response.on('end', () => {
               clearTimeout(timeoutId);
               file.close();
-              console.log(`${fileInfo.name}下载完成: ${filePath}`);
-              console.log(`${fileInfo.name}文件大小: ${(downloadedBytes / 1024 / 1024).toFixed(2)} MB`);
+              console.log(`${fileInfo.filename}下载完成: ${filePath}`);
+              console.log(`${fileInfo.filename}文件大小: ${(downloadedBytes / 1024 / 1024).toFixed(2)} MB`);
               resolve();
             });
 
@@ -638,7 +693,7 @@ async function downloadWhisperModel(modelConfig: {
               if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
               }
-              console.error(`${fileInfo.name}响应错误:`, err);
+              console.error(`${fileInfo.filename}响应错误:`, err);
               reject(err);
             });
           });
@@ -648,7 +703,7 @@ async function downloadWhisperModel(modelConfig: {
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath);
             }
-            console.error(`${fileInfo.name}请求错误:`, err);
+            console.error(`${fileInfo.filename}请求错误:`, err);
             reject(err);
           });
 
@@ -657,7 +712,7 @@ async function downloadWhisperModel(modelConfig: {
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath);
             }
-            console.error(`${fileInfo.name}文件写入错误:`, err);
+            console.error(`${fileInfo.filename}文件写入错误:`, err);
             reject(err);
           });
 
@@ -670,23 +725,23 @@ async function downloadWhisperModel(modelConfig: {
 
     // 依次下载所有文件
     let totalProgress = 0;
-    for (let i = 0; i < filesToDownload.length; i++) {
-      const fileInfo = filesToDownload[i];
+    for (let i = 0; i < allFiles.length; i++) {
+      const fileInfo = allFiles[i];
       try {
         await downloadFile(fileInfo);
-        totalProgress = ((i + 1) / filesToDownload.length) * 100;
+        totalProgress = ((i + 1) / allFiles.length) * 100;
         
         // 发送整体进度更新到渲染进程
         if (mainWindow) {
           mainWindow.webContents.send('download-progress', { 
             progress: totalProgress,
             loaded: i + 1,
-            total: filesToDownload.length,
-            currentFile: fileInfo.name
+            total: allFiles.length,
+            currentFile: fileInfo.filename
           });
         }
       } catch (error) {
-        console.error(`下载${fileInfo.name}失败:`, error);
+        console.error(`下载${fileInfo.filename}失败:`, error);
         throw error;
       }
     }
@@ -703,64 +758,24 @@ async function downloadWhisperModel(modelConfig: {
 // 模型配置
 const modelConfigs = {
   'whisper-tiny': {
+    id: 'Xenova/whisper-tiny',
     name: 'Whisper Tiny',
-    files: [
-      {
-        url: 'https://huggingface.co/Xenova/whisper-tiny/resolve/main/onnx/encoder_model_q4.onnx',
-        filename: 'whisper-tiny-encoder_model_q4.onnx',
-        name: 'Whisper Tiny Encoder模型'
-      },
-      {
-        url: 'https://huggingface.co/Xenova/whisper-tiny/resolve/main/onnx/decoder_model_q4.onnx',
-        filename: 'whisper-tiny-decoder_model_q4.onnx',
-        name: 'Whisper Tiny Decoder模型'
-      }
-    ]
+    folderName: 'whisper-tiny'
   },
   'whisper-tiny-en': {
+    id: 'Xenova/whisper-tiny.en',
     name: 'Whisper Tiny EN',
-    files: [
-      {
-        url: 'https://huggingface.co/Xenova/whisper-tiny.en/resolve/main/onnx/encoder_model_q4.onnx',
-        filename: 'whisper-tiny-en-encoder_model_q4.onnx',
-        name: 'Whisper Tiny EN Encoder模型'
-      },
-      {
-        url: 'https://huggingface.co/Xenova/whisper-tiny.en/resolve/main/onnx/decoder_model_q4.onnx',
-        filename: 'whisper-tiny-en-decoder_model_q4.onnx',
-        name: 'Whisper Tiny EN Decoder模型'
-      }
-    ]
+    folderName: 'whisper-tiny-en'
   },
   'whisper-base-en': {
+    id: 'Xenova/whisper-base.en',
     name: 'Whisper Base EN',
-    files: [
-      {
-        url: 'https://huggingface.co/Xenova/whisper-base.en/resolve/main/onnx/encoder_model_q4.onnx',
-        filename: 'whisper-base-en-encoder_model_q4.onnx',
-        name: 'Whisper Base EN Encoder模型'
-      },
-      {
-        url: 'https://huggingface.co/Xenova/whisper-base.en/resolve/main/onnx/decoder_model_q4.onnx',
-        filename: 'whisper-base-en-decoder_model_q4.onnx',
-        name: 'Whisper Base EN Decoder模型'
-      }
-    ]
+    folderName: 'whisper-base-en'
   },
   'whisper-base': {
+    id: 'Xenova/whisper-base',
     name: 'Whisper Base',
-    files: [
-      {
-        url: 'https://huggingface.co/Xenova/whisper-base/resolve/main/onnx/encoder_model_q4.onnx',
-        filename: 'whisper-base-encoder_model_q4.onnx',
-        name: 'Whisper Base Encoder模型'
-      },
-      {
-        url: 'https://huggingface.co/Xenova/whisper-base/resolve/main/onnx/decoder_model_q4.onnx',
-        filename: 'whisper-base-decoder_model_q4.onnx',
-        name: 'Whisper Base Decoder模型'
-      }
-    ]
+    folderName: 'whisper-base'
   }
 };
 
@@ -810,38 +825,59 @@ ipcMain.handle('verify-model-files', async () => {
     const fs = require('fs');
     const path = require('path');
     
-    // 获取模型缓存目录
-    let modelCacheDir: string;
+    // 获取模型根目录
+    let modelsRootDir: string;
     if (process.env.NODE_ENV === 'development') {
-      modelCacheDir = path.join(process.cwd(), 'models', 'onnx');
+      modelsRootDir = path.join(process.cwd(), 'models');
     } else {
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      modelCacheDir = path.join(exeDir, 'models', 'onnx');
+      modelsRootDir = path.join(exeDir, 'models');
     }
     
     // 确保目录存在
-    if (!fs.existsSync(modelCacheDir)) {
-      fs.mkdirSync(modelCacheDir, { recursive: true });
+    if (!fs.existsSync(modelsRootDir)) {
+      fs.mkdirSync(modelsRootDir, { recursive: true });
     }
     
     const downloadedModels: string[] = [];
     
-    // 检查每个模型的ONNX文件
-    const modelConfigs = {
-      'Xenova/whisper-tiny': ['whisper-tiny-encoder_model_q4.onnx', 'whisper-tiny-decoder_model_q4.onnx'],
-      'Xenova/whisper-tiny.en': ['whisper-tiny-en-encoder_model_q4.onnx', 'whisper-tiny-en-decoder_model_q4.onnx'],
-      'Xenova/whisper-base': ['whisper-base-encoder_model_q4.onnx', 'whisper-base-decoder_model_q4.onnx'],
-      'Xenova/whisper-base.en': ['whisper-base-en-encoder_model_q4.onnx', 'whisper-base-en-decoder_model_q4.onnx']
+    // 模型映射
+    const modelMapping = {
+      'Xenova/whisper-tiny': 'whisper-tiny',
+      'Xenova/whisper-tiny.en': 'whisper-tiny-en',
+      'Xenova/whisper-base': 'whisper-base',
+      'Xenova/whisper-base.en': 'whisper-base-en'
     };
     
-    for (const [modelId, filenames] of Object.entries(modelConfigs)) {
-      const allFilesExist = filenames.every(filename => {
-        const filePath = path.join(modelCacheDir, filename);
+    // 配置文件列表
+    const configFiles = [
+      'added_tokens.json', 'config.json', 'generation_config.json', 'merges.txt',
+      'normalizer.json', 'preprocessor_config.json', 'quant_config.json',
+      'quantize_config.json', 'special_tokens_map.json', 'tokenizer.json',
+      'tokenizer_config.json', 'vocab.json'
+    ];
+    
+    // ONNX文件列表
+    const onnxFiles = ['encoder_model_q4.onnx', 'decoder_model_q4.onnx'];
+    
+    for (const [modelId, modelName] of Object.entries(modelMapping)) {
+      const modelDir = path.join(modelsRootDir, modelName);
+      const onnxDir = path.join(modelDir, 'onnx');
+      
+      // 检查配置文件
+      const configFilesExist = configFiles.every(filename => {
+        const filePath = path.join(modelDir, filename);
         return fs.existsSync(filePath);
       });
       
-      if (allFilesExist) {
+      // 检查ONNX文件
+      const onnxFilesExist = onnxFiles.every(filename => {
+        const filePath = path.join(onnxDir, filename);
+        return fs.existsSync(filePath);
+      });
+      
+      if (configFilesExist && onnxFilesExist) {
         downloadedModels.push(modelId);
       }
     }

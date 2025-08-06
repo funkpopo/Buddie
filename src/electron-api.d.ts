@@ -37,7 +37,7 @@ export interface IElectronAPI {
   
   // 系统方法
   system: {
-    getModelCacheDir: () => Promise<string>;
+    getModelsRootDir: () => Promise<string>;
   };
   
   // 代理方法

@@ -1,14 +1,14 @@
 import { pipeline, AutomaticSpeechRecognitionPipeline, env } from '@xenova/transformers';
 
-// 获取模型缓存目录
-async function getModelCacheDir(): Promise<string> {
+// 获取模型根目录
+async function getModelsRootDir(): Promise<string> {
   // 检查是否在Electron渲染进程中
   if (typeof window !== 'undefined' && window.electronAPI) {
     try {
-      return await window.electronAPI.system.getModelCacheDir();
+      return await window.electronAPI.system.getModelsRootDir();
     } catch (error) {
-      console.warn('Failed to get model cache dir from main process:', error);
-      return './models/onnx';
+      console.warn('Failed to get models root dir from main process:', error);
+      return './models';
     }
   } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
     // 在Electron主进程或Node.js环境中
@@ -16,18 +16,30 @@ async function getModelCacheDir(): Promise<string> {
     const { app } = require('electron');
     
     if (process.env.NODE_ENV === 'development') {
-      // 开发环境：项目根目录下的models/onnx文件夹
-      return path.join(process.cwd(), 'models', 'onnx');
+      // 开发环境：项目根目录下的models文件夹
+      return path.join(process.cwd(), 'models');
     } else {
-      // 生产环境：exe同级的models/onnx文件夹
+      // 生产环境：exe同级的models文件夹
       const exePath = app.getPath('exe');
       const exeDir = path.dirname(exePath);
-      return path.join(exeDir, 'models', 'onnx');
+      return path.join(exeDir, 'models');
     }
   } else {
     // 浏览器环境，使用相对路径
-    return './models/onnx';
+    return './models';
   }
+}
+
+// 获取特定模型的目录
+function getModelDir(modelsRootDir: string, modelName: string): string {
+  const path = require('path');
+  return path.join(modelsRootDir, modelName);
+}
+
+// 获取特定模型的ONNX目录
+function getModelONNXDir(modelsRootDir: string, modelName: string): string {
+  const path = require('path');
+  return path.join(modelsRootDir, modelName, 'onnx');
 }
 
 // Browser-compatible EventEmitter
@@ -117,7 +129,7 @@ export class TransformersASR extends EventEmitter {
   private options: TransformersASROptions;
   private bufferDuration = 2; // 2秒缓冲
   private sampleRate = 16000;
-  private modelCacheDir: string;
+  private modelsRootDir: string;
   
   // 可用的轻量化模型列表，优化用于中英文识别和CPU运行
   private availableModels: ModelInfo[] = [
@@ -176,19 +188,19 @@ export class TransformersASR extends EventEmitter {
       ...options
     };
     this.currentModelId = this.options.model!;
-    this.modelCacheDir = './models/onnx'; // 初始默认值
+    this.modelsRootDir = './models'; // 初始默认值
     this.loadModelStatus();
-    this.initializeModelCacheDir(); // 异步初始化缓存目录
+    this.initializeModelsRootDir(); // 异步初始化模型根目录
   }
 
-  // 异步初始化模型缓存目录
-  private async initializeModelCacheDir(): Promise<void> {
+  // 异步初始化模型根目录
+  private async initializeModelsRootDir(): Promise<void> {
     try {
-      this.modelCacheDir = await getModelCacheDir();
-      console.log('Model cache directory set to:', this.modelCacheDir);
+      this.modelsRootDir = await getModelsRootDir();
+      console.log('Models root directory set to:', this.modelsRootDir);
     } catch (error) {
-      console.warn('Failed to initialize model cache directory:', error);
-      this.modelCacheDir = './models/onnx'; // 回退到默认值
+      console.warn('Failed to initialize models root directory:', error);
+      this.modelsRootDir = './models'; // 回退到默认值
     }
   }
 
@@ -200,9 +212,9 @@ export class TransformersASR extends EventEmitter {
     try {
       console.log('Initializing Transformers ASR...');
       
-      // 确保缓存目录已初始化
-      if (this.modelCacheDir === './models/onnx') {
-        await this.initializeModelCacheDir();
+      // 确保模型根目录已初始化
+      if (this.modelsRootDir === './models') {
+        await this.initializeModelsRootDir();
       }
       
       // 在初始化前先验证模型文件状态
@@ -222,7 +234,9 @@ export class TransformersASR extends EventEmitter {
       env.useBrowserCache = true;
       
       console.log(`Loading model: ${this.currentModelId}`);
-      console.log(`Model cache dir: ${this.modelCacheDir}`);
+      const modelName = this.getModelFolderName(this.currentModelId);
+      const modelDir = getModelDir(this.modelsRootDir, modelName);
+      console.log(`Model directory: ${modelDir}`);
       
       this.pipeline = await pipeline(
         'automatic-speech-recognition',
@@ -230,8 +244,8 @@ export class TransformersASR extends EventEmitter {
         {
           quantized: true,
           revision: 'main',
-          cache_dir: this.modelCacheDir,
-          local_files_only: false,
+          cache_dir: modelDir,
+          local_files_only: true, // 使用本地模型
           progress_callback: (progress: { status: string; progress?: number; file?: string }) => {
             if (progress.status === 'downloading' || progress.status === 'loading') {
               console.log(`${progress.status} ${progress.file || this.currentModelId}: ${progress.progress || 0}%`);
@@ -615,6 +629,47 @@ export class TransformersASR extends EventEmitter {
   // 获取当前是否在进行麦克风测试
   get microphoneTesting(): boolean {
     return this.isMicTesting;
+  }
+
+  // 获取模型文件夹名称
+  private getModelFolderName(modelId: string): string {
+    const modelNameMap: { [key: string]: string } = {
+      'Xenova/whisper-tiny': 'whisper-tiny',
+      'Xenova/whisper-tiny.en': 'whisper-tiny-en',
+      'Xenova/whisper-base': 'whisper-base',
+      'Xenova/whisper-base.en': 'whisper-base-en'
+    };
+    return modelNameMap[modelId] || modelId.replace(/\//g, '-');
+  }
+
+  // 获取模型所需的配置文件列表
+  private getModelConfigFiles(modelId: string): Array<{url: string, filename: string}> {
+    const baseUrl = `https://huggingface.co/${modelId}/resolve/main`;
+    const configFiles = [
+      { url: `${baseUrl}/added_tokens.json`, filename: 'added_tokens.json' },
+      { url: `${baseUrl}/config.json`, filename: 'config.json' },
+      { url: `${baseUrl}/generation_config.json`, filename: 'generation_config.json' },
+      { url: `${baseUrl}/merges.txt`, filename: 'merges.txt' },
+      { url: `${baseUrl}/normalizer.json`, filename: 'normalizer.json' },
+      { url: `${baseUrl}/preprocessor_config.json`, filename: 'preprocessor_config.json' },
+      { url: `${baseUrl}/quant_config.json`, filename: 'quant_config.json' },
+      { url: `${baseUrl}/quantize_config.json`, filename: 'quantize_config.json' },
+      { url: `${baseUrl}/special_tokens_map.json`, filename: 'special_tokens_map.json' },
+      { url: `${baseUrl}/tokenizer.json`, filename: 'tokenizer.json' },
+      { url: `${baseUrl}/tokenizer_config.json`, filename: 'tokenizer_config.json' },
+      { url: `${baseUrl}/vocab.json`, filename: 'vocab.json' }
+    ];
+    return configFiles;
+  }
+
+  // 获取模型ONNX文件列表
+  private getModelONNXFiles(modelId: string): Array<{url: string, filename: string}> {
+    const baseUrl = `https://huggingface.co/${modelId}/resolve/main/onnx`;
+    const onnxFiles = [
+      { url: `${baseUrl}/encoder_model_q4.onnx`, filename: 'encoder_model_q4.onnx' },
+      { url: `${baseUrl}/decoder_model_q4.onnx`, filename: 'decoder_model_q4.onnx' }
+    ];
+    return onnxFiles;
   }
 
   // 模型管理方法
@@ -1188,23 +1243,27 @@ export class TransformersASR extends EventEmitter {
         const fs = require('fs');
         const path = require('path');
         
-        // 定义每个模型对应的文件名
-        const modelFileConfigs = {
-          'Xenova/whisper-tiny': ['whisper-tiny-encoder_model_q4.onnx', 'whisper-tiny-decoder_model_q4.onnx'],
-          'Xenova/whisper-tiny.en': ['whisper-tiny-en-encoder_model_q4.onnx', 'whisper-tiny-en-decoder_model_q4.onnx'],
-          'Xenova/whisper-base': ['whisper-base-encoder_model_q4.onnx', 'whisper-base-decoder_model_q4.onnx'],
-          'Xenova/whisper-base.en': ['whisper-base-en-encoder_model_q4.onnx', 'whisper-base-en-decoder_model_q4.onnx']
-        };
-        
         this.availableModels.forEach((model, index) => {
-          const filenames = modelFileConfigs[model.id as keyof typeof modelFileConfigs];
-          if (filenames) {
-            const allFilesExist = filenames.every(filename => {
-              const filePath = path.join(this.modelCacheDir, filename);
-              return fs.existsSync(filePath);
-            });
-            this.availableModels[index].downloaded = allFilesExist;
-          }
+          const modelName = this.getModelFolderName(model.id);
+          const modelDir = getModelDir(this.modelsRootDir, modelName);
+          const onnxDir = getModelONNXDir(this.modelsRootDir, modelName);
+          
+          // 检查ONNX文件
+          const onnxFiles = this.getModelONNXFiles(model.id);
+          const onnxFilesExist = onnxFiles.every(file => {
+            const filePath = path.join(onnxDir, file.filename);
+            return fs.existsSync(filePath);
+          });
+          
+          // 检查配置文件
+          const configFiles = this.getModelConfigFiles(model.id);
+          const configFilesExist = configFiles.every(file => {
+            const filePath = path.join(modelDir, file.filename);
+            return fs.existsSync(filePath);
+          });
+          
+          // 只有在所有文件都存在时才认为模型已下载
+          this.availableModels[index].downloaded = onnxFilesExist && configFilesExist;
         });
         
         this.emit('modelListUpdated', this.getAvailableModels());
