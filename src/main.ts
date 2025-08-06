@@ -475,6 +475,16 @@ ipcMain.handle('get-models-root-dir', async () => {
   }
 });
 
+// IPC 处理程序：路径拼接
+ipcMain.handle('join-path', async (event, base: string, ...paths: string[]) => {
+  try {
+    return path.join(base, ...paths);
+  } catch (error) {
+    console.error('Failed to join paths:', error);
+    return base; // 回退到基础路径
+  }
+});
+
 // IPC 处理程序：获取代理配置
 ipcMain.handle('get-proxy-config', async () => {
   try {

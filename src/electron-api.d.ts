@@ -38,6 +38,7 @@ export interface IElectronAPI {
   // 系统方法
   system: {
     getModelsRootDir: () => Promise<string>;
+    joinPath: (base: string, ...paths: string[]) => Promise<string>;
   };
   
   // 代理方法

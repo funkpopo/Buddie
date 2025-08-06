@@ -49,6 +49,7 @@ interface IElectronAPI {
   // 系统方法
   system: {
     getModelsRootDir: () => Promise<string>;
+    joinPath: (base: string, ...paths: string[]) => Promise<string>;
   };
   
   // 代理方法
@@ -91,7 +92,8 @@ const electronAPI: IElectronAPI = {
     }
   },
   system: {
-    getModelsRootDir: () => ipcRenderer.invoke('get-models-root-dir')
+    getModelsRootDir: () => ipcRenderer.invoke('get-models-root-dir'),
+    joinPath: (base: string, ...paths: string[]) => ipcRenderer.invoke('join-path', base, ...paths)
   },
   proxy: {
     getConfig: () => ipcRenderer.invoke('get-proxy-config'),

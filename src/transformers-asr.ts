@@ -31,15 +31,28 @@ async function getModelsRootDir(): Promise<string> {
 }
 
 // 获取特定模型的目录
-function getModelDir(modelsRootDir: string, modelName: string): string {
-  const path = require('path');
-  return path.join(modelsRootDir, modelName);
+async function getModelDir(modelsRootDir: string, ...paths: string[]): Promise<string> {
+  // 检查是否在Electron渲染进程中
+  if (typeof window !== 'undefined' && window.electronAPI) {
+    try {
+      return await window.electronAPI.system.joinPath(modelsRootDir, ...paths);
+    } catch (error) {
+      console.warn('Failed to join paths via API:', error);
+      return [modelsRootDir, ...paths].join('/');
+    }
+  } else if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
+    // 在Electron主进程或Node.js环境中
+    const path = require('path');
+    return path.join(modelsRootDir, ...paths);
+  } else {
+    // 浏览器环境，使用简单的字符串拼接
+    return [modelsRootDir, ...paths].join('/');
+  }
 }
 
 // 获取特定模型的ONNX目录
-function getModelONNXDir(modelsRootDir: string, modelName: string): string {
-  const path = require('path');
-  return path.join(modelsRootDir, modelName, 'onnx');
+async function getModelONNXDir(modelsRootDir: string, modelName: string): Promise<string> {
+  return await getModelDir(modelsRootDir, modelName, 'onnx');
 }
 
 // Browser-compatible EventEmitter
@@ -191,6 +204,16 @@ export class TransformersASR extends EventEmitter {
     this.modelsRootDir = './models'; // 初始默认值
     this.loadModelStatus();
     this.initializeModelsRootDir(); // 异步初始化模型根目录
+    
+    // 在 Electron 渲染进程中设置 IPC 事件监听器
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      window.electronAPI.speechRecognition.onResult((result) => {
+        this.emit('result', result);
+      });
+      window.electronAPI.speechRecognition.onError((error) => {
+        this.emit('error', error);
+      });
+    }
   }
 
   // 异步初始化模型根目录
@@ -212,6 +235,14 @@ export class TransformersASR extends EventEmitter {
     try {
       console.log('Initializing Transformers ASR...');
       
+      // 在 Electron 渲染进程中，不直接初始化 pipeline
+      // 而是依赖主进程通过 IPC 提供服务
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        console.log('Running in Electron renderer process, skipping direct pipeline initialization');
+        this.isInitialized = true;
+        return;
+      }
+      
       // 确保模型根目录已初始化
       if (this.modelsRootDir === './models') {
         await this.initializeModelsRootDir();
@@ -229,23 +260,35 @@ export class TransformersASR extends EventEmitter {
       }
       
       // 配置环境变量
-      env.allowRemoteModels = true;
+      env.allowRemoteModels = true; // 允许远程模型作为回退
       env.allowLocalModels = true;
-      env.useBrowserCache = true;
+      env.useBrowserCache = false; // 禁用浏览器缓存
+      // 不设置 env.localModelPath，让 Transformers 库自己处理
       
       console.log(`Loading model: ${this.currentModelId}`);
+      console.log(`Models root directory: ${this.modelsRootDir}`);
       const modelName = this.getModelFolderName(this.currentModelId);
-      const modelDir = getModelDir(this.modelsRootDir, modelName);
+      console.log(`Model folder name: ${modelName}`);
+      const modelDir = await getModelDir(this.modelsRootDir, modelName);
       console.log(`Model directory: ${modelDir}`);
+      
+      // 检查模型目录是否存在（仅在浏览器环境中使用简单检查）
+      try {
+        // 尝试读取配置文件以验证模型存在
+        const configPath = await getModelDir(this.modelsRootDir, modelName, 'config.json');
+        console.log(`Config file path: ${configPath}`);
+      } catch (error) {
+        console.warn('Cannot verify model files in renderer process:', error);
+      }
       
       this.pipeline = await pipeline(
         'automatic-speech-recognition',
-        this.currentModelId,
+        this.currentModelId, // 使用原始模型ID
         {
           quantized: true,
           revision: 'main',
-          cache_dir: modelDir,
-          local_files_only: true, // 使用本地模型
+          cache_dir: modelDir, // 使用本地缓存目录
+          local_files_only: false, // 允许远程文件作为回退
           progress_callback: (progress: { status: string; progress?: number; file?: string }) => {
             if (progress.status === 'downloading' || progress.status === 'loading') {
               console.log(`${progress.status} ${progress.file || this.currentModelId}: ${progress.progress || 0}%`);
@@ -270,6 +313,24 @@ export class TransformersASR extends EventEmitter {
   async startListening(): Promise<void> {
     if (this.isListening) {
       throw new Error('Already listening');
+    }
+
+    // 在 Electron 渲染进程中，使用 IPC 调用主进程
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      try {
+        const result = await window.electronAPI.speechRecognition.start();
+        if (result.success) {
+          this.isListening = true;
+          this.emit('start');
+          console.log('Speech recognition started via IPC');
+          return;
+        } else {
+          throw new Error(result.error || 'Failed to start speech recognition via IPC');
+        }
+      } catch (error) {
+        console.error('Error starting speech recognition via IPC:', error);
+        throw error;
+      }
     }
 
     if (!this.isInitialized) {
@@ -324,6 +385,24 @@ export class TransformersASR extends EventEmitter {
   async stopListening(): Promise<void> {
     if (!this.isListening) {
       return;
+    }
+
+    // 在 Electron 渲染进程中，使用 IPC 调用主进程
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      try {
+        const result = await window.electronAPI.speechRecognition.stop();
+        if (result.success) {
+          this.isListening = false;
+          this.emit('stop');
+          console.log('Speech recognition stopped via IPC');
+          return;
+        } else {
+          throw new Error(result.error || 'Failed to stop speech recognition via IPC');
+        }
+      } catch (error) {
+        console.error('Error stopping speech recognition via IPC:', error);
+        throw error;
+      }
     }
 
     try {
@@ -1243,10 +1322,11 @@ export class TransformersASR extends EventEmitter {
         const fs = require('fs');
         const path = require('path');
         
-        this.availableModels.forEach((model, index) => {
+        for (let index = 0; index < this.availableModels.length; index++) {
+          const model = this.availableModels[index];
           const modelName = this.getModelFolderName(model.id);
-          const modelDir = getModelDir(this.modelsRootDir, modelName);
-          const onnxDir = getModelONNXDir(this.modelsRootDir, modelName);
+          const modelDir = await getModelDir(this.modelsRootDir, modelName);
+          const onnxDir = await getModelONNXDir(this.modelsRootDir, modelName);
           
           // 检查ONNX文件
           const onnxFiles = this.getModelONNXFiles(model.id);
@@ -1264,7 +1344,7 @@ export class TransformersASR extends EventEmitter {
           
           // 只有在所有文件都存在时才认为模型已下载
           this.availableModels[index].downloaded = onnxFilesExist && configFilesExist;
-        });
+        }
         
         this.emit('modelListUpdated', this.getAvailableModels());
       }
