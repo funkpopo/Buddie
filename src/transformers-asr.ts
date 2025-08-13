@@ -1,4 +1,4 @@
-import { pipeline, AutomaticSpeechRecognitionPipeline, env } from '@xenova/transformers';
+import { pipeline, AutomaticSpeechRecognitionPipeline, env } from '@huggingface/transformers';
 
 // 获取模型根目录
 async function getModelsRootDir(): Promise<string> {
@@ -285,11 +285,10 @@ export class TransformersASR extends EventEmitter {
         'automatic-speech-recognition',
         this.currentModelId, // 使用原始模型ID
         {
-          quantized: true,
           revision: 'main',
           cache_dir: modelDir, // 使用本地缓存目录
           local_files_only: false, // 允许远程文件作为回退
-          progress_callback: (progress: { status: string; progress?: number; file?: string }) => {
+          progress_callback: (progress: any) => {
             if (progress.status === 'downloading' || progress.status === 'loading') {
               console.log(`${progress.status} ${progress.file || this.currentModelId}: ${progress.progress || 0}%`);
               this.emit('modelProgress', { ...progress, model: this.currentModelId });
