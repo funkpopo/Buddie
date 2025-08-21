@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 动态卡片数据 - 根据模型配置生成
   let cardData = [];
   let currentIndex = 0;
+  let cardColors = []; // 存储每张卡片的颜色索引
   
   // 默认卡片数据
   const defaultCardData = [
@@ -104,10 +105,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   function generateCardElements() {
     cardStack.innerHTML = '';
     const cardCount = cardData.length; // 不限制卡片数量，根据模型配置数量显示
+    const totalColors = 20; // 总共有20种颜色样式
+    
+    // 重置颜色映射数组
+    cardColors = [];
+    
+    // 生成不重复的颜色索引数组
+    const usedColors = new Set();
+    
+    for (let i = 0; i < cardCount; i++) {
+      let colorIndex;
+      // 如果可用颜色数量足够，确保不重复
+      if (cardCount <= totalColors) {
+        do {
+          colorIndex = Math.floor(Math.random() * totalColors);
+        } while (usedColors.has(colorIndex));
+        usedColors.add(colorIndex);
+      } else {
+        // 如果卡片数量超过颜色数量，允许重复但尽量分散
+        colorIndex = Math.floor(Math.random() * totalColors);
+      }
+      cardColors.push(colorIndex);
+    }
     
     for (let i = 0; i < cardCount; i++) {
       const cardElement = document.createElement('div');
-      cardElement.className = `card color-${i % cardData.length}`;
+      cardElement.className = `card color-${cardColors[i]}`;
       cardElement.innerHTML = `
         <h1></h1>
         <p></p>
@@ -244,11 +267,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       p.textContent = data.subtitle;
       
       // 移除所有可能的颜色类
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 20; i++) {
         card.classList.remove(`color-${i}`);
       }
       // 添加对应数据索引的颜色类
-      card.classList.add(`color-${dataIndex}`);
+      card.classList.add(`color-${cardColors[dataIndex]}`);
     });
     
     // 重置所有卡片的样式
