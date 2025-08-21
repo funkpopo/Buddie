@@ -2,45 +2,210 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Circular Floating Window</title>
+    <title>Card Stack Floating Window</title>
     <style>
       body {
         margin: 0;
-        padding: 0;
+        padding: 20px;
         overflow: hidden;
         background: transparent;
         user-select: none;
-      }
-      
-      #circle {
-        width: 120px;
-        height: 120px;
-        background: linear-gradient(135deg, #6e8efb, #a777e3);
-        border-radius: 50%;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         display: flex;
         justify-content: center;
         align-items: center;
-        cursor: move;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+        width: calc(100vw - 40px);
+        height: calc(100vh - 40px);
+        box-sizing: border-box;
       }
       
-      #circle h1 {
+      .card-stack {
+        position: relative;
+        width: 260px;
+        height: 180px;
+        perspective: 1000px;
+        cursor: move;
+      }
+      
+      .card {
+        position: absolute;
+        width: 200px;
+        height: 140px;
+        left: 30px;
+        top: 20px;
+        border-radius: 15px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        cursor: grab;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.25);
+        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        transform-style: preserve-3d;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+      }
+      
+      .card h1 {
         color: white;
         font-size: 14px;
         text-align: center;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         margin: 0;
-        padding: 10px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      
+      .card p {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 10px;
+        text-align: center;
+        margin: 5px 0 0 0;
+        font-weight: 300;
+        opacity: 0.8;
+      }
+      
+      /* 卡片背景颜色类 - 根据数据索引应用 */
+      .card.color-0 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+      .card.color-1 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+      .card.color-2 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+      .card.color-3 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+      .card.color-4 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+      
+      /* 叠放效果 - 更明显的堆叠视觉效果 */
+      .card:nth-child(1) { 
+        z-index: 5; 
+        transform: translateY(0px) translateZ(0px) rotateY(0deg);
+        transform-origin: center center;
+      }
+      .card:nth-child(2) { 
+        z-index: 4; 
+        transform: translateY(3px) translateZ(-8px) rotateY(-2deg) translateX(-2px);
+        transform-origin: center center;
+        opacity: 0.92;
+      }
+      .card:nth-child(3) { 
+        z-index: 3; 
+        transform: translateY(6px) translateZ(-16px) rotateY(-4deg) translateX(-4px);
+        transform-origin: center center;
+        opacity: 0.84;
+      }
+      .card:nth-child(4) { 
+        z-index: 2; 
+        transform: translateY(9px) translateZ(-24px) rotateY(-6deg) translateX(-6px);
+        transform-origin: center center;
+        opacity: 0.76;
+      }
+      .card:nth-child(5) { 
+        z-index: 1; 
+        transform: translateY(12px) translateZ(-32px) rotateY(-8deg) translateX(-8px);
+        transform-origin: center center;
+        opacity: 0.68;
+      }
+      
+      /* 鼠标悬停效果 - 更明显的分层效果 */
+      .card-stack:hover .card:nth-child(1) {
+        transform: translateY(-5px) translateZ(10px) rotateY(2deg);
+      }
+      .card-stack:hover .card:nth-child(2) {
+        transform: translateY(0px) translateZ(5px) rotateY(0deg) translateX(0px);
+        opacity: 0.95;
+      }
+      .card-stack:hover .card:nth-child(3) {
+        transform: translateY(3px) translateZ(0px) rotateY(-2deg) translateX(-2px);
+        opacity: 0.88;
+      }
+      .card-stack:hover .card:nth-child(4) {
+        transform: translateY(6px) translateZ(-8px) rotateY(-4deg) translateX(-4px);
+        opacity: 0.82;
+      }
+      .card-stack:hover .card:nth-child(5) {
+        transform: translateY(9px) translateZ(-16px) rotateY(-6deg) translateX(-6px);
+        opacity: 0.76;
+      }
+      
+      /* 翻页动画 */
+      .card-stack.flipping .card:nth-child(1) {
+        animation: flip-out 0.5s ease-in-out forwards;
+      }
+      
+      .card-stack.flipping .card:nth-child(2) {
+        animation: move-to-top 0.5s ease-in-out forwards;
+      }
+      
+      .card-stack.flipping .card:nth-child(3) {
+        animation: move-up 0.5s ease-in-out forwards;
+      }
+      
+      .card-stack.flipping .card:nth-child(4) {
+        animation: move-up 0.5s ease-in-out forwards;
+      }
+      
+      .card-stack.flipping .card:nth-child(5) {
+        animation: move-up 0.5s ease-in-out forwards;
+      }
+      
+      @keyframes flip-out {
+        0% {
+          transform: translateY(0px) translateZ(0px) rotateY(0deg);
+          z-index: 5;
+        }
+        50% {
+          transform: translateY(-20px) translateZ(20px) rotateY(180deg);
+          z-index: 5;
+        }
+        100% {
+          transform: translateY(12px) translateZ(-32px) rotateY(-8deg) translateX(-8px);
+          z-index: 1;
+          opacity: 0.68;
+        }
+      }
+      
+      @keyframes move-to-top {
+        0% {
+          transform: translateY(3px) translateZ(-8px) rotateY(-2deg) translateX(-2px);
+          z-index: 4;
+          opacity: 0.92;
+        }
+        100% {
+          transform: translateY(0px) translateZ(0px) rotateY(0deg);
+          z-index: 5;
+          opacity: 1;
+        }
+      }
+      
+      @keyframes move-up {
+        0% {
+          opacity: 0.84;
+        }
+        100% {
+          opacity: 0.92;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="circle">
-      <h1>💖 悬浮窗</h1>
+    <div class="card-stack" id="cardStack">
+      <div class="card color-0" data-card="1">
+        <h1>🎵 唱片 1</h1>
+        <p>Card One</p>
+      </div>
+      <div class="card color-1" data-card="2">
+        <h1>🎶 唱片 2</h1>
+        <p>Card Two</p>
+      </div>
+      <div class="card color-2" data-card="3">
+        <h1>🎼 唱片 3</h1>
+        <p>Card Three</p>
+      </div>
+      <div class="card color-3" data-card="4">
+        <h1>🎤 唱片 4</h1>
+        <p>Card Four</p>
+      </div>
+      <div class="card color-4" data-card="5">
+        <h1>🎧 唱片 5</h1>
+        <p>Card Five</p>
+      </div>
     </div>
   </body>
 </html>
