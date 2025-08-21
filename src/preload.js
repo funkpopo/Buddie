@@ -8,5 +8,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   dragWindow: (position) => ipcRenderer.send('drag-window', position),
   getWindowPosition: () => ipcRenderer.invoke('get-window-position'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
-  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings)
+  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  refreshCards: () => ipcRenderer.send('refresh-cards'),
+  onRefreshCards: (callback) => {
+    ipcRenderer.on('refresh-cards', callback);
+    return () => ipcRenderer.removeListener('refresh-cards', callback);
+  }
 });
