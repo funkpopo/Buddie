@@ -110,22 +110,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 重置颜色映射数组
     cardColors = [];
     
-    // 生成不重复的颜色索引数组
-    const usedColors = new Set();
+    // 颜色分组：按色系组织，确保相邻颜色过渡自然
+    const colorGroups = [
+      [0, 1, 2, 3],      // 蓝紫色系
+      [4, 5, 6, 7],      // 蓝青色系  
+      [8, 9],            // 绿青色系
+      [10, 11, 12],      // 黄绿色系
+      [13, 14, 15, 16],  // 粉橙色系
+      [17, 18, 19]       // 粉红色系
+    ];
     
-    for (let i = 0; i < cardCount; i++) {
-      let colorIndex;
-      // 如果可用颜色数量足够，确保不重复
-      if (cardCount <= totalColors) {
-        do {
-          colorIndex = Math.floor(Math.random() * totalColors);
-        } while (usedColors.has(colorIndex));
-        usedColors.add(colorIndex);
-      } else {
-        // 如果卡片数量超过颜色数量，允许重复但尽量分散
-        colorIndex = Math.floor(Math.random() * totalColors);
+    if (cardCount <= totalColors) {
+      // 如果卡片数量不多，优先选择连续的颜色组合
+      let selectedColors = [];
+      let currentGroupIndex = Math.floor(Math.random() * colorGroups.length);
+      
+      // 从随机色组开始，循环选择相邻的颜色
+      for (let i = 0; i < cardCount; i++) {
+        const currentGroup = colorGroups[currentGroupIndex % colorGroups.length];
+        const colorInGroup = currentGroup[i % currentGroup.length];
+        selectedColors.push(colorInGroup);
+        
+        // 当前组的颜色用完后，移动到下一个相邻的色组
+        if ((i + 1) % currentGroup.length === 0) {
+          currentGroupIndex++;
+        }
       }
-      cardColors.push(colorIndex);
+      
+      cardColors = selectedColors;
+    } else {
+      // 卡片数量多时，使用更智能的分布算法
+      const usedColors = new Set();
+      for (let i = 0; i < cardCount; i++) {
+        let colorIndex;
+        // 优先从未使用的相邻颜色中选择
+        if (i > 0) {
+          const lastColor = cardColors[i - 1];
+          const nearbyColors = [];
+          
+          // 查找相邻的颜色（±1，±2范围内）
+          for (let offset = -2; offset <= 2; offset++) {
+            const nearby = (lastColor + offset + totalColors) % totalColors;
+            if (!usedColors.has(nearby) && nearby !== lastColor) {
+              nearbyColors.push(nearby);
+            }
+          }
+          
+          if (nearbyColors.length > 0) {
+            colorIndex = nearbyColors[Math.floor(Math.random() * nearbyColors.length)];
+          } else {
+            colorIndex = Math.floor(Math.random() * totalColors);
+          }
+        } else {
+          colorIndex = Math.floor(Math.random() * totalColors);
+        }
+        
+        usedColors.add(colorIndex);
+        cardColors.push(colorIndex);
+      }
     }
     
     for (let i = 0; i < cardCount; i++) {
@@ -276,6 +318,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 重置所有卡片的样式
     cards.forEach((card, index) => {
+      // 强制清除动画状态，确保CSS动画不会干扰JavaScript样式
+      card.style.animation = 'none';
+      card.offsetHeight; // 强制重排，确保animation: none生效
       card.style.animation = '';
       
       // 动态计算卡片样式，支持任意数量的卡片
