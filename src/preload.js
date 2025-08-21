@@ -6,5 +6,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // 安全地暴露 IPC 方法给渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
   dragWindow: (position) => ipcRenderer.send('drag-window', position),
-  getWindowPosition: () => ipcRenderer.invoke('get-window-position')
+  getWindowPosition: () => ipcRenderer.invoke('get-window-position'),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings)
 });

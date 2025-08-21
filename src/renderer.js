@@ -61,12 +61,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const newX = e.screenX - dragOffsetX;
       const newY = e.screenY - dragOffsetY;
       
-      // 使用节流技术减少IPC调用频率
-      if (!throttleTimer) {
-        window.electronAPI.dragWindow({ x: newX, y: newY });
-        throttleTimer = setTimeout(() => {
-          throttleTimer = null;
-        }, throttleDelay);
+      // 验证坐标是否为有效数字
+      if (typeof newX === 'number' && typeof newY === 'number' && 
+          isFinite(newX) && isFinite(newY)) {
+        // 使用节流技术减少IPC调用频率
+        if (!throttleTimer) {
+          window.electronAPI.dragWindow({ x: newX, y: newY });
+          throttleTimer = setTimeout(() => {
+            throttleTimer = null;
+          }, throttleDelay);
+        }
       }
     }
   });
