@@ -1,76 +1,87 @@
 /**
  * 渲染工具模块 - 支持 Markdown、LaTeX、Mermaid 渲染
- * 所有资源本地化，不从CDN加载
+ * 使用 markdown-it 替代 marked
  */
 
-let marked, katex, mermaid;
+let MarkdownIt, hljs, katex, mermaid;
 
 try {
-  marked = window.require ? window.require('marked') : require('marked');
+  MarkdownIt = window.require ? window.require('markdown-it') : require('markdown-it');
+  hljs = window.require ? window.require('highlight.js') : require('highlight.js');
   katex = window.require ? window.require('katex') : require('katex');
   mermaid = window.require ? window.require('mermaid') : require('mermaid');
 } catch (error) {
   console.error('Failed to load rendering dependencies:', error);
   // 如果无法加载依赖，设置为null，后续代码会处理
-  marked = null;
+  MarkdownIt = null;
+  hljs = null;
   katex = null;
   mermaid = null;
 }
 
 class ContentRenderer {
   constructor() {
-    this.dependenciesLoaded = marked && katex && mermaid;
+    this.dependenciesLoaded = MarkdownIt && katex && mermaid;
+    this.initialized = false;
+    this.md = null;
+    this.mermaid = mermaid; // 添加mermaid引用
     if (this.dependenciesLoaded) {
-      this.initializeMarked();
+      this.initializeMarkdownIt();
       this.initializeMermaid();
+      this.initialized = true;
     } else {
       console.warn('Some rendering dependencies not loaded, fallback mode enabled');
     }
   }
 
-  // 初始化 marked
-  initializeMarked() {
-    if (!marked) return;
+  // 初始化 markdown-it
+  initializeMarkdownIt() {
+    if (!MarkdownIt) return;
     
-    // 配置 marked 选项
-    marked.setOptions({
-      gfm: true,
-      breaks: true,
-      sanitize: false,
-      smartLists: true,
-      smartypants: false
+    // 创建 markdown-it 实例
+    this.md = new MarkdownIt({
+      html: true,        // 启用HTML标签
+      xhtmlOut: false,   // 使用HTML样式的闭合标签
+      breaks: true,      // 换行符转换为<br>
+      langPrefix: 'language-',  // CSS语言前缀
+      linkify: true,     // 自动识别链接
+      typographer: true, // 启用排版替换
+      quotes: '""\'\''   // 智能引号
     });
 
-    // 自定义渲染器
-    const renderer = new marked.Renderer();
-    
-    // 自定义代码块渲染（支持语法高亮）
-    renderer.code = (code, language) => {
-      const validLanguage = language || 'text';
-      return `<pre><code class="language-${validLanguage}">${this.escapeHtml(code)}</code></pre>`;
-    };
-
-    // 自定义内联代码渲染
-    renderer.codespan = (text) => {
-      return `<code class="inline-code">${this.escapeHtml(text)}</code>`;
-    };
+    // 配置代码高亮
+    if (hljs) {
+      this.md.set({
+        highlight: function (str, lang) {
+          if (lang && hljs.getLanguage(lang)) {
+            try {
+              return '<pre class="hljs"><code class="language-' + lang + '">' +
+                     hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                     '</code></pre>';
+            } catch (__) {}
+          }
+          
+          return '<pre class="hljs"><code>' + this.md.utils.escapeHtml(str) + '</code></pre>';
+        }.bind(this)
+      });
+    }
 
     // 自定义表格渲染
-    renderer.table = (header, body) => {
-      return `<div class="table-container"><table class="markdown-table">
-        <thead>${header}</thead>
-        <tbody>${body}</tbody>
-      </table></div>`;
+    const defaultTableOpen = this.md.renderer.rules.table_open || function(tokens, idx, options, env) {
+      return '<table>';
+    };
+    
+    this.md.renderer.rules.table_open = function(tokens, idx, options, env) {
+      return '<div class="table-container"><table class="markdown-table">';
     };
 
-    // 自定义列表渲染
-    renderer.list = (body, ordered, start) => {
-      const type = ordered ? 'ol' : 'ul';
-      const startatt = (ordered && start !== 1) ? ` start="${start}"` : '';
-      return `<${type}${startatt} class="markdown-list">${body}</${type}>`;
+    const defaultTableClose = this.md.renderer.rules.table_close || function(tokens, idx, options, env) {
+      return '</table>';
     };
-
-    marked.use({ renderer });
+    
+    this.md.renderer.rules.table_close = function(tokens, idx, options, env) {
+      return '</table></div>';
+    };
   }
 
   // 初始化 Mermaid
@@ -215,9 +226,9 @@ class ContentRenderer {
       // 1. 首先处理 Mermaid（在 markdown 处理之前）
       content = await this.renderMermaid(content);
       
-      // 2. 处理 Markdown
-      if (marked) {
-        content = marked.parse(content);
+      // 2. 处理 Markdown (使用 markdown-it)
+      if (this.md) {
+        content = this.md.render(content);
       }
       
       // 3. 处理 LaTeX 数学公式

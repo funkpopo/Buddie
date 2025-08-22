@@ -8,190 +8,286 @@ function loadStyles() {
     document.head.appendChild(link);
   }
   
-  // 动态加载KaTeX CSS（如果需要）
+  // 加载KaTeX CSS
   try {
-    const katexCss = document.createElement('link');
-    katexCss.rel = 'stylesheet';
-    katexCss.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
-    document.head.appendChild(katexCss);
+    if (typeof require !== 'undefined') {
+      // webpack环境下直接require CSS文件
+      require('katex/dist/katex.min.css');
+    } else {
+      // 直接HTML环境下的回退方案
+      if (!document.querySelector('link[href*="katex"]')) {
+        const katexCss = document.createElement('link');
+        katexCss.rel = 'stylesheet';
+        katexCss.href = './node_modules/katex/dist/katex.min.css';
+        document.head.appendChild(katexCss);
+      }
+    }
   } catch (error) {
-    console.warn('Could not load KaTeX CSS:', error);
+    console.warn('Could not load local KaTeX CSS:', error);
+  }
+
+  // 加载highlight.js CSS
+  try {
+    if (typeof require !== 'undefined') {
+      // webpack环境下直接require CSS文件  
+      require('highlight.js/styles/github.css');
+    } else {
+      // 直接HTML环境下的回退方案
+      if (!document.querySelector('link[href*="highlight.js"]')) {
+        const hljsCss = document.createElement('link');
+        hljsCss.rel = 'stylesheet';
+        hljsCss.href = './node_modules/highlight.js/styles/github.css';
+        document.head.appendChild(hljsCss);
+      }
+    }
+  } catch (error) {
+    console.warn('Could not load highlight.js CSS:', error);
   }
 }
 
 // 加载渲染器模块
 let contentRenderer = null;
 
-// 内联渲染器类定义
-class SimpleContentRenderer {
-  constructor() {
-    this.marked = null;
-    this.katex = null;
-    this.mermaid = null;
-    this.initialized = false;
-    this.initializeLibraries();
-  }
-
-  initializeLibraries() {
-    try {
-      // 尝试加载渲染库（在webpack环境中可用）
-      if (typeof require !== 'undefined') {
-        this.marked = require('marked');
-        this.katex = require('katex');
-        this.mermaid = require('mermaid');
-      } else {
-        // 在直接HTML环境中，这些库可能不可用，使用简单回退
-        console.warn('Rendering libraries not available in this environment');
-      }
-      
-      if (this.marked) {
-        this.marked.setOptions({
-          gfm: true,
-          breaks: true,
-          sanitize: false,
-          smartLists: true,
-          smartypants: false
-        });
-      }
-      
-      if (this.mermaid) {
-        this.mermaid.initialize({
-          startOnLoad: false,
-          theme: 'default',
-          securityLevel: 'loose'
-        });
-      }
-      
-      this.initialized = true;
-      console.log('Rendering libraries loaded successfully');
-    } catch (error) {
-      console.warn('Some rendering libraries failed to load:', error);
-    }
-  }
-
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  processMathFormulas(content) {
-    // 处理块级公式 $$...$$
-    let result = content;
-    let startIndex = 0;
-    
-    while (true) {
-      const start = result.indexOf('$$', startIndex);
-      if (start === -1) break;
-      
-      const end = result.indexOf('$$', start + 2);
-      if (end === -1) break;
-      
-      const formula = result.substring(start + 2, end);
+// 导入完善的渲染器
+async function loadRenderer() {
+  try {
+    console.log('尝试加载ContentRenderer...');
+    // 直接导入ContentRenderer类
+    if (typeof require !== 'undefined') {
       try {
-        const rendered = this.katex.renderToString(formula.trim(), {
-          displayMode: true,
-          throwOnError: false
-        });
-        result = result.substring(0, start) + rendered + result.substring(end + 2);
-        startIndex = start + rendered.length;
-      } catch (error) {
-        const errorDiv = '<div class="math-error">数学公式错误: ' + this.escapeHtml(formula) + '</div>';
-        result = result.substring(0, start) + errorDiv + result.substring(end + 2);
-        startIndex = start + errorDiv.length;
+        // 首先尝试加载renderer-utils模块
+        console.log('使用require加载renderer-utils模块...');
+        const rendererModule = require('./renderer-utils');
+        console.log('成功加载renderer-utils模块:', Object.keys(rendererModule));
+        
+        if (rendererModule && rendererModule.ContentRenderer) {
+          console.log('发现ContentRenderer类');
+          return rendererModule.ContentRenderer;
+        } else {
+          console.warn('renderer-utils模块中没有找到ContentRenderer');
+          return null;
+        }
+      } catch (requireError) {
+        console.error('require失败:', requireError);
+        return null;
       }
+    } else {
+      console.log('require不可用，运行在浏览器环境');
+      return null;
     }
-    
-    // 处理内联公式 $...$（避免与已处理的$$冲突）
-    startIndex = 0;
-    while (true) {
-      const start = result.indexOf('$', startIndex);
-      if (start === -1) break;
-      
-      // 跳过如果这是$$的一部分
-      if (start > 0 && result.charAt(start - 1) === '$') {
-        startIndex = start + 1;
-        continue;
-      }
-      if (start < result.length - 1 && result.charAt(start + 1) === '$') {
-        startIndex = start + 2;
-        continue;
-      }
-      
-      const end = result.indexOf('$', start + 1);
-      if (end === -1) break;
-      
-      const formula = result.substring(start + 1, end);
-      if (formula.includes('\n')) {
-        startIndex = start + 1;
-        continue;
-      }
-      
-      try {
-        const rendered = this.katex.renderToString(formula.trim(), {
-          displayMode: false,
-          throwOnError: false
-        });
-        result = result.substring(0, start) + rendered + result.substring(end + 1);
-        startIndex = start + rendered.length;
-      } catch (error) {
-        startIndex = start + 1;
-      }
-    }
-    
-    return result;
+  } catch (error) {
+    console.error('加载ContentRenderer时发生错误:', error);
+    return null;
   }
+}
 
-  async render(content) {
-    try {
-      if (!this.initialized || !this.marked) {
-        // 回退到简单处理
-        return content
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#x27;')
-          .replace(/\n/g, '<br>');
-      }
-
-      // 处理 LaTeX 数学公式（在 markdown 处理之前）
-      if (this.katex) {
-        // 简单的字符串处理，避免复杂的正则表达式
-        content = this.processMathFormulas(content);
+// 专门的重新渲染函数，用于流式输出完成后的最终渲染
+async function reRenderContent(contentDiv, content) {
+  try {
+    if (contentRenderer && contentRenderer.initialized) {
+      console.log('执行内容重新渲染，内容长度:', content.length);
+      console.log('使用的渲染器:', contentRenderer.constructor ? contentRenderer.constructor.name : 'Fallback');
+      
+      // 渲染markdown内容
+      const renderedContent = await contentRenderer.render(content);
+      console.log('渲染完成，HTML长度:', renderedContent.length);
+      contentDiv.innerHTML = renderedContent;
+      
+      // 只有完整版ContentRenderer才处理mermaid图表
+      if (contentRenderer.mermaid) {
+        const mermaidElements = contentDiv.querySelectorAll('.language-mermaid, code[class*="language-mermaid"], pre code.mermaid');
+        if (mermaidElements.length > 0) {
+          console.log('发现mermaid元素，开始渲染图表');
+          for (const element of mermaidElements) {
+            try {
+              const mermaidCode = element.textContent;
+              const mermaidContainer = document.createElement('div');
+              mermaidContainer.className = 'mermaid-container';
+              
+              // 生成唯一ID
+              const id = 'mermaid-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+              
+              // 渲染mermaid图表
+              const { svg } = await contentRenderer.mermaid.render(id, mermaidCode);
+              mermaidContainer.innerHTML = svg;
+              
+              // 替换原始代码块
+              element.closest('pre') ? element.closest('pre').replaceWith(mermaidContainer) : element.replaceWith(mermaidContainer);
+            } catch (mermaidError) {
+              console.warn('Mermaid个别图表渲染失败:', mermaidError);
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'mermaid-error';
+              errorDiv.textContent = 'Mermaid图表渲染失败: ' + mermaidError.message;
+              element.replaceWith(errorDiv);
+            }
+          }
+        }
       }
       
-      // 处理 markdown
-      let rendered = this.marked.parse(content);
-      
-      return rendered;
-    } catch (error) {
-      console.error('Rendering error:', error);
-      return '<p>' + this.escapeHtml(content) + '</p>';
+      console.log('内容重新渲染完成');
+      return true;
+    } else {
+      console.warn('ContentRenderer未初始化，使用纯文本渲染');
+      // 渲染器未初始化，使用纯文本
+      contentDiv.textContent = content;
+      return false;
     }
+  } catch (error) {
+    console.error('重新渲染失败:', error);
+    contentDiv.textContent = content;
+    return false;
   }
 }
 
 // 初始化渲染器
 async function initializeRenderer() {
+  console.log('开始初始化渲染器...');
   try {
-    contentRenderer = new SimpleContentRenderer();
-    console.log('Content renderer initialized successfully');
+    const RendererClass = await loadRenderer();
+    if (RendererClass) {
+      console.log('成功加载ContentRenderer类');
+      contentRenderer = new RendererClass();
+      console.log('ContentRenderer初始化完成:', {
+        initialized: contentRenderer.initialized,
+        hasMermaid: !!contentRenderer.mermaid,
+        hasRenderMethod: typeof contentRenderer.render === 'function'
+      });
+    } else {
+      console.log('ContentRenderer加载失败，使用fallback renderer');
+      // 使用简化的内联渲染器
+      contentRenderer = createFallbackRenderer();
+      console.log('Fallback renderer初始化完成:', {
+        initialized: contentRenderer.initialized,
+        hasRenderMethod: typeof contentRenderer.render === 'function'
+      });
+    }
   } catch (error) {
-    console.error('Failed to initialize content renderer:', error);
-    // 创建一个简单的fallback渲染器
-    contentRenderer = {
-      render: async (content) => {
-        return content
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#x27;')
-          .replace(/\n/g, '<br>');
-      }
-    };
+    console.error('初始化渲染器失败:', error);
+    contentRenderer = createFallbackRenderer();
+    console.log('使用fallback renderer作为最终方案');
   }
+}
+
+// 创建回退渲染器
+function createFallbackRenderer() {
+  console.log('创建fallback renderer...');
+  let MarkdownIt, katex, hljs;
+  let dependenciesLoaded = false;
+  
+  try {
+    if (typeof require !== 'undefined') {
+      console.log('尝试加载markdown依赖...');
+      MarkdownIt = require('markdown-it');
+      katex = require('katex');
+      hljs = require('highlight.js');
+      dependenciesLoaded = true;
+      console.log('成功加载所有markdown依赖');
+    }
+  } catch (error) {
+    console.error('加载markdown依赖失败:', error);
+    dependenciesLoaded = false;
+  }
+
+  const renderer = {
+    initialized: true,
+    dependenciesLoaded: dependenciesLoaded,
+    mermaid: null, // 简化版不支持mermaid
+    render: async (content) => {
+      console.log('Fallback renderer开始渲染，内容长度:', content.length);
+      
+      try {
+        if (!MarkdownIt || !dependenciesLoaded) {
+          console.log('使用基础文本渲染');
+          // 最基本的文本处理，保留换行和基础格式
+          const escaped = content
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+          
+          // 简单的markdown格式处理
+          const processed = escaped
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // 粗体
+            .replace(/\*(.*?)\*/g, '<em>$1</em>') // 斜体
+            .replace(/`([^`]+)`/g, '<code>$1</code>') // 行内代码
+            .replace(/\n/g, '<br>'); // 换行
+          
+          console.log('基础文本渲染完成');
+          return processed;
+        }
+
+        console.log('使用markdown-it渲染');
+        // 使用markdown-it渲染markdown
+        const md = new MarkdownIt({
+          html: true,
+          breaks: true,
+          linkify: true,
+          typographer: true
+        });
+        
+        // 配置代码高亮
+        if (hljs) {
+          md.set({
+            highlight: function (str, lang) {
+              if (lang && hljs.getLanguage(lang)) {
+                try {
+                  return '<pre class="hljs"><code class="language-' + lang + '">' +
+                         hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                         '</code></pre>';
+                } catch (__) {}
+              }
+              return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+            }
+          });
+        }
+        
+        let rendered = md.render(content);
+        console.log('markdown-it渲染完成，结果长度:', rendered.length);
+        
+        // 处理数学公式
+        if (katex) {
+          console.log('处理数学公式...');
+          // 处理块级公式 $$...$$
+          rendered = rendered.replace(/\$\$([^$]+?)\$\$/g, (match, formula) => {
+            try {
+              return katex.renderToString(formula.trim(), {
+                displayMode: true,
+                throwOnError: false
+              });
+            } catch (error) {
+              return `<div class="math-error">公式渲染错误: ${formula}</div>`;
+            }
+          });
+
+          // 处理内联公式 $...$
+          rendered = rendered.replace(/\$([^$\n]+?)\$/g, (match, formula) => {
+            try {
+              return katex.renderToString(formula.trim(), {
+                displayMode: false,
+                throwOnError: false
+              });
+            } catch (error) {
+              return match; // 保持原样
+            }
+          });
+        }
+        
+        console.log('最终渲染完成，结果长度:', rendered.length);
+        return rendered;
+      } catch (error) {
+        console.error('Fallback渲染错误:', error);
+        return '<p>' + content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
+      }
+    }
+  };
+  
+  console.log('Fallback renderer创建完成:', {
+    initialized: renderer.initialized,
+    dependenciesLoaded: renderer.dependenciesLoaded
+  });
+  
+  return renderer;
 }
 
 // 获取卡片数据（由main.js传入）
@@ -240,14 +336,24 @@ async function addMessage(content, type = 'user') {
   
   if (type === 'assistant') {
     // AI回复支持markdown/latex/mermaid渲染
+    console.log('添加AI消息，内容长度:', content.length);
+    console.log('ContentRenderer状态:', {
+      exists: !!contentRenderer,
+      initialized: contentRenderer?.initialized,
+      type: contentRenderer?.constructor?.name || 'Unknown'
+    });
+    
     try {
-      if (contentRenderer) {
+      if (contentRenderer && contentRenderer.initialized) {
+        console.log('使用ContentRenderer渲染消息');
         const renderedContent = await contentRenderer.render(content);
+        console.log('渲染结果长度:', renderedContent.length);
         const contentDiv = document.createElement('div');
         contentDiv.className = 'markdown-content';
         contentDiv.innerHTML = renderedContent;
         messageDiv.appendChild(contentDiv);
       } else {
+        console.warn('ContentRenderer不可用，使用纯文本');
         // 渲染器未初始化，使用纯文本
         const messageP = document.createElement('p');
         messageP.textContent = content;
@@ -348,25 +454,29 @@ async function sendMessage() {
   });
   
   const cleanupEnd = window.electronAPI.onChatStreamEnd(async (event) => {
-    console.log('流式响应完成');
+    console.log('=== 流式响应完成，开始最终渲染 ===');
+    console.log('最终内容长度:', streamingContent.length);
+    console.log('ContentRenderer状态:', {
+      exists: !!contentRenderer,
+      initialized: contentRenderer?.initialized,
+      type: contentRenderer?.constructor?.name || 'Fallback'
+    });
     
-    // 清除防抖计时器并进行最终渲染
+    // 清除防抖计时器
     if (renderTimeout) {
       clearTimeout(renderTimeout);
     }
     
     try {
-      if (contentRenderer) {
-        const finalRenderedContent = await contentRenderer.render(streamingContent);
-        contentDiv.innerHTML = finalRenderedContent;
-      } else {
-        contentDiv.textContent = streamingContent;
-      }
+      // 使用专门的重新渲染函数进行最终渲染
+      const success = await reRenderContent(contentDiv, streamingContent);
+      console.log('最终渲染结果:', success ? '成功' : '失败');
     } catch (error) {
       console.error('Final render error:', error);
       contentDiv.textContent = streamingContent;
     }
     
+    // 滚动到底部并启用发送按钮
     chatMessages.scrollTop = chatMessages.scrollHeight;
     chatSendBtn.disabled = false;
     
@@ -513,24 +623,30 @@ function setupEventHandlers() {
 
 // 初始化时聚焦输入框
 window.addEventListener('DOMContentLoaded', async () => {
-  console.log('DOMContentLoaded event fired');
+  console.log('=== DOMContentLoaded 事件开始 ===');
   
-  // 加载样式
+  // 1. 首先加载样式
   loadStyles();
   
-  // 确保DOM元素已加载
+  // 2. 初始化渲染器 - 确保在其他操作之前完成
+  console.log('开始初始化渲染器...');
+  await initializeRenderer();
+  console.log('渲染器初始化完成，状态:', {
+    exists: !!contentRenderer,
+    initialized: contentRenderer?.initialized,
+    type: contentRenderer?.constructor?.name || 'Unknown'
+  });
+  
+  // 3. 设置事件处理器
   setTimeout(() => {
     console.log('Setting up event handlers after timeout');
     setupEventHandlers();
   }, 500);
   
-  // 初始化渲染器
-  await initializeRenderer();
-  
-  // 立即尝试设置事件处理器
+  // 4. 立即尝试设置事件处理器
   setupEventHandlers();
   
-  // 监听卡片切换事件，确保electronAPI已加载
+  // 5. 监听卡片切换事件
   if (window.electronAPI && window.electronAPI.onCardSwitched) {
     console.log('Setting up card-switched listener');
     window.electronAPI.onCardSwitched((event, cardData) => {
@@ -556,4 +672,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.error('electronAPI or onCardSwitched not available');
     console.error('Available electronAPI methods:', window.electronAPI ? Object.keys(window.electronAPI) : 'electronAPI not found');
   }
+  
+  console.log('=== DOMContentLoaded 初始化完成 ===');
 });

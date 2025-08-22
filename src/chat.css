@@ -271,10 +271,10 @@ input, textarea {
 }
 
 .message-bubble .markdown-content pre {
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f8f9fa;
+  border: 1px solid #e1e4e8;
   border-radius: 6px;
-  padding: 8px;
+  padding: 12px;
   margin: 8px 0;
   overflow-x: auto;
   line-height: 1.3;
@@ -290,6 +290,67 @@ input, textarea {
   padding: 0;
   border-radius: 0;
   font-size: 0.85em;
+}
+
+/* highlight.js 样式支持 */
+.message-bubble .hljs {
+  background: #f8f9fa !important;
+  color: #24292e;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+  line-height: 1.4;
+}
+
+.user-message .hljs {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff;
+}
+
+.message-bubble .hljs code {
+  background: transparent !important;
+  padding: 0;
+  font-size: 0.85em;
+}
+
+/* 代码高亮主题适配 */
+.assistant-message .hljs-keyword,
+.assistant-message .hljs-selector-tag,
+.assistant-message .hljs-literal,
+.assistant-message .hljs-section,
+.assistant-message .hljs-link {
+  color: #d73a49;
+}
+
+.assistant-message .hljs-string,
+.assistant-message .hljs-doctag {
+  color: #032f62;
+}
+
+.assistant-message .hljs-comment,
+.assistant-message .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.user-message .hljs-keyword,
+.user-message .hljs-selector-tag,
+.user-message .hljs-literal,
+.user-message .hljs-section,
+.user-message .hljs-link {
+  color: #ffd700;
+}
+
+.user-message .hljs-string,
+.user-message .hljs-doctag {
+  color: #87ceeb;
+}
+
+.user-message .hljs-comment,
+.user-message .hljs-quote {
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
 }
 
 .message-bubble .table-container {
