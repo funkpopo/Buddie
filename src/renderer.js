@@ -203,6 +203,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeCards();
   });
   
+  // 监听来自设置页面的卡片切换触发事件
+  window.electronAPI.onTriggerCardSwitch((event, direction) => {
+    console.log('收到卡片切换触发请求:', direction);
+    if (!isFlipping) {
+      flipCard(direction);
+    }
+  });
+  
   // 优化的拖拽处理，使用requestAnimationFrame
   let dragAnimationFrame = null;
   let pendingDragUpdate = null;

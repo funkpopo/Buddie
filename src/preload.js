@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   saveCurrentCard: (cardIndex) => ipcRenderer.invoke('save-current-card', cardIndex),
+  triggerCardSwitch: (direction) => ipcRenderer.invoke('trigger-card-switch', direction),
   refreshCards: () => ipcRenderer.send('refresh-cards'),
   onRefreshCards: (callback) => {
     ipcRenderer.on('refresh-cards', callback);
@@ -17,5 +18,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // 对话相关API
   sendChatMessage: (data) => ipcRenderer.invoke('send-chat-message', data),
-  showChatInterface: (cardData) => ipcRenderer.invoke('show-chat-interface', cardData)
+  showChatInterface: (cardData) => ipcRenderer.invoke('show-chat-interface', cardData),
+  // 卡片切换同步API
+  onCardIndexChange: (callback) => {
+    ipcRenderer.on('card-index-changed', callback);
+    return () => ipcRenderer.removeListener('card-index-changed', callback);
+  },
+  onTriggerCardSwitch: (callback) => {
+    ipcRenderer.on('trigger-card-switch', callback);
+    return () => ipcRenderer.removeListener('trigger-card-switch', callback);
+  },
+  // 监听卡片切换事件（用于聊天窗口同步）
+  onCardSwitched: (callback) => {
+    ipcRenderer.on('card-switched', callback);
+    return () => ipcRenderer.removeListener('card-switched', callback);
+  }
 });
