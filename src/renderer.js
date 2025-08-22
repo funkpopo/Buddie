@@ -33,6 +33,14 @@ console.log('👋 This message is being logged by "renderer.js", included via we
 // 添加拖动功能和卡片翻动功能
 document.addEventListener('DOMContentLoaded', async () => {
   const cardStack = document.getElementById('cardStack');
+  
+  if (!cardStack) {
+    console.error('未找到 cardStack 元素，拖动功能无法初始化');
+    return;
+  }
+  
+  console.log('cardStack 元素找到，初始化拖动功能');
+  
   let isDragging = false;
   let dragOffsetX, dragOffsetY;
   let isFlipping = false;
@@ -217,18 +225,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 鼠标按下事件
   cardStack.addEventListener('mousedown', async (e) => {
-    if (isFlipping) return; // 翻页动画中不允许拖拽
+    console.log('鼠标按下事件触发', { isFlipping, button: e.button });
+    
+    if (isFlipping) {
+      console.log('翻页动画中，不允许拖拽');
+      return; // 翻页动画中不允许拖拽
+    }
     
     isDragging = true;
     dragStartTime = Date.now();
     hasActuallyDragged = false;
     
+    console.log('开始拖拽，获取窗口位置...');
+    
     // 获取当前窗口的位置
     const windowPosition = await window.electronAPI.getWindowPosition();
+    console.log('窗口位置:', windowPosition);
     
     // 计算拖动偏移量（鼠标位置与窗口位置的差值）
-    dragOffsetX = e.screenX - windowPosition[0];
-    dragOffsetY = e.screenY - windowPosition[1];
+    dragOffsetX = e.screenX - windowPosition.x;
+    dragOffsetY = e.screenY - windowPosition.y;
+    
+    console.log('拖拽偏移量:', { dragOffsetX, dragOffsetY, screenX: e.screenX, screenY: e.screenY });
+    
     cardStack.style.cursor = 'grabbing';
     e.preventDefault(); // 防止默认行为
     e.stopPropagation(); // 阻止事件冒泡
@@ -243,6 +262,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const newX = e.screenX - dragOffsetX;
       const newY = e.screenY - dragOffsetY;
       
+      console.log('拖拽移动:', { screenX: e.screenX, screenY: e.screenY, newX, newY, dragOffsetX, dragOffsetY });
+      
       // 验证坐标是否为有效数字
       if (typeof newX === 'number' && typeof newY === 'number' && 
           isFinite(newX) && isFinite(newY)) {
@@ -256,11 +277,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         dragAnimationFrame = requestAnimationFrame(() => {
           if (pendingDragUpdate) {
+            console.log('发送拖拽位置更新:', pendingDragUpdate);
             window.electronAPI.dragWindow(pendingDragUpdate);
             pendingDragUpdate = null;
           }
           dragAnimationFrame = null;
         });
+      } else {
+        console.warn('无效的拖拽坐标:', { newX, newY });
       }
     }
   });
@@ -270,6 +294,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const wasDragging = isDragging;
     const hadActuallyDragged = hasActuallyDragged;
     
+    console.log('鼠标释放事件', { wasDragging, hadActuallyDragged });
+    
     isDragging = false;
     cardStack.style.cursor = 'move';
     
@@ -278,6 +304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       cancelAnimationFrame(dragAnimationFrame);
       dragAnimationFrame = null;
       pendingDragUpdate = null;
+      console.log('清除拖拽动画帧');
     }
     
     // 如果没有实际拖动，检测双击

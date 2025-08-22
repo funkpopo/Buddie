@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>对话</title>
+  <link rel="stylesheet" href="chat.css">
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <div class="chat-title">
+        <span class="chat-model-name" id="chatModelName">AI助手</span>
+        <span class="chat-model-type" id="chatModelType">Chat</span>
+      </div>
+      <button class="chat-close-btn" onclick="closeChatInterface()" title="关闭对话">×</button>
+    </div>
+    <div class="chat-content">
+      <div class="chat-messages" id="chatMessages">
+        <div class="welcome-message">
+          <div class="message-bubble system-message">
+            <p>你好！我是你的AI助手，有什么可以帮助你的吗？</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <div class="chat-input-container">
+        <textarea class="chat-input" id="chatInput" placeholder="输入你的消息...按Enter发送，Shift+Enter换行" rows="1"></textarea>
+        <button class="chat-send-btn" id="chatSendBtn" title="发送消息">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22,2 15,22 11,13 2,9"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="chat.js"></script>
+</body>
+</html>
