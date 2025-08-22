@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getWindowPosition: () => ipcRenderer.invoke('get-window-position'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  saveCurrentCard: (cardIndex) => ipcRenderer.invoke('save-current-card', cardIndex),
   refreshCards: () => ipcRenderer.send('refresh-cards'),
   onRefreshCards: (callback) => {
     ipcRenderer.on('refresh-cards', callback);

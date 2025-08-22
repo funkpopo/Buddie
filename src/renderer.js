@@ -77,6 +77,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }];
       }
       
+      // 从设置中恢复当前卡片索引
+      if (settings.currentCard !== undefined && settings.currentCard >= 0 && settings.currentCard < cardData.length) {
+        currentIndex = settings.currentCard;
+      } else {
+        currentIndex = 0;
+      }
+      
       // 重新生成HTML卡片
       generateCardElements();
       updateCardsContent();
@@ -90,6 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         subtitle: 'AI Model',
         modelId: null
       }];
+      currentIndex = 0;
       generateCardElements();
       updateCardsContent();
     }
@@ -340,6 +348,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       cleanupAnimation();
       
       isFlipping = false;
+      
+      // 保存当前卡片索引
+      setTimeout(saveCurrentCardIndex, 50);
     }, 400); // 动画时长400ms，与CSS保持一致
   }
   
@@ -421,6 +432,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => {
       hasActuallyDragged = false;
     }, 100);
+  });
+  
+  // 保存当前卡片索引到设置
+  const saveCurrentCardIndex = async () => {
+    try {
+      await window.electronAPI.saveCurrentCard(currentIndex);
+      console.log('当前卡片索引已保存:', currentIndex);
+    } catch (error) {
+      console.error('保存当前卡片索引失败:', error);
+    }
+  };
+  
+  // 监听窗口关闭事件，保存当前卡片状态
+  window.addEventListener('beforeunload', () => {
+    saveCurrentCardIndex();
   });
 });
 
