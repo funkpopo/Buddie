@@ -266,19 +266,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   
-  // 单击翻页功能 - 增加更严格的检查
-  cardStack.addEventListener('click', (e) => {
-    // 如果正在拖拽、翻页中，或者刚刚完成了拖动，则不触发翻页
-    if (isDragging || isFlipping || hasActuallyDragged) return;
-    
-    // 检查点击时间，如果距离mousedown事件太短且有移动，可能是拖动意图
-    const clickDuration = Date.now() - dragStartTime;
-    if (clickDuration < 200 && hasActuallyDragged) return;
-    
-    e.preventDefault();
-    e.stopPropagation();
-    flipCard();
-  });
   
   // 双击关闭应用
   cardStack.addEventListener('dblclick', (e) => {
@@ -288,70 +275,129 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.close();
   });
   
-  // 翻页函数 - 重新设计
-  function flipCard() {
+  // 翻页函数 - 重新设计，支持方向参数
+  function flipCard(direction = 'next') {
     if (isFlipping) return;
     
     isFlipping = true;
     const cards = cardStack.querySelectorAll('.card');
     if (cards.length === 0) return;
     
-    // 阶段1：准备动画 - 预设下一张卡片内容
-    const nextIndex = (currentIndex + 1) % cardData.length;
+    let nextIndex;
+    if (direction === 'next') {
+      // 下一张卡片
+      nextIndex = (currentIndex + 1) % cardData.length;
+    } else if (direction === 'prev') {
+      // 上一张卡片
+      nextIndex = (currentIndex - 1 + cardData.length) % cardData.length;
+    }
+    
     const nextData = cardData[nextIndex];
     
     // 为所有卡片添加动画标记
     cards.forEach(card => card.classList.add('animating'));
     
-    // 阶段2：设置动画类和样式
-    cards.forEach((card, index) => {
-      if (index === 0) {
-        // 第一张卡片执行翻出动画
-        card.classList.add('flip-out');
-      } else {
-        // 其他卡片执行向前移动动画
-        card.classList.add('move-forward');
+    if (direction === 'next') {
+      // 向前翻页逻辑（原有逻辑）
+      cards.forEach((card, index) => {
+        if (index === 0) {
+          // 第一张卡片执行翻出动画
+          card.classList.add('flip-out');
+        } else {
+          // 其他卡片执行向前移动动画
+          card.classList.add('move-forward');
+          
+          // 计算目标位置（向前移动一个位置）
+          const newIndex = index - 1;
+          const targetZIndex = cards.length - newIndex;
+          const targetTranslateY = newIndex * 3;
+          const targetTranslateZ = newIndex * -8;
+          const targetRotateY = newIndex * -2;
+          const targetTranslateX = newIndex * -2;
+          const targetOpacity = Math.max(0.3, 1 - newIndex * 0.08);
+          
+          // 设置CSS自定义属性用于动画
+          card.style.setProperty('--start-transform', card.style.transform || 'translateY(0px) translateZ(0px) rotateY(0deg) translateX(0px)');
+          card.style.setProperty('--start-opacity', card.style.opacity || '1');
+          card.style.setProperty('--end-transform', `translateY(${targetTranslateY}px) translateZ(${targetTranslateZ}px) rotateY(${targetRotateY}deg) translateX(${targetTranslateX}px)`);
+          card.style.setProperty('--end-opacity', targetOpacity.toString());
+        }
+      });
+      
+      // 启动动画
+      cardStack.classList.add('flipping');
+      
+      // 动画完成后处理
+      setTimeout(() => {
+        // 移动第一张卡片到末尾
+        const firstCard = cards[0];
+        cardStack.appendChild(firstCard);
         
-        // 计算目标位置（向前移动一个位置）
-        const newIndex = index - 1;
-        const targetZIndex = cards.length - newIndex;
-        const targetTranslateY = newIndex * 3;
-        const targetTranslateZ = newIndex * -8;
-        const targetRotateY = newIndex * -2;
-        const targetTranslateX = newIndex * -2;
-        const targetOpacity = Math.max(0.3, 1 - newIndex * 0.08);
+        // 更新当前索引
+        currentIndex = nextIndex;
         
-        // 设置CSS自定义属性用于动画
-        card.style.setProperty('--start-transform', card.style.transform || 'translateY(0px) translateZ(0px) rotateY(0deg) translateX(0px)');
-        card.style.setProperty('--start-opacity', card.style.opacity || '1');
-        card.style.setProperty('--end-transform', `translateY(${targetTranslateY}px) translateZ(${targetTranslateZ}px) rotateY(${targetRotateY}deg) translateX(${targetTranslateX}px)`);
-        card.style.setProperty('--end-opacity', targetOpacity.toString());
-      }
-    });
-    
-    // 阶段3：启动动画
-    cardStack.classList.add('flipping');
-    
-    // 阶段4：动画完成后处理
-    setTimeout(() => {
-      // 移动第一张卡片到末尾
-      const firstCard = cards[0];
-      cardStack.appendChild(firstCard);
+        // 更新所有卡片内容和样式
+        updateCardsContent();
+        
+        // 清理动画状态
+        cleanupAnimation();
+        
+        isFlipping = false;
+        
+        // 保存当前卡片索引
+        setTimeout(saveCurrentCardIndex, 50);
+      }, 400);
+    } else if (direction === 'prev') {
+      // 向后翻页逻辑 - 与向前翻页相反但视觉一致
+      cards.forEach((card, index) => {
+        if (index === 0) {
+          // 第一张卡片执行翻出动画（反向）
+          card.classList.add('flip-out-reverse');
+        } else {
+          // 其他卡片执行向后移动动画
+          card.classList.add('move-backward');
+          
+          // 计算目标位置（向后移动一个位置）
+          const newIndex = index + 1;
+          const targetZIndex = cards.length - newIndex;
+          const targetTranslateY = newIndex * 3;
+          const targetTranslateZ = newIndex * -8;
+          const targetRotateY = newIndex * -2;
+          const targetTranslateX = newIndex * -2;
+          const targetOpacity = Math.max(0.3, 1 - newIndex * 0.08);
+          
+          // 设置CSS自定义属性用于动画
+          card.style.setProperty('--start-transform', card.style.transform || 'translateY(0px) translateZ(0px) rotateY(0deg) translateX(0px)');
+          card.style.setProperty('--start-opacity', card.style.opacity || '1');
+          card.style.setProperty('--end-transform', `translateY(${targetTranslateY}px) translateZ(${targetTranslateZ}px) rotateY(${targetRotateY}deg) translateX(${targetTranslateX}px)`);
+          card.style.setProperty('--end-opacity', targetOpacity.toString());
+        }
+      });
       
-      // 更新当前索引
-      currentIndex = nextIndex;
+      // 启动动画
+      cardStack.classList.add('flipping');
       
-      // 更新所有卡片内容和样式
-      updateCardsContent();
-      
-      // 清理动画状态
-      cleanupAnimation();
-      
-      isFlipping = false;
-      
-      // 保存当前卡片索引
-      setTimeout(saveCurrentCardIndex, 50);
-    }, 400); // 动画时长400ms，与CSS保持一致
+      // 动画完成后处理
+      setTimeout(() => {
+        // 移动第一张卡片到末尾
+        const firstCard = cards[0];
+        cardStack.appendChild(firstCard);
+        
+        // 更新当前索引
+        currentIndex = nextIndex;
+        
+        // 更新所有卡片内容和样式
+        updateCardsContent();
+        
+        // 清理动画状态
+        cleanupAnimation();
+        
+        isFlipping = false;
+        
+        // 保存当前卡片索引
+        setTimeout(saveCurrentCardIndex, 50);
+      }, 400);
+    }
   }
   
   // 更新卡片内容 - 新函数
@@ -394,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     cards.forEach(card => {
       // 移除动画类
-      card.classList.remove('animating', 'flip-out', 'move-forward');
+      card.classList.remove('animating', 'flip-out', 'flip-out-reverse', 'flip-in', 'move-forward', 'move-backward');
       
       // 清理CSS自定义属性
       card.style.removeProperty('--start-transform');
@@ -408,6 +454,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 移除容器的翻页状态
     cardStack.classList.remove('flipping');
+  }
+  
+  // 导航按钮事件监听器
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  
+  if (prevBtn) {
+    prevBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!isFlipping) {
+        flipCard('prev');
+      }
+    });
+  }
+  
+  if (nextBtn) {
+    nextBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!isFlipping) {
+        flipCard('next');
+      }
+    });
   }
   
   // 键盘快捷键支持 - 不受拖动状态影响

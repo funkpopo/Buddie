@@ -19,6 +19,58 @@
         box-sizing: border-box;
       }
       
+      .card-container {
+        display: flex;
+        align-items: center;
+        position: relative;
+        padding: 0;
+        width: 300px;
+        justify-content: flex-start;
+      }
+      
+      .nav-btn {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(15px);
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        z-index: 10;
+        flex-shrink: 0;
+      }
+      
+      .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.25);
+        color: rgba(255, 255, 255, 1);
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+      
+      .nav-btn:active {
+        transform: translateY(0px) scale(0.98);
+        background: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      }
+      
+      .nav-btn-left {
+        order: -1;
+      }
+      
+      .nav-btn-right {
+        order: 1;
+      }
+      
       .card-stack {
         position: relative;
         width: 260px;
@@ -32,7 +84,7 @@
         position: absolute;
         width: 200px;
         height: 140px;
-        left: 30px;
+        left: 10px;
         top: 20px;
         border-radius: 15px;
         display: flex;
@@ -180,8 +232,20 @@
         animation: flip-out-new 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
       }
       
+      .card-stack.flipping .card.flip-out-reverse {
+        animation: flip-out-reverse 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+      }
+      
+      .card-stack.flipping .card.flip-in {
+        animation: flip-in-reverse 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+      }
+      
       .card-stack.flipping .card.move-forward {
         animation: move-forward 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+      }
+      
+      .card-stack.flipping .card.move-backward {
+        animation: move-backward 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
       }
       
       /* 新的翻页动画关键帧 - 优化为更平滑的动画 */
@@ -204,7 +268,56 @@
         }
       }
       
+      @keyframes flip-out-reverse {
+        0% {
+          transform: translateY(0px) translateZ(0px) rotateY(0deg) translateX(0px);
+          opacity: 1;
+        }
+        25% {
+          transform: translateY(-8px) translateZ(15px) rotateY(-45deg) translateX(-5px);
+          opacity: 0.9;
+        }
+        50% {
+          transform: translateY(5px) translateZ(-10px) rotateY(-90deg) translateX(8px);
+          opacity: 0.7;
+        }
+        100% {
+          transform: translateY(12px) translateZ(-32px) rotateY(8deg) translateX(8px);
+          opacity: 0.68;
+        }
+      }
+      
+      @keyframes flip-in-reverse {
+        0% {
+          transform: translateY(12px) translateZ(-32px) rotateY(-8deg) translateX(-8px);
+          opacity: 0.68;
+        }
+        25% {
+          transform: translateY(5px) translateZ(-10px) rotateY(-90deg) translateX(-8px);
+          opacity: 0.7;
+        }
+        50% {
+          transform: translateY(-8px) translateZ(15px) rotateY(-45deg) translateX(5px);
+          opacity: 0.9;
+        }
+        100% {
+          transform: translateY(0px) translateZ(0px) rotateY(0deg) translateX(0px);
+          opacity: 1;
+        }
+      }
+      
       @keyframes move-forward {
+        0% {
+          transform: var(--start-transform);
+          opacity: var(--start-opacity);
+        }
+        100% {
+          transform: var(--end-transform);
+          opacity: var(--end-opacity);
+        }
+      }
+      
+      @keyframes move-backward {
         0% {
           transform: var(--start-transform);
           opacity: var(--start-opacity);
@@ -217,27 +330,31 @@
     </style>
   </head>
   <body>
-    <div class="card-stack" id="cardStack">
-      <div class="card color-0" data-card="1">
-        <h1>🎵 唱片 1</h1>
-        <p>Card One</p>
+    <div class="card-container">
+      <button class="nav-btn nav-btn-left" id="prevBtn" title="上一张卡片">‹</button>
+      <div class="card-stack" id="cardStack">
+        <div class="card color-0" data-card="1">
+          <h1>🎵 唱片 1</h1>
+          <p>Card One</p>
+        </div>
+        <div class="card color-1" data-card="2">
+          <h1>🎶 唱片 2</h1>
+          <p>Card Two</p>
+        </div>
+        <div class="card color-2" data-card="3">
+          <h1>🎼 唱片 3</h1>
+          <p>Card Three</p>
+        </div>
+        <div class="card color-3" data-card="4">
+          <h1>🎤 唱片 4</h1>
+          <p>Card Four</p>
+        </div>
+        <div class="card color-4" data-card="5">
+          <h1>🎧 唱片 5</h1>
+          <p>Card Five</p>
+        </div>
       </div>
-      <div class="card color-1" data-card="2">
-        <h1>🎶 唱片 2</h1>
-        <p>Card Two</p>
-      </div>
-      <div class="card color-2" data-card="3">
-        <h1>🎼 唱片 3</h1>
-        <p>Card Three</p>
-      </div>
-      <div class="card color-3" data-card="4">
-        <h1>🎤 唱片 4</h1>
-        <p>Card Four</p>
-      </div>
-      <div class="card color-4" data-card="5">
-        <h1>🎧 唱片 5</h1>
-        <p>Card Five</p>
-      </div>
+      <button class="nav-btn nav-btn-right" id="nextBtn" title="下一张卡片">›</button>
     </div>
   </body>
 </html>
