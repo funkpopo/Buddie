@@ -19,6 +19,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 对话相关API
   sendChatMessage: (data) => ipcRenderer.invoke('send-chat-message', data),
   showChatInterface: (cardData) => ipcRenderer.invoke('show-chat-interface', cardData),
+  // 监听流式响应事件
+  onChatStreamChunk: (callback) => {
+    ipcRenderer.on('chat-stream-chunk', callback);
+    return () => ipcRenderer.removeListener('chat-stream-chunk', callback);
+  },
+  onChatStreamEnd: (callback) => {
+    ipcRenderer.on('chat-stream-end', callback);
+    return () => ipcRenderer.removeListener('chat-stream-end', callback);
+  },
+  onChatStreamError: (callback) => {
+    ipcRenderer.on('chat-stream-error', callback);
+    return () => ipcRenderer.removeListener('chat-stream-error', callback);
+  },
   // 卡片切换同步API
   onCardIndexChange: (callback) => {
     ipcRenderer.on('card-index-changed', callback);
