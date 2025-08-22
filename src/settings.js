@@ -88,7 +88,7 @@ function renderModels() {
       </div>
       <div class="setting-item">
         <label>API URL</label>
-        <input type="text" value="${model.apiUrl}" onchange="updateModel('${model.id}', 'apiUrl', this.value)" placeholder="例如: https://api.cerebras.ai/v1/chat/completions">
+        <input type="text" value="${model.apiUrl}" onchange="updateModel('${model.id}', 'apiUrl', this.value)" placeholder="例如: https://api.openai.com/v1/chat/completions">
       </div>
       <div class="setting-item">
         <label>API Key</label>
