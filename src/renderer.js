@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // 重新生成HTML卡片
       generateCardElements();
-      updateCards();
+      updateCardsContent();
       
     } catch (error) {
       console.error('初始化卡片失败:', error);
@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         modelId: null
       }];
       generateCardElements();
-      updateCards();
+      updateCardsContent();
     }
   }
   
@@ -105,19 +105,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   function generateCardElements() {
     cardStack.innerHTML = '';
     const cardCount = cardData.length; // 不限制卡片数量，根据模型配置数量显示
-    const totalColors = 20; // 总共有20种颜色样式
+    const totalColors = 40; // 总共有40种颜色样式
     
     // 重置颜色映射数组
     cardColors = [];
     
     // 颜色分组：按色系组织，确保相邻颜色过渡自然
     const colorGroups = [
-      [0, 1, 2, 3],      // 蓝紫色系
-      [4, 5, 6, 7],      // 蓝青色系  
-      [8, 9],            // 绿青色系
-      [10, 11, 12],      // 黄绿色系
-      [13, 14, 15, 16],  // 粉橙色系
-      [17, 18, 19]       // 粉红色系
+      [0, 1, 2, 3, 4, 5, 6],      // 红色系到橙色系 (0-6)
+      [7, 8, 9, 10, 11, 12],      // 橙色系到黄色系 (7-12)
+      [13, 14, 15, 16, 17, 18],   // 黄绿色系 (13-18)
+      [19, 20, 21, 22, 23, 24],   // 绿色系到青色系 (19-24)
+      [25, 26, 27, 28, 29, 30],   // 青色系到蓝色系 (25-30)
+      [31, 32, 33, 34, 35, 36],   // 蓝色系到紫色系 (31-36)
+      [37, 38, 39, 40],   // 紫色系到粉色系 (37-42)
     ];
     
     if (cardCount <= totalColors) {
@@ -190,9 +191,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeCards();
   });
   
-  // 节流函数，限制IPC调用频率
-  let throttleTimer = null;
-  const throttleDelay = 16; // 约60FPS
+  // 优化的拖拽处理，使用requestAnimationFrame
+  let dragAnimationFrame = null;
+  let pendingDragUpdate = null;
 
   // 鼠标按下事件
   cardStack.addEventListener('mousedown', async (e) => {
@@ -225,13 +226,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 验证坐标是否为有效数字
       if (typeof newX === 'number' && typeof newY === 'number' && 
           isFinite(newX) && isFinite(newY)) {
-        // 使用节流技术减少IPC调用频率
-        if (!throttleTimer) {
-          window.electronAPI.dragWindow({ x: newX, y: newY });
-          throttleTimer = setTimeout(() => {
-            throttleTimer = null;
-          }, throttleDelay);
+        
+        // 使用requestAnimationFrame优化拖拽性能
+        if (dragAnimationFrame) {
+          cancelAnimationFrame(dragAnimationFrame);
         }
+        
+        pendingDragUpdate = { x: newX, y: newY };
+        
+        dragAnimationFrame = requestAnimationFrame(() => {
+          if (pendingDragUpdate) {
+            window.electronAPI.dragWindow(pendingDragUpdate);
+            pendingDragUpdate = null;
+          }
+          dragAnimationFrame = null;
+        });
       }
     }
   });
@@ -241,10 +250,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     isDragging = false;
     cardStack.style.cursor = 'move';
     
-    // 清除节流定时器
-    if (throttleTimer) {
-      clearTimeout(throttleTimer);
-      throttleTimer = null;
+    // 清除拖拽动画帧
+    if (dragAnimationFrame) {
+      cancelAnimationFrame(dragAnimationFrame);
+      dragAnimationFrame = null;
+      pendingDragUpdate = null;
     }
   });
   
@@ -270,34 +280,73 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.close();
   });
   
-  // 翻页函数
+  // 翻页函数 - 重新设计
   function flipCard() {
     if (isFlipping) return;
     
     isFlipping = true;
-    cardStack.classList.add('flipping');
-    
-    // 0.5秒后更新卡片内容并重置样式
-    setTimeout(() => {
-      updateCards();
-      cardStack.classList.remove('flipping');
-      isFlipping = false;
-    }, 500);
-  }
-  
-  // 更新卡片内容（无限循环）
-  function updateCards() {
     const cards = cardStack.querySelectorAll('.card');
-    
-    // 如果是初始化，不需要移动索引
     if (cards.length === 0) return;
     
-    // 移动第一张卡片到最后（仅在翻页时）
-    if (isFlipping) {
-      currentIndex = (currentIndex + 1) % cardData.length;
-    }
+    // 阶段1：准备动画 - 预设下一张卡片内容
+    const nextIndex = (currentIndex + 1) % cardData.length;
+    const nextData = cardData[nextIndex];
     
-    // 更新所有卡片的内容
+    // 为所有卡片添加动画标记
+    cards.forEach(card => card.classList.add('animating'));
+    
+    // 阶段2：设置动画类和样式
+    cards.forEach((card, index) => {
+      if (index === 0) {
+        // 第一张卡片执行翻出动画
+        card.classList.add('flip-out');
+      } else {
+        // 其他卡片执行向前移动动画
+        card.classList.add('move-forward');
+        
+        // 计算目标位置（向前移动一个位置）
+        const newIndex = index - 1;
+        const targetZIndex = cards.length - newIndex;
+        const targetTranslateY = newIndex * 3;
+        const targetTranslateZ = newIndex * -8;
+        const targetRotateY = newIndex * -2;
+        const targetTranslateX = newIndex * -2;
+        const targetOpacity = Math.max(0.3, 1 - newIndex * 0.08);
+        
+        // 设置CSS自定义属性用于动画
+        card.style.setProperty('--start-transform', card.style.transform || 'translateY(0px) translateZ(0px) rotateY(0deg) translateX(0px)');
+        card.style.setProperty('--start-opacity', card.style.opacity || '1');
+        card.style.setProperty('--end-transform', `translateY(${targetTranslateY}px) translateZ(${targetTranslateZ}px) rotateY(${targetRotateY}deg) translateX(${targetTranslateX}px)`);
+        card.style.setProperty('--end-opacity', targetOpacity.toString());
+      }
+    });
+    
+    // 阶段3：启动动画
+    cardStack.classList.add('flipping');
+    
+    // 阶段4：动画完成后处理
+    setTimeout(() => {
+      // 移动第一张卡片到末尾
+      const firstCard = cards[0];
+      cardStack.appendChild(firstCard);
+      
+      // 更新当前索引
+      currentIndex = nextIndex;
+      
+      // 更新所有卡片内容和样式
+      updateCardsContent();
+      
+      // 清理动画状态
+      cleanupAnimation();
+      
+      isFlipping = false;
+    }, 400); // 动画时长400ms，与CSS保持一致
+  }
+  
+  // 更新卡片内容 - 新函数
+  function updateCardsContent() {
+    const cards = cardStack.querySelectorAll('.card');
+    
     cards.forEach((card, index) => {
       const dataIndex = (currentIndex + index) % cardData.length;
       const data = cardData[dataIndex];
@@ -308,33 +357,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       h1.textContent = `${data.emoji} ${data.title}`;
       p.textContent = data.subtitle;
       
-      // 移除所有可能的颜色类
-      for (let i = 0; i < 20; i++) {
+      // 更新颜色类
+      for (let i = 0; i < 50; i++) {
         card.classList.remove(`color-${i}`);
       }
-      // 添加对应数据索引的颜色类
       card.classList.add(`color-${cardColors[dataIndex]}`);
-    });
-    
-    // 重置所有卡片的样式
-    cards.forEach((card, index) => {
-      // 强制清除动画状态，确保CSS动画不会干扰JavaScript样式
-      card.style.animation = 'none';
-      card.offsetHeight; // 强制重排，确保animation: none生效
-      card.style.animation = '';
       
-      // 动态计算卡片样式，支持任意数量的卡片
+      // 设置正确的静态位置和样式
       const zIndex = cards.length - index;
       const translateY = index * 3;
       const translateZ = index * -8;
       const rotateY = index * -2;
       const translateX = index * -2;
-      const opacity = Math.max(0.3, 1 - index * 0.08); // 最小透明度0.3
+      const opacity = Math.max(0.3, 1 - index * 0.08);
       
       card.style.zIndex = zIndex.toString();
       card.style.transform = `translateY(${translateY}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) translateX(${translateX}px)`;
       card.style.opacity = opacity.toString();
     });
+  }
+  
+  // 清理动画状态 - 新函数
+  function cleanupAnimation() {
+    const cards = cardStack.querySelectorAll('.card');
+    
+    cards.forEach(card => {
+      // 移除动画类
+      card.classList.remove('animating', 'flip-out', 'move-forward');
+      
+      // 清理CSS自定义属性
+      card.style.removeProperty('--start-transform');
+      card.style.removeProperty('--start-opacity');
+      card.style.removeProperty('--end-transform');
+      card.style.removeProperty('--end-opacity');
+      
+      // 强制重新计算样式
+      card.offsetHeight;
+    });
+    
+    // 移除容器的翻页状态
+    cardStack.classList.remove('flipping');
   }
   
   // 键盘快捷键支持 - 不受拖动状态影响
