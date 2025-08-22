@@ -1,171 +1,290 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, screen } = require('electron');
-const path = require('path');
-const fs = require('fs');
+// See the Electron documentation for details on how to use preload scripts:
+// https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, dialog } = require('electron');
+const path = require('path');
+const fs = require('fs').promises;
+const chokidar = require('chokidar');
+
+// 处理创建/删除快捷方式到桌面
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
-let mainWindow;
-let tray;
-let settingsWindow;
-let chatWindow;
-let settings = {
-  theme: 'default',
-  opacity: 0.9,
+let mainWindow = null;
+let settingsWindow = null;
+let chatWindow = null;
+let tray = null;
+let refreshWatcher = null; // 热重载监听器
+
+// 设置存储路径
+let settingsPath;
+if (process.env.NODE_ENV === 'development') {
+  // 开发环境：使用项目根目录，避免webpack编译目录问题
+  settingsPath = path.join(process.cwd(), 'settings.json');
+} else {
+  // 生产环境：使用可执行文件目录
+  settingsPath = path.join(path.dirname(process.execPath), 'settings.json');
+}
+
+console.log('设置文件路径:', settingsPath);
+
+// 默认设置（仅在用户没有配置时作为后备）
+const defaultSettings = {
+  theme: 'auto',
+  opacity: 1,
   autoStart: false,
   alwaysOnTop: true,
-  position: { x: 100, y: 100 }
+  windowPosition: { x: null, y: null },
+  currentCard: 0,
+  models: [
+    {
+      id: 'default_placeholder',
+      name: '请配置AI模型',
+      apiUrl: '',
+      apiKey: '',
+      modelName: 'gpt-3.5-turbo',
+      temperature: 0.7
+    }
+  ],
+  useSystemProxy: true
 };
 
-const isDev = process.env.NODE_ENV === 'development';
-const settingsPath = isDev 
-  ? path.join(__dirname, '..', 'settings.json')
-  : path.join(path.dirname(process.execPath), 'settings.json');
-
-function loadSettings() {
+// 读取设置
+const getSettings = async () => {
   try {
-    if (fs.existsSync(settingsPath)) {
-      const data = fs.readFileSync(settingsPath, 'utf8');
-      settings = { ...settings, ...JSON.parse(data) };
+    const settingsData = await fs.readFile(settingsPath, 'utf8');
+    const settings = JSON.parse(settingsData);
+    
+    // 分别处理各个配置项，避免默认配置覆盖用户配置
+    const merged = {
+      theme: settings.theme !== undefined ? settings.theme : defaultSettings.theme,
+      opacity: settings.opacity !== undefined ? settings.opacity : defaultSettings.opacity,
+      autoStart: settings.autoStart !== undefined ? settings.autoStart : defaultSettings.autoStart,
+      alwaysOnTop: settings.alwaysOnTop !== undefined ? settings.alwaysOnTop : defaultSettings.alwaysOnTop,
+      windowPosition: settings.windowPosition || defaultSettings.windowPosition,
+      currentCard: settings.currentCard !== undefined ? settings.currentCard : defaultSettings.currentCard,
+      useSystemProxy: settings.useSystemProxy !== undefined ? settings.useSystemProxy : defaultSettings.useSystemProxy
+    };
+    
+    // 模型配置特殊处理：优先使用用户配置，只有在用户没有配置时才使用默认配置
+    if (settings.models && Array.isArray(settings.models) && settings.models.length > 0) {
+      // 用户有模型配置，直接使用
+      merged.models = settings.models;
+    } else {
+      // 用户没有模型配置，使用默认配置
+      merged.models = defaultSettings.models;
     }
+    
+    return merged;
   } catch (error) {
-    console.error('Failed to load settings:', error);
+    // 如果文件不存在或读取失败，返回默认设置
+    return defaultSettings;
   }
-}
+};
 
-function saveSettings() {
+// 保存设置
+const saveSettings = async (newSettings) => {
   try {
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-  } catch (error) {
-    console.error('Failed to save settings:', error);
-  }
-}
-
-function getIconPath() {
-  // Use a simple fallback to avoid path issues
-  try {
-    if (process.platform === 'win32') {
-      const iconPath = path.join(__dirname, '..', '..', 'src', 'assets', 'logo.ico');
-      if (fs.existsSync(iconPath)) {
-        return iconPath;
+    const currentSettings = await getSettings();
+    
+    // 智能合并设置，特殊处理数组类型的配置
+    const updatedSettings = { ...currentSettings };
+    
+    // 逐个处理新设置中的每个字段
+    for (const [key, value] of Object.entries(newSettings)) {
+      if (key === 'models' && Array.isArray(value)) {
+        // 对于models数组，直接替换而不是合并
+        updatedSettings.models = value;
+      } else {
+        // 其他配置项正常覆盖
+        updatedSettings[key] = value;
       }
     }
     
-    // Fallback: create a simple tray without custom icon
-    return null;
+    console.log('保存设置:', {
+      settingsPath,
+      newSettings: Object.keys(newSettings),
+      modelsCount: updatedSettings.models?.length || 0
+    });
+    
+    await fs.writeFile(settingsPath, JSON.stringify(updatedSettings, null, 2));
+    
+    // 应用设置到主窗口
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (newSettings.opacity !== undefined) {
+        mainWindow.setOpacity(newSettings.opacity);
+      }
+      if (newSettings.alwaysOnTop !== undefined) {
+        mainWindow.setAlwaysOnTop(newSettings.alwaysOnTop);
+      }
+    }
+    
+    return updatedSettings;
   } catch (error) {
-    console.warn('Icon path error:', error);
-    return null;
+    console.error('保存设置失败:', error);
+    throw error;
   }
-}
+};
 
-function createMainWindow() {
-  const { x, y } = settings.position;
-  const display = screen.getDisplayNearestPoint({ x, y });
+// 确保设置文件存在并迁移现有用户配置
+const ensureSettingsFile = async () => {
+  try {
+    // 检查设置文件是否存在
+    const stats = await fs.stat(settingsPath);
+    if (stats.size === 0) {
+      console.log('设置文件为空，需要初始化');
+      throw new Error('Settings file is empty');
+    }
+    
+    // 尝试读取和验证设置文件
+    const settingsData = await fs.readFile(settingsPath, 'utf8');
+    const settings = JSON.parse(settingsData);
+    console.log('设置文件存在并有效:', settingsPath, '配置的模型数量:', settings.models?.length || 0);
+    
+    // 如果用户有模型配置，确保它们被保留
+    if (settings.models && settings.models.length > 0) {
+      console.log('发现用户自定义模型配置:', settings.models.map(m => m.name));
+    }
+  } catch (error) {
+    console.error('读取设置文件失败或文件不存在:', error.message);
+    
+    try {
+      // 创建默认配置文件
+      await fs.writeFile(settingsPath, JSON.stringify(defaultSettings, null, 2));
+      console.log('默认设置文件已创建');
+    } catch (writeError) {
+      console.error('创建设置文件失败:', writeError);
+      throw writeError;
+    }
+  }
+};
+
+const createMainWindow = async () => {
+  // 确保设置文件存在并加载设置
+  await ensureSettingsFile();
+  const settings = await getSettings();
   
-  const windowOptions = {
-    width: 300,
-    height: 400,
-    x: x,
-    y: y,
+  console.log('应用启动 - 加载的设置:', {
+    settingsPath,
+    modelsCount: settings.models?.length || 0,
+    models: settings.models?.map(m => ({ name: m.name, id: m.id, hasApiKey: !!m.apiKey })) || []
+  });
+  
+  // 根据环境和平台确定正确的图标路径
+  let iconPath;
+  if (process.env.NODE_ENV === 'development') {
+    // 开发环境：从项目根目录的 src/assets 查找
+    iconPath = process.platform === 'win32' 
+      ? path.join(__dirname, '..', 'src', 'assets', 'logo.ico')
+      : path.join(__dirname, '..', 'src', 'assets', 'logo.png');
+  } else {
+    // 生产环境：从打包后的 assets 目录查找
+    iconPath = process.platform === 'win32' 
+      ? path.join(__dirname, 'assets', 'logo.ico')
+      : path.join(__dirname, 'assets', 'logo.png');
+  }
+  
+  const appIcon = nativeImage.createFromPath(iconPath);
+  
+  // 创建浏览器窗口
+  mainWindow = new BrowserWindow({
+    width: 260,
+    height: 300,
+    x: settings.windowPosition?.x || undefined,
+    y: settings.windowPosition?.y || undefined,
     frame: false,
     transparent: true,
-    alwaysOnTop: settings.alwaysOnTop,
-    skipTaskbar: false,
     resizable: false,
-    opacity: settings.opacity,
+    alwaysOnTop: settings.alwaysOnTop !== false,
+    skipTaskbar: false,
+    icon: appIcon,
     webPreferences: {
+      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       nodeIntegration: false,
       contextIsolation: true,
-      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
-    }
-  };
+    },
+    title: 'Buddie',
+    show: false,
+  });
 
-  // Add icon only if it exists
-  const iconPath = getIconPath();
-  if (iconPath && fs.existsSync(iconPath)) {
-    windowOptions.icon = iconPath;
+  // 设置应用程序用户模型ID (Windows)
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.buddie.app');
   }
 
-  mainWindow = new BrowserWindow(windowOptions);
+  // 设置透明度
+  mainWindow.setOpacity(settings.opacity || 1);
 
+  // 加载应用程序的index.html
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
-  if (isDev) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
+  // 窗口准备好显示时显示
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    
+    // 开发环境下打开开发者工具
+    if (process.env.NODE_ENV === 'development') {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+    }
+  });
 
+  // 监听窗口关闭事件，隐藏到系统托盘而不是退出
+  mainWindow.on('close', (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
+  // 当所有窗口关闭时
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 
-  mainWindow.on('move', () => {
-    if (mainWindow) {
-      const [x, y] = mainWindow.getPosition();
-      settings.position = { x, y };
-      saveSettings();
-    }
-  });
+  return mainWindow;
+};
 
-  mainWindow.on('minimize', () => {
-    if (process.platform === 'darwin') {
-      app.dock.hide();
-    }
-  });
-
-  mainWindow.on('restore', () => {
-    if (process.platform === 'darwin') {
-      app.dock.show();
-    }
-  });
-
-  if (process.platform === 'win32') {
-    app.setAppUserModelId('com.buddie.desktop');
-  }
-}
-
-function createTray() {
-  const iconPath = getIconPath();
-  
-  // Create tray with or without custom icon
-  if (iconPath && fs.existsSync(iconPath)) {
-    tray = new Tray(iconPath);
+// 创建系统托盘
+const createTray = () => {
+  // 根据环境和平台确定正确的图标路径
+  let iconPath;
+  if (process.env.NODE_ENV === 'development') {
+    // 开发环境：从项目根目录的 src/assets 查找
+    iconPath = process.platform === 'win32' 
+      ? path.join(__dirname, '..', 'src', 'assets', 'logo.ico')
+      : path.join(__dirname, '..', 'src', 'assets', 'logo.png');
   } else {
-    // Use system default tray icon
-    tray = new Tray(require('electron').nativeImage.createEmpty());
+    // 生产环境：从打包后的 assets 目录查找
+    iconPath = process.platform === 'win32' 
+      ? path.join(__dirname, 'assets', 'logo.ico')
+      : path.join(__dirname, 'assets', 'logo.png');
   }
   
+  const trayIcon = nativeImage.createFromPath(iconPath);
+  
+  tray = new Tray(trayIcon);
+
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show',
+      label: '显示',
       click: () => {
-        if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
-        } else {
-          createMainWindow();
-        }
+        mainWindow.show();
       }
     },
     {
-      label: 'Hide',
+      label: '设置',
       click: () => {
-        if (mainWindow) {
-          mainWindow.hide();
-        }
+        showSettings();
       }
     },
     {
-      label: 'Settings',
-      click: () => {
-        showSettingsWindow();
-      }
+      type: 'separator'
     },
-    { type: 'separator' },
     {
-      label: 'Quit',
+      label: '退出',
       click: () => {
+        app.isQuitting = true;
         app.quit();
       }
     }
@@ -174,900 +293,536 @@ function createTray() {
   tray.setToolTip('Buddie');
   tray.setContextMenu(contextMenu);
 
+  // 点击托盘图标时显示/隐藏主窗口
   tray.on('click', () => {
-    if (mainWindow) {
-      if (mainWindow.isVisible()) {
-        mainWindow.hide();
-      } else {
-        mainWindow.show();
-        mainWindow.focus();
-      }
+    if (mainWindow.isVisible()) {
+      mainWindow.hide();
     } else {
-      createMainWindow();
-    }
-  });
-
-  tray.on('double-click', () => {
-    if (mainWindow) {
       mainWindow.show();
-      mainWindow.focus();
-    } else {
-      createMainWindow();
     }
   });
-}
+};
 
-function showSettingsWindow() {
-  if (settingsWindow) {
-    settingsWindow.focus();
-    return;
-  }
-
-  let parentBounds = { x: 100, y: 100 };
-  if (mainWindow) {
-    parentBounds = mainWindow.getBounds();
-  }
-
-  settingsWindow = new BrowserWindow({
-    width: 400,
-    height: 500,
-    x: parentBounds.x + 50,
-    y: parentBounds.y + 50,
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
-    alwaysOnTop: true,
-    parent: mainWindow,
-    modal: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
-    }
-  });
-
-  // Add icon only if it exists
-  const iconPath = getIconPath();
-  if (iconPath && fs.existsSync(iconPath)) {
-    settingsWindow.setIcon(iconPath);
-  }
-
-  const settingsHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Settings - Buddie</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            min-height: calc(100vh - 40px);
-        }
-        
-        .container {
-            max-width: 360px;
-            margin: 0 auto;
-        }
-        
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 24px;
-            font-weight: 300;
-        }
-        
-        .setting-group {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .setting-item {
-            margin-bottom: 15px;
-        }
-        
-        .setting-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: rgba(255, 255, 255, 0.3);
-            outline: none;
-            -webkit-appearance: none;
-        }
-        
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: white;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        }
-        
-        input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            margin-right: 10px;
-            cursor: pointer;
-        }
-        
-        select {
-            width: 100%;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        
-        select option {
-            background: #333;
-            color: white;
-        }
-        
-        .checkbox-container {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        .opacity-value {
-            display: inline-block;
-            margin-left: 10px;
-            font-weight: bold;
-            min-width: 30px;
-        }
-        
-        .buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 30px;
-        }
-        
-        button {
-            flex: 1;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .btn-primary {
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-        }
-        
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-        }
-        
-        button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-        
-        .position-info {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.8);
-            margin-top: 5px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Settings</h1>
-        
-        <div class="setting-group">
-            <div class="setting-item">
-                <label for="theme">Theme</label>
-                <select id="theme">
-                    <option value="default">Default</option>
-                    <option value="dark">Dark</option>
-                    <option value="light">Light</option>
-                    <option value="colorful">Colorful</option>
-                </select>
-            </div>
-            
-            <div class="setting-item">
-                <label for="opacity">Opacity <span class="opacity-value" id="opacityValue">90%</span></label>
-                <input type="range" id="opacity" min="0.3" max="1" step="0.1" value="0.9">
-            </div>
-        </div>
-        
-        <div class="setting-group">
-            <div class="setting-item">
-                <div class="checkbox-container">
-                    <input type="checkbox" id="alwaysOnTop">
-                    <label for="alwaysOnTop">Always on top</label>
-                </div>
-            </div>
-            
-            <div class="setting-item">
-                <div class="checkbox-container">
-                    <input type="checkbox" id="autoStart">
-                    <label for="autoStart">Start with system</label>
-                </div>
-            </div>
-        </div>
-        
-        <div class="setting-group">
-            <div class="setting-item">
-                <label>Window Position</label>
-                <div class="position-info" id="positionInfo">X: 100, Y: 100</div>
-            </div>
-        </div>
-        
-        <div class="buttons">
-            <button type="button" class="btn-secondary" onclick="closeSettings()">Cancel</button>
-            <button type="button" class="btn-primary" onclick="applySettings()">Apply</button>
-        </div>
-    </div>
-
-    <script>
-        let currentSettings = {};
-        
-        // Load current settings
-        window.electronAPI.getSettings().then(settings => {
-            currentSettings = settings;
-            
-            document.getElementById('theme').value = settings.theme || 'default';
-            document.getElementById('opacity').value = settings.opacity || 0.9;
-            document.getElementById('alwaysOnTop').checked = settings.alwaysOnTop !== false;
-            document.getElementById('autoStart').checked = settings.autoStart === true;
-            
-            updateOpacityDisplay();
-            updatePositionDisplay();
-        });
-        
-        // Update opacity display
-        document.getElementById('opacity').addEventListener('input', updateOpacityDisplay);
-        
-        function updateOpacityDisplay() {
-            const opacity = document.getElementById('opacity').value;
-            document.getElementById('opacityValue').textContent = Math.round(opacity * 100) + '%';
-        }
-        
-        function updatePositionDisplay() {
-            const pos = currentSettings.position || { x: 100, y: 100 };
-            document.getElementById('positionInfo').textContent = \`X: \${pos.x}, Y: \${pos.y}\`;
-        }
-        
-        function applySettings() {
-            const newSettings = {
-                theme: document.getElementById('theme').value,
-                opacity: parseFloat(document.getElementById('opacity').value),
-                alwaysOnTop: document.getElementById('alwaysOnTop').checked,
-                autoStart: document.getElementById('autoStart').checked,
-                position: currentSettings.position
-            };
-            
-            window.electronAPI.saveSettings(newSettings).then(() => {
-                window.close();
-            });
-        }
-        
-        function closeSettings() {
-            window.close();
-        }
-    </script>
-</body>
-</html>`;
-
-  settingsWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(settingsHTML));
-
-  settingsWindow.on('closed', () => {
-    settingsWindow = null;
-  });
-}
-
-function createChatWindow(cardData) {
-  return new Promise((resolve, reject) => {
-    try {
-      let parentBounds = { x: 100, y: 100 };
-      if (mainWindow) {
-        parentBounds = mainWindow.getBounds();
-      }
-
-      chatWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
-        x: parentBounds.x + 320,
-        y: parentBounds.y,
-        resizable: true,
-        minimizable: true,
-        maximizable: true,
-        alwaysOnTop: false,
-        parent: mainWindow,
-        modal: false,
-        webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-          preload: path.join(__dirname, 'preload.js')
-        }
-      });
-
-      // Add icon only if it exists
-      const iconPath = getIconPath();
-      if (iconPath && fs.existsSync(iconPath)) {
-        chatWindow.setIcon(iconPath);
-      }
-
-      const chatHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Chat - ${cardData.title}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .chat-header {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            text-align: center;
-        }
-        
-        .chat-header h1 {
-            font-size: 24px;
-            font-weight: 300;
-            margin-bottom: 5px;
-        }
-        
-        .chat-header p {
-            font-size: 14px;
-            opacity: 0.8;
-        }
-        
-        .chat-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            padding: 20px;
-        }
-        
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .message {
-            margin-bottom: 15px;
-            padding: 12px 16px;
-            border-radius: 18px;
-            max-width: 70%;
-            word-wrap: break-word;
-        }
-        
-        .message.user {
-            background: rgba(255, 255, 255, 0.2);
-            margin-left: auto;
-            text-align: right;
-        }
-        
-        .message.assistant {
-            background: rgba(255, 255, 255, 0.1);
-            margin-right: auto;
-        }
-        
-        .message-time {
-            font-size: 11px;
-            opacity: 0.6;
-            margin-top: 5px;
-        }
-        
-        .chat-input-container {
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-        }
-        
-        .chat-input {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            padding: 12px 16px;
-            color: white;
-            font-size: 14px;
-            resize: none;
-            max-height: 120px;
-            min-height: 44px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .chat-input::placeholder {
-            color: rgba(255, 255, 255, 0.6);
-        }
-        
-        .chat-input:focus {
-            outline: none;
-            border-color: rgba(255, 255, 255, 0.4);
-            background: rgba(255, 255, 255, 0.15);
-        }
-        
-        .send-button {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-            backdrop-filter: blur(10px);
-        }
-        
-        .send-button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
-        }
-        
-        .send-button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .welcome-message {
-            text-align: center;
-            opacity: 0.6;
-            font-style: italic;
-            margin: 40px 20px;
-        }
-        
-        .typing-indicator {
-            display: none;
-            padding: 12px 16px;
-            margin-bottom: 15px;
-            opacity: 0.7;
-        }
-        
-        .typing-dots {
-            display: inline-flex;
-            gap: 4px;
-        }
-        
-        .typing-dots span {
-            width: 6px;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: 50%;
-            animation: typing 1.4s infinite ease-in-out;
-        }
-        
-        .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
-        
-        @keyframes typing {
-            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
-            40% { transform: scale(1); opacity: 1; }
-        }
-        
-        /* 滚动条样式 */
-        .chat-messages::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        .chat-messages::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-        }
-        
-        .chat-messages::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
-        }
-        
-        .chat-messages::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.5);
-        }
-    </style>
-</head>
-<body>
-    <div class="chat-header">
-        <h1 id="cardTitle">${cardData.emoji} ${cardData.title}</h1>
-        <p id="cardSubtitle">${cardData.subtitle}</p>
-    </div>
-    
-    <div class="chat-container">
-        <div class="chat-messages" id="chatMessages">
-            <div class="welcome-message">
-                <p>欢迎使用 AI 对话！请输入您的问题开始聊天。</p>
-            </div>
-        </div>
-        
-        <div class="typing-indicator" id="typingIndicator">
-            <div class="typing-dots">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-            <span style="margin-left: 8px;">AI 正在思考...</span>
-        </div>
-        
-        <div class="chat-input-container">
-            <textarea id="chatInput" class="chat-input" placeholder="输入消息..." rows="1"></textarea>
-            <button id="sendButton" class="send-button">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22,2 15,22 11,13 2,9"></polygon>
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <script>
-        let currentCardData = ${JSON.stringify(cardData)};
-        
-        const chatMessages = document.getElementById('chatMessages');
-        const chatInput = document.getElementById('chatInput');
-        const sendButton = document.getElementById('sendButton');
-        const typingIndicator = document.getElementById('typingIndicator');
-        
-        // 自动调整输入框高度
-        chatInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-        });
-        
-        // 发送消息
-        function sendMessage() {
-            const message = chatInput.value.trim();
-            if (!message) return;
-            
-            // 添加用户消息
-            addMessage(message, 'user');
-            chatInput.value = '';
-            chatInput.style.height = 'auto';
-            
-            // 显示输入状态
-            showTyping();
-            
-            // 模拟 AI 响应（这里应该调用实际的 AI API）
-            setTimeout(() => {
-                hideTyping();
-                addMessage('这是一个示例响应。实际的 AI 功能需要集成 OpenAI API。', 'assistant');
-            }, 2000);
-        }
-        
-        // 添加消息到聊天窗口
-        function addMessage(content, sender) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = \`message \${sender}\`;
-            
-            const now = new Date();
-            const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            messageDiv.innerHTML = \`
-                <div>\${content}</div>
-                <div class="message-time">\${timeString}</div>
-            \`;
-            
-            // 移除欢迎消息
-            const welcomeMessage = chatMessages.querySelector('.welcome-message');
-            if (welcomeMessage) {
-                welcomeMessage.remove();
-            }
-            
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        // 显示输入状态
-        function showTyping() {
-            typingIndicator.style.display = 'block';
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        // 隐藏输入状态
-        function hideTyping() {
-            typingIndicator.style.display = 'none';
-        }
-        
-        // 更新卡片数据
-        function updateCardData(cardData) {
-            currentCardData = cardData;
-            document.getElementById('cardTitle').textContent = \`\${cardData.emoji} \${cardData.title}\`;
-            document.getElementById('cardSubtitle').textContent = cardData.subtitle;
-            document.title = \`Chat - \${cardData.title}\`;
-        }
-        
-        // 监听卡片数据更新
-        if (window.electronAPI) {
-            window.electronAPI.onUpdateCardData && window.electronAPI.onUpdateCardData((event, cardData) => {
-                updateCardData(cardData);
-            });
-        }
-        
-        // 事件监听器
-        sendButton.addEventListener('click', sendMessage);
-        
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-        
-        // 聚焦到输入框
-        setTimeout(() => {
-            chatInput.focus();
-        }, 100);
-    </script>
-</body>
-</html>`;
-
-      chatWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(chatHTML));
-
-      chatWindow.on('closed', () => {
-        chatWindow = null;
-      });
-
-      chatWindow.once('ready-to-show', () => {
-        chatWindow.show();
-        resolve();
-      });
-
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
-// IPC handlers
-ipcMain.handle('drag-window', async (event, { x, y }) => {
-  if (mainWindow) {
-    mainWindow.setPosition(x, y);
-    settings.position = { x, y };
-    saveSettings();
-  }
-});
-
-ipcMain.handle('get-window-position', async () => {
-  if (mainWindow) {
-    const [x, y] = mainWindow.getPosition();
-    return { x, y };
-  }
-  return settings.position;
-});
-
-ipcMain.handle('get-settings', async () => {
-  return settings;
-});
-
-ipcMain.handle('save-settings', async (event, newSettings) => {
-  const oldSettings = { ...settings };
-  settings = { ...settings, ...newSettings };
-  saveSettings();
-
-  if (mainWindow) {
-    if (oldSettings.opacity !== settings.opacity) {
-      mainWindow.setOpacity(settings.opacity);
-    }
-    
-    if (oldSettings.alwaysOnTop !== settings.alwaysOnTop) {
-      mainWindow.setAlwaysOnTop(settings.alwaysOnTop);
-    }
-  }
-
-  return true;
-});
-
-ipcMain.handle('open-external', async (event, url) => {
-  await shell.openExternal(url);
-});
-
-ipcMain.handle('show-settings', async () => {
-  showSettingsWindow();
-});
-
-ipcMain.handle('quit-app', async () => {
-  app.quit();
-});
-
-// Chat and card management handlers
-ipcMain.handle('save-current-card', async (event, cardIndex) => {
-  settings.currentCardIndex = cardIndex;
-  saveSettings();
-  return true;
-});
-
-ipcMain.handle('trigger-card-switch', async (event, direction) => {
-  if (mainWindow) {
-    mainWindow.webContents.send('trigger-card-switch', direction);
-  }
-  return true;
-});
-
-ipcMain.handle('send-chat-message', async (event, data) => {
-  // Placeholder for chat functionality
-  // This would integrate with OpenAI API in a complete implementation
-  console.log('Chat message received:', data);
-  return { success: true, message: 'Chat functionality not fully implemented' };
-});
-
-ipcMain.handle('show-chat-interface', async (event, cardData) => {
-  console.log('Show chat interface for card:', cardData);
+// 在Electron完成初始化并准备创建浏览器窗口时调用此方法
+app.whenReady().then(async () => {
+  await createMainWindow();
   
-  if (chatWindow) {
-    chatWindow.focus();
-    // 发送新的卡片数据到现有聊天窗口
-    chatWindow.webContents.send('update-card-data', cardData);
-    return { success: true };
-  }
-
-  // 创建新的聊天窗口
-  try {
-    await createChatWindow(cardData);
-    return { success: true };
-  } catch (error) {
-    console.error('创建聊天窗口失败:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.on('refresh-cards', (event) => {
-  if (mainWindow) {
-    mainWindow.webContents.send('refresh-cards');
-  }
-});
-
-ipcMain.on('drag-window', (event, position) => {
-  if (mainWindow) {
-    mainWindow.setPosition(position.x, position.y);
-    settings.position = position;
-    saveSettings();
-  }
-});
-
-ipcMain.handle('update-card-data', async (event, cardData) => {
-  if (chatWindow && !chatWindow.isDestroyed()) {
-    chatWindow.webContents.send('update-card-data', cardData);
-    return { success: true };
-  }
-  return { success: false, error: 'Chat window not available' };
-});
-
-// Hot reload in development
-if (isDev) {
-  const chokidar = require('chokidar');
-  
-  const watcher = chokidar.watch([
-    path.join(__dirname, 'main.js'),
-    path.join(__dirname, 'preload.js')
-  ], {
-    ignored: /node_modules/,
-    persistent: true
-  });
-
-  watcher.on('change', () => {
-    console.log('Main process file changed, restarting...');
-    app.relaunch();
-    app.exit();
-  });
-}
-
-// App event handlers
-app.whenReady().then(() => {
-  loadSettings();
-  createMainWindow();
-  
+  // 延迟创建托盘，确保窗口已经创建
   setTimeout(() => {
     createTray();
-  }, process.platform === 'darwin' ? 1000 : 100);
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
-    }
-  });
+  }, 1000);
+  
+  // 在开发环境中设置热重载
+  if (process.env.NODE_ENV === 'development') {
+    setupHotReload();
+  }
 });
 
+// 当所有窗口关闭时退出应用程序（macOS例外）
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-app.on('before-quit', () => {
-  if (mainWindow) {
-    const [x, y] = mainWindow.getPosition();
-    settings.position = { x, y };
-    saveSettings();
+app.on('activate', () => {
+  // 在macOS上，当点击dock图标且没有其他窗口打开时重新创建窗口
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createMainWindow();
   }
 });
 
-app.on('second-instance', () => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-  }
-});
-
+// 防止多实例
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // 当运行第二个实例时，聚焦主窗口
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
+      mainWindow.show();
     }
   });
 }
 
-// Auto-updater events (placeholder for future implementation)
-app.on('ready', () => {
-  if (process.platform === 'win32') {
-    app.setAppUserModelId('com.buddie.desktop');
-  }
-});
+// 热重载功能（仅开发环境）
+const setupHotReload = () => {
+  // 在开发环境中使用项目根目录作为基准
+  const projectRoot = path.resolve(__dirname, '..', '..');
+  const watchPaths = [
+    path.join(projectRoot, 'src', 'main.js'),
+    path.join(projectRoot, 'src', 'renderer.js'),
+    path.join(projectRoot, 'src', 'preload.js'),
+    path.join(projectRoot, 'src', 'index.html'),
+    path.join(projectRoot, 'src', 'index.css'),
+    path.join(projectRoot, 'src', 'settings.html'),
+    path.join(projectRoot, 'src', 'settings.css'),
+    path.join(projectRoot, 'src', 'settings.js'),
+    path.join(projectRoot, 'src', 'chat.html'),
+    path.join(projectRoot, 'src', 'chat.css'),
+    path.join(projectRoot, 'src', 'chat.js'),
+  ];
 
-// Security: Prevent new window creation
-app.on('web-contents-created', (event, contents) => {
-  contents.on('new-window', (navigationEvent, navigationURL) => {
-    navigationEvent.preventDefault();
-    shell.openExternal(navigationURL);
+  refreshWatcher = chokidar.watch(watchPaths, {
+    ignored: /node_modules/,
+    persistent: true
   });
-});
 
-// Handle certificate errors
-app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
-  if (isDev) {
-    event.preventDefault();
-    callback(true);
-  } else {
-    callback(false);
+  refreshWatcher.on('change', (filePath) => {
+    console.log(`文件变化: ${filePath}`);
+    
+    // 主进程文件变化时重启应用
+    if (filePath.includes('main.js')) {
+      console.log('主进程文件变化，重启应用...');
+      app.relaunch();
+      app.exit();
+    } else {
+      // 渲染进程文件变化时重新加载页面
+      console.log('渲染进程文件变化，重新加载页面...');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.reload();
+      }
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.webContents.reload();
+      }
+      if (chatWindow && !chatWindow.isDestroyed()) {
+        chatWindow.webContents.reload();
+      }
+    }
+  });
+};
+
+// 应用退出时清理
+app.on('before-quit', () => {
+  if (refreshWatcher) {
+    refreshWatcher.close();
   }
 });
 
-module.exports = { mainWindow, settingsWindow, tray };
+// 设置窗口功能
+const showSettings = () => {
+  if (settingsWindow) {
+    settingsWindow.focus();
+    return;
+  }
+
+  const mainPos = mainWindow.getPosition();
+  const mainBounds = mainWindow.getBounds();
+  
+  // 根据环境和平台确定正确的图标路径
+  let iconPath;
+  if (process.env.NODE_ENV === 'development') {
+    // 开发环境：从项目根目录的 src/assets 查找
+    iconPath = process.platform === 'win32' 
+      ? path.join(__dirname, '..', 'src', 'assets', 'logo.ico')
+      : path.join(__dirname, '..', 'src', 'assets', 'logo.png');
+  } else {
+    // 生产环境：从打包后的 assets 目录查找
+    iconPath = process.platform === 'win32' 
+      ? path.join(__dirname, 'assets', 'logo.ico')
+      : path.join(__dirname, 'assets', 'logo.png');
+  }
+  
+  const appIcon = nativeImage.createFromPath(iconPath);
+  
+  settingsWindow = new BrowserWindow({
+    width: 250,
+    height: 300,
+    x: mainPos[0] + (mainBounds.width - 260) / 2, // 水平居中
+    y: mainPos[1] - 310, // 向上显示在主窗口正上方，留10px间距
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    icon: appIcon,
+    webPreferences: {
+      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    title: 'Buddie 设置',
+  });
+
+  // 加载设置页面
+  try {
+    // In development, always use loadFile to avoid webpack issues
+    if (process.env.NODE_ENV === 'development') {
+      // 在开发环境中使用项目根目录作为基准
+      const projectRoot = path.resolve(__dirname, '..', '..');
+      const settingsPath = path.join(projectRoot, 'src', 'settings.html');
+      console.log('Loading settings window from:', settingsPath);
+      settingsWindow.loadFile(settingsPath);
+    } else if (typeof SETTINGS_WINDOW_WEBPACK_ENTRY !== 'undefined') {
+      settingsWindow.loadURL(SETTINGS_WINDOW_WEBPACK_ENTRY);
+    } else {
+      // Fallback
+      const settingsPath = path.resolve(__dirname, '..', 'src', 'settings.html');
+      settingsWindow.loadFile(settingsPath);
+    }
+  } catch (error) {
+    console.error('Error loading settings window:', error);
+    // Fallback method
+    const projectRoot = path.resolve(__dirname, '..', '..');
+    const settingsPath = path.join(projectRoot, 'src', 'settings.html');
+    console.log('Fallback: Loading settings window from:', settingsPath);
+    settingsWindow.loadFile(settingsPath);
+  }
+
+  // 注入卡片数据到设置页面
+  settingsWindow.webContents.once('dom-ready', () => {
+    // 可以在这里注入数据
+  });
+
+  // 监听主窗口位置变化，让设置窗口跟随移动
+  const updateSettingsPosition = () => {
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      const mainPos = mainWindow.getPosition();
+      const mainBounds = mainWindow.getBounds();
+      settingsWindow.setPosition(
+        mainPos[0] + (mainBounds.width - 260) / 2, // 水平居中
+        mainPos[1] - 310 // 向上显示在主窗口正上方，留10px间距
+      );
+    }
+  };
+
+  // 监听主窗口移动事件
+  mainWindow.on('move', updateSettingsPosition);
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+    // 移除主窗口的move监听器
+    mainWindow.removeListener('move', updateSettingsPosition);
+  });
+};
+
+const showChatInterface = (cardData) => {
+  if (chatWindow) {
+    chatWindow.focus();
+    return;
+  }
+
+  const mainPos = mainWindow.getPosition();
+  const mainBounds = mainWindow.getBounds();
+  
+  // 根据环境和平台确定正确的图标路径
+  let iconPath;
+  if (process.env.NODE_ENV === 'development') {
+    // 开发环境：从项目根目录的 src/assets 查找
+    iconPath = process.platform === 'win32' 
+      ? path.join(__dirname, '..', 'src', 'assets', 'logo.ico')
+      : path.join(__dirname, '..', 'src', 'assets', 'logo.png');
+  } else {
+    // 生产环境：从打包后的 assets 目录查找
+    iconPath = process.platform === 'win32' 
+      ? path.join(__dirname, 'assets', 'logo.ico')
+      : path.join(__dirname, 'assets', 'logo.png');
+  }
+  
+  const appIcon = nativeImage.createFromPath(iconPath);
+  
+  chatWindow = new BrowserWindow({
+    width: 500,
+    height: 700,
+    x: mainPos[0] + mainBounds.width - 500 + 10, // 右边缘对齐，留10px间距
+    y: mainPos[1] - 710, // 上方显示，留10px间距
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    icon: appIcon,
+    webPreferences: {
+      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    title: 'Buddie 对话',
+  });
+  
+  // 开发环境下打开开发者工具
+  if (process.env.NODE_ENV === 'development') {
+    chatWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  // 加载对话页面
+  try {
+    // In development, always use loadFile to avoid webpack issues
+    if (process.env.NODE_ENV === 'development') {
+      // 在开发环境中使用项目根目录作为基准
+      const projectRoot = path.resolve(__dirname, '..', '..');
+      const chatPath = path.join(projectRoot, 'src', 'chat.html');
+      console.log('Loading chat window from:', chatPath);
+      chatWindow.loadFile(chatPath);
+    } else if (typeof CHAT_WINDOW_WEBPACK_ENTRY !== 'undefined') {
+      chatWindow.loadURL(CHAT_WINDOW_WEBPACK_ENTRY);
+    } else {
+      // Fallback
+      const chatPath = path.resolve(__dirname, '..', 'src', 'chat.html');
+      chatWindow.loadFile(chatPath);
+    }
+  } catch (error) {
+    console.error('Error loading chat window:', error);
+    // Fallback method
+    const projectRoot = path.resolve(__dirname, '..', '..');
+    const chatPath = path.join(projectRoot, 'src', 'chat.html');
+    console.log('Fallback: Loading chat window from:', chatPath);
+    chatWindow.loadFile(chatPath);
+  }
+
+  // 注入卡片数据到对话页面
+  chatWindow.webContents.once('dom-ready', () => {
+    if (cardData) {
+      chatWindow.webContents.executeJavaScript(`
+        if (window.initializeCardData) {
+          window.initializeCardData(${JSON.stringify(cardData)});
+        }
+      `);
+    }
+  });
+
+  // 监听主窗口位置变化，让对话窗口跟随移动
+  const updateChatPosition = () => {
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      const mainPos = mainWindow.getPosition();
+      const mainBounds = mainWindow.getBounds();
+      chatWindow.setPosition(
+        mainPos[0] + mainBounds.width - 500 + 10, // 右边缘对齐
+        mainPos[1] - 710 // 向上显示在主窗口正上方，留10px间距
+      );
+    }
+  };
+
+  // 监听主窗口移动事件
+  mainWindow.on('move', updateChatPosition);
+
+  chatWindow.on('closed', () => {
+    chatWindow = null;
+    // 移除主窗口的move监听器
+    mainWindow.removeListener('move', updateChatPosition);
+  });
+};
+
+// 处理拖动窗口的IPC消息
+let dragPositionTimeout;
+
+ipcMain.on('drag-window', (event, position) => {
+  console.log('主进程收到拖拽请求:', position);
+  if (mainWindow) {
+    console.log('设置窗口位置:', position.x, position.y);
+    mainWindow.setPosition(position.x, position.y);
+    
+    // 防抖保存位置
+    clearTimeout(dragPositionTimeout);
+    dragPositionTimeout = setTimeout(async () => {
+      await saveSettings({ 
+        windowPosition: { x: position.x, y: position.y } 
+      });
+      console.log('保存窗口位置到设置');
+    }, 500);
+  } else {
+    console.warn('主窗口不存在，无法拖拽');
+  }
+});
+
+// 获取窗口位置
+ipcMain.handle('get-window-position', () => {
+  if (mainWindow) {
+    const position = mainWindow.getPosition();
+    const result = { x: position[0], y: position[1] };
+    console.log('获取窗口位置:', result);
+    return result;
+  }
+  console.warn('主窗口不存在，返回默认位置');
+  return { x: 0, y: 0 };
+});
+
+// 设置相关的IPC处理
+ipcMain.handle('get-settings', getSettings);
+ipcMain.handle('save-settings', async (event, settings) => {
+  return await saveSettings(settings);
+});
+
+// 保存当前卡片索引
+ipcMain.handle('save-current-card', async (event, cardIndex) => {
+  await saveSettings({ currentCard: cardIndex });
+});
+
+// 卡片切换相关的IPC处理
+ipcMain.handle('trigger-card-switch', (event, direction) => {
+  try {
+    // 将切换请求转发给主窗口
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('trigger-card-switch', direction);
+      return { success: true };
+    }
+    return { success: false, error: '主窗口不可用' };
+  } catch (error) {
+    console.error('卡片切换失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 刷新卡片
+ipcMain.on('refresh-cards', (event) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('refresh-cards');
+  }
+});
+
+// 聊天功能相关的IPC处理
+ipcMain.handle('show-chat-interface', (event, cardData) => {
+  try {
+    showChatInterface(cardData);
+    return { success: true };
+  } catch (error) {
+    console.error('显示对话界面失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 添加发送聊天消息的IPC处理
+ipcMain.handle('send-chat-message', async (event, data) => {
+  const { message, modelId } = data;
+  
+  try {
+    // 获取当前设置以获取模型配置
+    const settings = await getSettings();
+    const models = settings.models || [];
+    
+    console.log('发送聊天消息 - 设置信息:', {
+      modelsCount: models.length,
+      modelId: modelId,
+      availableModels: models.map(m => ({ name: m.name, id: m.id, modelName: m.modelName }))
+    });
+    
+    // 查找对应的模型配置
+    let modelConfig = models.find(m => m.id === modelId);
+    if (!modelConfig && models.length > 0) {
+      // 如果没找到对应模型，使用第一个可用模型
+      modelConfig = models[0];
+      console.log('未找到指定模型，使用第一个可用模型:', { 
+        requestedModelId: modelId, 
+        usingModel: { name: modelConfig.name, id: modelConfig.id }
+      });
+    }
+    
+    if (!modelConfig || !modelConfig.apiUrl || !modelConfig.apiKey) {
+      console.error('模型配置检查失败:', { modelConfig });
+      throw new Error('模型配置不完整，请检查API URL和API Key');
+    }
+    
+    console.log('开始发送聊天消息:', { message, modelConfig: { ...modelConfig, apiKey: '***' } });
+    
+    // 发送请求到AI API
+    const response = await fetch(modelConfig.apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${modelConfig.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelConfig.modelName,
+        messages: [
+          {
+            role: 'user',
+            content: message
+          }
+        ],
+        temperature: modelConfig.temperature || 0.7,
+        stream: true, // 启用流式响应
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API请求失败: ${response.status} ${response.statusText}\n${errorText}`);
+    }
+    
+    // 处理流式响应
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          // 流式响应完成
+          if (chatWindow && !chatWindow.isDestroyed()) {
+            chatWindow.webContents.send('chat-stream-end');
+          }
+          break;
+        }
+        
+        // 解析SSE数据
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            
+            if (data === '[DONE]') {
+              // 流式响应完成
+              if (chatWindow && !chatWindow.isDestroyed()) {
+                chatWindow.webContents.send('chat-stream-end');
+              }
+              return;
+            }
+            
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              
+              if (content && chatWindow && !chatWindow.isDestroyed()) {
+                chatWindow.webContents.send('chat-stream-chunk', content);
+              }
+            } catch (parseError) {
+              // 忽略解析错误，继续处理下一行
+              console.warn('解析SSE数据失败:', parseError, 'data:', data);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error('发送聊天消息失败:', error);
+    
+    // 发送错误到聊天窗口
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      chatWindow.webContents.send('chat-stream-error', error.message);
+    }
+    
+    throw error;
+  }
+});
+
+// 通知卡片索引变化（从主窗口到设置窗口）
+ipcMain.on('card-index-changed', (event, cardIndex) => {
+  // 转发给设置窗口
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('card-index-changed', cardIndex);
+  }
+});
+
+// 在main.js中添加卡片切换同步
+ipcMain.on('card-switched', (event, cardData) => {
+  console.log('主进程收到卡片切换事件:', cardData);
+  
+  // 转发给聊天窗口
+  if (chatWindow && !chatWindow.isDestroyed()) {
+    console.log('转发卡片切换事件到聊天窗口');
+    chatWindow.webContents.send('card-switched', cardData);
+  }
+});
+
+// 在此文件中处理其他任何特定于应用程序的需求的代码...
