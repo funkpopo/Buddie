@@ -71,6 +71,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const settings = await window.electronAPI.getSettings();
       const models = settings.models || [];
       
+      console.log('初始化卡片数据 - 设置信息:', { 
+        modelsCount: models.length, 
+        models: models.map(m => ({ name: m.name, id: m.id, modelName: m.modelName }))
+      });
+      
       // 根据模型配置生成卡片数据
       if (models.length > 0) {
         cardData = models.map((model, index) => ({
@@ -79,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           subtitle: model.modelName || 'AI Model',
           modelId: model.id
         }));
+        console.log('生成的卡片数据:', cardData);
       } else {
         // 如果没有模型配置，使用默认卡片（这种情况应该不会出现，因为main.js确保了至少有一个模型配置）
         cardData = [{
@@ -87,6 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           subtitle: 'AI Model',
           modelId: null
         }];
+        console.log('使用默认卡片数据（没有找到模型配置）');
       }
       
       // 从设置中恢复当前卡片索引
