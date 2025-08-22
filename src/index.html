@@ -25,18 +25,19 @@
         position: relative;
         padding: 0;
         width: 300px;
-        justify-content: flex-start;
+        justify-content: center;
       }
       
       .nav-btn {
-        width: 40px;
-        height: 40px;
+        position: absolute;
+        width: 30px;
+        height: 30px;
         border: none;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(15px);
         color: rgba(255, 255, 255, 0.9);
-        font-size: 18px;
+        font-size: 14px;
         font-weight: bold;
         cursor: pointer;
         display: flex;
@@ -45,8 +46,9 @@
         transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
         border: 2px solid rgba(255, 255, 255, 0.25);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        z-index: 10;
-        flex-shrink: 0;
+        z-index: 100;
+        top: 50%;
+        transform: translateY(-50%);
       }
       
       .nav-btn:hover {
@@ -64,11 +66,11 @@
       }
       
       .nav-btn-left {
-        order: -1;
+        left: 10px;
       }
       
       .nav-btn-right {
-        order: 1;
+        right: 10px;
       }
       
       .card-stack {
@@ -77,15 +79,16 @@
         height: 180px;
         perspective: 1000px;
         cursor: move;
+        display: flex;
+        justify-content: center;
+        align-items: center;
       }
       
       /* 卡片基础静态样式 */
       .card {
         position: absolute;
         width: 200px;
-        height: 140px;
-        left: 10px;
-        top: 20px;
+        height: 150px;
         border-radius: 15px;
         display: flex;
         flex-direction: column;
@@ -112,19 +115,30 @@
         color: white;
         font-size: 14px;
         text-align: center;
-        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6), 
+                     0 0 2px rgba(0, 0, 0, 0.8),
+                     1px 1px 0 rgba(0, 0, 0, 0.8),
+                     -1px -1px 0 rgba(0, 0, 0, 0.8),
+                     1px -1px 0 rgba(0, 0, 0, 0.8),
+                     -1px 1px 0 rgba(0, 0, 0, 0.8);
         margin: 0;
         font-weight: 600;
         letter-spacing: 0.5px;
       }
       
       .card p {
-        color: rgba(255, 255, 255, 0.9);
+        color: rgba(255, 255, 255, 0.95);
         font-size: 10px;
         text-align: center;
         margin: 5px 0 0 0;
-        font-weight: 300;
-        opacity: 0.8;
+        font-weight: 400;
+        opacity: 0.9;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5),
+                     0 0 1px rgba(0, 0, 0, 0.7),
+                     1px 1px 0 rgba(0, 0, 0, 0.6),
+                     -1px -1px 0 rgba(0, 0, 0, 0.6),
+                     1px -1px 0 rgba(0, 0, 0, 0.6),
+                     -1px 1px 0 rgba(0, 0, 0, 0.6);
       }
       
       /* 卡片背景颜色类 - 50种平滑渐变颜色，色调梯度变化平缓 */
