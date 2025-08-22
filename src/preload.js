@@ -14,5 +14,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onRefreshCards: (callback) => {
     ipcRenderer.on('refresh-cards', callback);
     return () => ipcRenderer.removeListener('refresh-cards', callback);
-  }
+  },
+  // 对话相关API
+  sendChatMessage: (data) => ipcRenderer.invoke('send-chat-message', data),
+  showChatInterface: (cardData) => ipcRenderer.invoke('show-chat-interface', cardData)
 });

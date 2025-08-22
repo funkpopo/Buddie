@@ -39,6 +39,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   let dragStartTime = 0;
   let hasActuallyDragged = false;
   
+  // 双击检测变量
+  let lastClickTime = 0;
+  let clickTimeout = null;
+  
   // 动态卡片数据 - 根据模型配置生成
   let cardData = [];
   let currentIndex = 0;
@@ -254,7 +258,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 鼠标释放事件
-  document.addEventListener('mouseup', () => {
+  document.addEventListener('mouseup', (e) => {
+    const wasDragging = isDragging;
+    const hadActuallyDragged = hasActuallyDragged;
+    
     isDragging = false;
     cardStack.style.cursor = 'move';
     
@@ -263,6 +270,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       cancelAnimationFrame(dragAnimationFrame);
       dragAnimationFrame = null;
       pendingDragUpdate = null;
+    }
+    
+    // 如果没有实际拖动，检测双击
+    if (wasDragging && !hadActuallyDragged && e.target.closest('.card')) {
+      const currentTime = Date.now();
+      const timeSinceLastClick = currentTime - lastClickTime;
+      
+      console.log('点击检测:', { currentTime, lastClickTime, timeSinceLastClick });
+      
+      if (lastClickTime > 0 && timeSinceLastClick < 400) { 
+        // 双击事件
+        console.log('检测到双击');
+        if (clickTimeout) {
+          clearTimeout(clickTimeout);
+          clickTimeout = null;
+        }
+        handleCardDoubleClick(e);
+        lastClickTime = 0; // 重置，避免连续触发
+      } else {
+        // 第一次点击或超时的点击
+        console.log('第一次点击或超时点击');
+        lastClickTime = currentTime;
+      }
     }
   });
   
@@ -504,6 +534,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.log('当前卡片索引已保存:', currentIndex);
     } catch (error) {
       console.error('保存当前卡片索引失败:', error);
+    }
+  };
+  
+  // 对话界面相关函数
+  const handleCardDoubleClick = async (e) => {
+    console.log('双击卡片，显示对话界面');
+    const currentCard = cardData[currentIndex];
+    console.log('当前卡片数据:', currentCard);
+    
+    try {
+      const response = await window.electronAPI.showChatInterface(currentCard);
+      if (response.success) {
+        console.log('对话界面显示成功');
+      } else {
+        console.error('显示对话界面失败:', response.error);
+      }
+    } catch (error) {
+      console.error('调用showChatInterface失败:', error);
     }
   };
   
