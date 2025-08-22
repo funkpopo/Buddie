@@ -267,13 +267,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   
   
-  // 双击关闭应用
-  cardStack.addEventListener('dblclick', (e) => {
-    // 双击关闭不受拖动限制
-    e.preventDefault();
-    e.stopPropagation();
-    window.close();
-  });
   
   // 翻页函数 - 重新设计，支持方向参数
   function flipCard(direction = 'next') {
