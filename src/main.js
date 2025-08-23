@@ -19,15 +19,44 @@ let refreshWatcher = null; // 热重载监听器
 
 // 设置存储路径
 let settingsPath;
+let tempDir;
+
 if (process.env.NODE_ENV === 'development') {
   // 开发环境：使用项目根目录，避免webpack编译目录问题
   settingsPath = path.join(process.cwd(), 'settings.json');
+  tempDir = path.join(process.cwd(), 'temp');
 } else {
   // 生产环境：使用可执行文件目录
   settingsPath = path.join(path.dirname(process.execPath), 'settings.json');
+  tempDir = path.join(path.dirname(process.execPath), 'temp');
 }
 
 console.log('设置文件路径:', settingsPath);
+console.log('临时文件目录:', tempDir);
+
+// 创建临时目录
+async function ensureTempDir() {
+  try {
+    await fs.mkdir(tempDir, { recursive: true });
+    console.log('临时目录已创建或已存在:', tempDir);
+  } catch (error) {
+    console.error('创建临时目录失败:', error);
+  }
+}
+
+// 清理临时目录
+async function cleanupTempDir() {
+  try {
+    const files = await fs.readdir(tempDir);
+    for (const file of files) {
+      const filePath = path.join(tempDir, file);
+      await fs.unlink(filePath);
+    }
+    console.log('临时目录已清理');
+  } catch (error) {
+    console.error('清理临时目录失败:', error);
+  }
+}
 
 // 默认设置（仅在用户没有配置时作为后备）
 const defaultSettings = {
@@ -56,30 +85,13 @@ const getSettings = async () => {
     const settingsData = await fs.readFile(settingsPath, 'utf8');
     const settings = JSON.parse(settingsData);
     
-    // 分别处理各个配置项，避免默认配置覆盖用户配置
-    const merged = {
-      theme: settings.theme !== undefined ? settings.theme : defaultSettings.theme,
-      opacity: settings.opacity !== undefined ? settings.opacity : defaultSettings.opacity,
-      autoStart: settings.autoStart !== undefined ? settings.autoStart : defaultSettings.autoStart,
-      alwaysOnTop: settings.alwaysOnTop !== undefined ? settings.alwaysOnTop : defaultSettings.alwaysOnTop,
-      windowPosition: settings.windowPosition || defaultSettings.windowPosition,
-      currentCard: settings.currentCard !== undefined ? settings.currentCard : defaultSettings.currentCard,
-      useSystemProxy: settings.useSystemProxy !== undefined ? settings.useSystemProxy : defaultSettings.useSystemProxy
-    };
-    
-    // 模型配置特殊处理：优先使用用户配置，只有在用户没有配置时才使用默认配置
-    if (settings.models && Array.isArray(settings.models) && settings.models.length > 0) {
-      // 用户有模型配置，直接使用
-      merged.models = settings.models;
-    } else {
-      // 用户没有模型配置，使用默认配置
-      merged.models = defaultSettings.models;
-    }
-    
-    return merged;
+    // 直接返回文件中的设置，不合并默认值
+    // 这样可以避免每次读取时都用默认值覆盖用户设置
+    return settings;
   } catch (error) {
     // 如果文件不存在或读取失败，返回默认设置
-    return defaultSettings;
+    console.log('读取设置失败，返回默认设置:', error.message);
+    return { ...defaultSettings };
   }
 };
 
@@ -196,7 +208,7 @@ const createMainWindow = async () => {
     frame: false,
     transparent: true,
     resizable: false,
-    alwaysOnTop: settings.alwaysOnTop !== false,
+    alwaysOnTop: settings.alwaysOnTop !== undefined ? settings.alwaysOnTop : defaultSettings.alwaysOnTop,
     skipTaskbar: false,
     icon: appIcon,
     webPreferences: {
@@ -214,7 +226,7 @@ const createMainWindow = async () => {
   }
 
   // 设置透明度
-  mainWindow.setOpacity(settings.opacity || 1);
+  mainWindow.setOpacity(settings.opacity !== undefined ? settings.opacity : defaultSettings.opacity);
 
   // 加载应用程序的index.html
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
@@ -305,6 +317,9 @@ const createTray = () => {
 
 // 在Electron完成初始化并准备创建浏览器窗口时调用此方法
 app.whenReady().then(async () => {
+  // 创建临时目录
+  await ensureTempDir();
+  
   await createMainWindow();
   
   // 延迟创建托盘，确保窗口已经创建
@@ -396,16 +411,20 @@ const setupHotReload = () => {
 };
 
 // 应用退出时清理
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   if (refreshWatcher) {
     refreshWatcher.close();
   }
+  // 清理临时目录
+  await cleanupTempDir();
 });
 
 // 设置窗口功能
 const showSettings = () => {
   if (settingsWindow) {
+    settingsWindow.show();
     settingsWindow.focus();
+    settingsWindow.setAlwaysOnTop(true);
     return;
   }
 
@@ -429,10 +448,10 @@ const showSettings = () => {
   const appIcon = nativeImage.createFromPath(iconPath);
   
   settingsWindow = new BrowserWindow({
-    width: 250,
-    height: 300,
-    x: mainPos[0] + (mainBounds.width - 260) / 2, // 水平居中
-    y: mainPos[1] - 310, // 向上显示在主窗口正上方，留10px间距
+    width: 400,
+    height: 500,
+    x: mainPos[0] + (mainBounds.width - 400) / 2, // 水平居中
+    y: mainPos[1] - 510, // 向上显示在主窗口正上方，留10px间距
     frame: false,
     transparent: true,
     resizable: false,
@@ -445,6 +464,17 @@ const showSettings = () => {
       contextIsolation: true,
     },
     title: 'Buddie 设置',
+  });
+  
+  // 添加焦点事件处理，确保点击时窗口显示在最上层
+  settingsWindow.on('focus', () => {
+    settingsWindow.setAlwaysOnTop(true);
+    settingsWindow.show();
+  });
+  
+  settingsWindow.on('blur', () => {
+    // 可选：失去焦点时仍保持置顶
+    settingsWindow.setAlwaysOnTop(true);
   });
 
   // 加载设置页面
@@ -479,7 +509,7 @@ const showSettings = () => {
 
   // 监听主窗口位置变化，让设置窗口跟随移动
   const updateSettingsPosition = () => {
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (settingsWindow && !settingsWindow.isDestroyed() && mainWindow && !mainWindow.isDestroyed()) {
       const mainPos = mainWindow.getPosition();
       const mainBounds = mainWindow.getBounds();
       settingsWindow.setPosition(
@@ -494,14 +524,18 @@ const showSettings = () => {
 
   settingsWindow.on('closed', () => {
     settingsWindow = null;
-    // 移除主窗口的move监听器
-    mainWindow.removeListener('move', updateSettingsPosition);
+    // 移除主窗口的move监听器（先检查主窗口是否存在）
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.removeListener('move', updateSettingsPosition);
+    }
   });
 };
 
 const showChatInterface = (cardData) => {
   if (chatWindow) {
+    chatWindow.show();
     chatWindow.focus();
+    chatWindow.setAlwaysOnTop(true);
     return;
   }
 
@@ -541,6 +575,17 @@ const showChatInterface = (cardData) => {
       contextIsolation: true,
     },
     title: 'Buddie 对话',
+  });
+  
+  // 添加焦点事件处理，确保点击时窗口显示在最上层
+  chatWindow.on('focus', () => {
+    chatWindow.setAlwaysOnTop(true);
+    chatWindow.show();
+  });
+  
+  chatWindow.on('blur', () => {
+    // 可选：失去焦点时仍保持置顶
+    chatWindow.setAlwaysOnTop(true);
   });
   
   // 开发环境下打开开发者工具
@@ -586,7 +631,7 @@ const showChatInterface = (cardData) => {
 
   // 监听主窗口位置变化，让对话窗口跟随移动
   const updateChatPosition = () => {
-    if (chatWindow && !chatWindow.isDestroyed()) {
+    if (chatWindow && !chatWindow.isDestroyed() && mainWindow && !mainWindow.isDestroyed()) {
       const mainPos = mainWindow.getPosition();
       const mainBounds = mainWindow.getBounds();
       chatWindow.setPosition(
@@ -601,8 +646,10 @@ const showChatInterface = (cardData) => {
 
   chatWindow.on('closed', () => {
     chatWindow = null;
-    // 移除主窗口的move监听器
-    mainWindow.removeListener('move', updateChatPosition);
+    // 移除主窗口的move监听器（先检查主窗口是否存在）
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.removeListener('move', updateChatPosition);
+    }
   });
 };
 
@@ -802,7 +849,95 @@ ipcMain.handle('send-chat-message', async (event, data) => {
       chatWindow.webContents.send('chat-stream-error', error.message);
     }
     
+  }
+});
+
+// TTS 功能相关的IPC处理
+ipcMain.handle('send-tts-request', async (event, data) => {
+  const { text, ttsConfigId } = data;
+  
+  try {
+    // 获取当前设置以获取TTS配置
+    const settings = await getSettings();
+    const ttsConfigs = settings.ttsConfigs || [];
+    
+    console.log('发送TTS请求 - 配置信息:', {
+      ttsConfigsCount: ttsConfigs.length,
+      ttsConfigId: ttsConfigId,
+      availableConfigs: ttsConfigs.map(t => ({ name: t.name, id: t.id }))
+    });
+    
+    // 查找对应的TTS配置
+    let ttsConfig = ttsConfigs.find(t => t.id === ttsConfigId);
+    if (!ttsConfig && ttsConfigs.length > 0) {
+      // 如果没找到对应配置，使用第一个可用配置
+      ttsConfig = ttsConfigs[0];
+      console.log('未找到指定TTS配置，使用第一个可用配置:', { 
+        requestedConfigId: ttsConfigId, 
+        usingConfig: { name: ttsConfig.name, id: ttsConfig.id }
+      });
+    }
+    
+    if (!ttsConfig || !ttsConfig.apiUrl || !ttsConfig.apiKey) {
+      console.error('TTS配置检查失败:', { ttsConfig });
+      throw new Error('TTS配置不完整，请检查API URL和API Key');
+    }
+    
+    console.log('开始TTS请求:', { text: text.substring(0, 50) + '...', ttsConfig: { ...ttsConfig, apiKey: '***' } });
+    
+    // 发送请求到TTS API
+    const response = await fetch(ttsConfig.apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ttsConfig.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: ttsConfig.model || 'tts-1',
+        input: text,
+        voice: ttsConfig.voice || 'alloy',
+        speed: ttsConfig.speed || 1.0,
+        response_format: ttsConfig.responseFormat || 'mp3'
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`TTS API请求失败: ${response.status} ${response.statusText}\n${errorText}`);
+    }
+    
+    // 获取音频数据
+    const audioBuffer = await response.arrayBuffer();
+    
+    // 生成唯一的文件名
+    const timestamp = Date.now();
+    const fileName = `tts_${timestamp}.${ttsConfig.responseFormat || 'mp3'}`;
+    const filePath = path.join(tempDir, fileName);
+    
+    // 保存音频文件到临时目录
+    await fs.writeFile(filePath, Buffer.from(audioBuffer));
+    console.log('TTS音频文件已保存:', filePath);
+    
+    return { 
+      success: true, 
+      filePath: filePath,
+      format: ttsConfig.responseFormat || 'mp3'
+    };
+    
+  } catch (error) {
+    console.error('TTS请求失败:', error);
     throw error;
+  }
+});
+
+// 获取TTS配置列表
+ipcMain.handle('get-tts-configs', async () => {
+  try {
+    const settings = await getSettings();
+    return settings.ttsConfigs || [];
+  } catch (error) {
+    console.error('获取TTS配置失败:', error);
+    return [];
   }
 });
 

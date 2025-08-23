@@ -10,6 +10,7 @@ function loadStyles() {
 }
 
 let currentModels = [];
+let currentTTSConfigs = [];
 
 function showPage(page) {
   // 更新导航按钮状态
@@ -28,6 +29,9 @@ window.switchCard = switchCard;
 window.addNewModel = addNewModel;
 window.deleteModel = deleteModel;
 window.updateModel = updateModel;
+window.addNewTTS = addNewTTS;
+window.deleteTTS = deleteTTS;
+window.updateTTS = updateTTS;
 
 function addNewModel() {
   const modelId = 'model_' + Date.now();
@@ -134,6 +138,106 @@ async function loadModels() {
   renderModels();
 }
 
+// TTS 配置相关函数
+function addNewTTS() {
+  const ttsId = 'tts_' + Date.now();
+  const ttsConfig = {
+    id: ttsId,
+    name: 'TTS配置 ' + (currentTTSConfigs.length + 1),
+    apiUrl: '',
+    apiKey: '',
+    model: 'tts-1',
+    voice: 'alloy',
+    speed: 1.0,
+    responseFormat: 'mp3'
+  };
+  currentTTSConfigs.push(ttsConfig);
+  renderTTS();
+  saveTTS();
+}
+
+function deleteTTS(ttsId) {
+  currentTTSConfigs = currentTTSConfigs.filter(t => t.id !== ttsId);
+  renderTTS();
+  saveTTS();
+}
+
+function updateTTS(ttsId, field, value) {
+  const ttsConfig = currentTTSConfigs.find(t => t.id === ttsId);
+  if (ttsConfig) {
+    ttsConfig[field] = value;
+    saveTTS();
+  }
+}
+
+function renderTTS() {
+  const container = document.getElementById('tts-container');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  
+  currentTTSConfigs.forEach(ttsConfig => {
+    const ttsDiv = document.createElement('div');
+    ttsDiv.className = 'model-config';
+    
+    ttsDiv.innerHTML = `
+      <div class="model-config-header">
+        <span>${ttsConfig.name}</span>
+        <button class="delete-model-btn" onclick="deleteTTS('${ttsConfig.id}')">删除</button>
+      </div>
+      <div class="setting-item">
+        <label>配置名称</label>
+        <input type="text" value="${ttsConfig.name}" onchange="updateTTS('${ttsConfig.id}', 'name', this.value)">
+      </div>
+      <div class="setting-item">
+        <label>API URL</label>
+        <input type="text" value="${ttsConfig.apiUrl}" onchange="updateTTS('${ttsConfig.id}', 'apiUrl', this.value)" placeholder="例如: https://api.openai.com/v1/audio/speech">
+      </div>
+      <div class="setting-item">
+        <label>API Key</label>
+        <input type="password" value="${ttsConfig.apiKey}" onchange="updateTTS('${ttsConfig.id}', 'apiKey', this.value)" placeholder="sk-...">
+      </div>
+      <div class="setting-item">
+        <label>模型</label>
+        <input type="text" value="${ttsConfig.model}" onchange="updateTTS('${ttsConfig.id}', 'model', this.value)" placeholder="tts-1 或 tts-1-hd">
+      </div>
+      <div class="setting-item">
+        <label>音色</label>
+        <input type="text" value="${ttsConfig.voice}" onchange="updateTTS('${ttsConfig.id}', 'voice', this.value)" placeholder="alloy, echo, fable, onyx, nova, shimmer">
+      </div>
+      <div class="setting-item">
+        <label>语速</label>
+        <input type="number" min="0.25" max="4.0" step="0.25" value="${ttsConfig.speed}" onchange="updateTTS('${ttsConfig.id}', 'speed', parseFloat(this.value))">
+      </div>
+      <div class="setting-item">
+        <label>输出格式</label>
+        <select onchange="updateTTS('${ttsConfig.id}', 'responseFormat', this.value)">
+          <option value="mp3" ${ttsConfig.responseFormat === 'mp3' ? 'selected' : ''}>mp3</option>
+          <option value="opus" ${ttsConfig.responseFormat === 'opus' ? 'selected' : ''}>opus</option>
+          <option value="aac" ${ttsConfig.responseFormat === 'aac' ? 'selected' : ''}>aac</option>
+          <option value="flac" ${ttsConfig.responseFormat === 'flac' ? 'selected' : ''}>flac</option>
+          <option value="wav" ${ttsConfig.responseFormat === 'wav' ? 'selected' : ''}>wav</option>
+          <option value="pcm" ${ttsConfig.responseFormat === 'pcm' ? 'selected' : ''}>pcm</option>
+        </select>
+      </div>
+    `;
+    container.appendChild(ttsDiv);
+  });
+}
+
+async function saveTTS() {
+  const settings = { ttsConfigs: currentTTSConfigs };
+  await window.electronAPI.saveSettings(settings);
+}
+
+async function loadTTS() {
+  const settings = await window.electronAPI.getSettings();
+  if (settings && settings.ttsConfigs) {
+    currentTTSConfigs = settings.ttsConfigs;
+  }
+  renderTTS();
+}
+
 function initializeSettings() {
   const opacitySlider = document.getElementById('opacity');
   const opacityValue = document.getElementById('opacityValue');
@@ -215,6 +319,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // 加载模型配置
   await loadModels();
+  
+  // 加载TTS配置
+  await loadTTS();
   
   // 监听来自主进程的卡片索引变化通知
   if (window.electronAPI && window.electronAPI.onCardIndexChange) {

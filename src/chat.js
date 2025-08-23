@@ -81,6 +81,21 @@ async function loadRenderer() {
   }
 }
 
+// 全局变量存储TTS配置
+let ttsConfigs = [];
+let currentAudio = null;
+
+// 加载TTS配置
+async function loadTTSConfigs() {
+  try {
+    ttsConfigs = await window.electronAPI.getTTSConfigs();
+    console.log('TTS配置加载成功:', ttsConfigs.length);
+  } catch (error) {
+    console.error('加载TTS配置失败:', error);
+    ttsConfigs = [];
+  }
+}
+
 // 专门的重新渲染函数，用于流式输出完成后的最终渲染
 async function reRenderContent(contentDiv, content) {
   try {
@@ -329,12 +344,89 @@ function adjustTextareaHeight() {
   }
 }
 
+// TTS播放功能
+async function playTTS(text, button) {
+  if (!ttsConfigs || ttsConfigs.length === 0) {
+    alert('请先在设置中配置TTS接口');
+    return;
+  }
+  
+  // 如果正在播放，停止
+  if (currentAudio && !currentAudio.paused) {
+    currentAudio.pause();
+    currentAudio = null;
+    button.textContent = '🔊';
+    button.title = '朗读';
+    return;
+  }
+  
+  try {
+    button.textContent = '⏸';
+    button.title = '停止';
+    
+    // 使用第一个可用的TTS配置
+    const ttsConfig = ttsConfigs[0];
+    const result = await window.electronAPI.sendTTSRequest({
+      text: text,
+      ttsConfigId: ttsConfig.id
+    });
+    
+    if (result.success) {
+      // 使用文件路径创建音频元素
+      currentAudio = new Audio();
+      // 转换为file://协议的URL
+      const audioUrl = `file://${result.filePath.replace(/\\/g, '/')}`;
+      currentAudio.src = audioUrl;
+      
+      currentAudio.onended = () => {
+        button.textContent = '🔊';
+        button.title = '朗读';
+        currentAudio = null;
+      };
+      
+      currentAudio.onerror = (error) => {
+        console.error('音频播放失败:', error);
+        button.textContent = '🔊';
+        button.title = '朗读';
+        currentAudio = null;
+        alert('音频播放失败');
+      };
+      
+      await currentAudio.play();
+    } else {
+      throw new Error('TTS请求失败');
+    }
+  } catch (error) {
+    console.error('TTS播放失败:', error);
+    button.textContent = '🔊';
+    button.title = '朗读';
+    alert('语音合成失败: ' + error.message);
+  }
+}
+
+// 从HTML中提取纯文本
+function extractTextFromHTML(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  // 移除代码块，避免朗读代码
+  const codeBlocks = div.querySelectorAll('pre, code');
+  codeBlocks.forEach(block => block.remove());
+  return div.textContent || div.innerText || '';
+}
+
 async function addMessage(content, type = 'user') {
   const chatMessages = document.getElementById('chatMessages');
   const messageDiv = document.createElement('div');
   messageDiv.className = 'message-bubble ' + type + '-message';
   
   if (type === 'assistant') {
+    // 创建消息容器
+    const messageContainer = document.createElement('div');
+    messageContainer.style.display = 'flex';
+    messageContainer.style.alignItems = 'flex-start';
+    messageContainer.style.gap = '8px';
+    messageContainer.style.width = '100%';
+    
     // AI回复支持markdown/latex/mermaid渲染
     console.log('添加AI消息，内容长度:', content.length);
     console.log('ContentRenderer状态:', {
@@ -342,6 +434,9 @@ async function addMessage(content, type = 'user') {
       initialized: contentRenderer?.initialized,
       type: contentRenderer?.constructor?.name || 'Unknown'
     });
+    
+    const contentWrapper = document.createElement('div');
+    contentWrapper.style.flex = '1';
     
     try {
       if (contentRenderer && contentRenderer.initialized) {
@@ -351,21 +446,52 @@ async function addMessage(content, type = 'user') {
         const contentDiv = document.createElement('div');
         contentDiv.className = 'markdown-content';
         contentDiv.innerHTML = renderedContent;
-        messageDiv.appendChild(contentDiv);
+        contentWrapper.appendChild(contentDiv);
       } else {
         console.warn('ContentRenderer不可用，使用纯文本');
         // 渲染器未初始化，使用纯文本
         const messageP = document.createElement('p');
         messageP.textContent = content;
-        messageDiv.appendChild(messageP);
+        contentWrapper.appendChild(messageP);
       }
     } catch (error) {
       console.error('Content rendering failed:', error);
       // 渲染失败时回退到纯文本
       const messageP = document.createElement('p');
       messageP.textContent = content;
-      messageDiv.appendChild(messageP);
+      contentWrapper.appendChild(messageP);
     }
+    
+    messageContainer.appendChild(contentWrapper);
+    
+    // 添加TTS按钮（仅当有TTS配置时）
+    if (ttsConfigs && ttsConfigs.length > 0) {
+      const ttsButton = document.createElement('button');
+      ttsButton.className = 'tts-button';
+      ttsButton.textContent = '🔊';
+      ttsButton.title = '朗读';
+      ttsButton.style.cssText = `
+        background: none;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 16px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        flex-shrink: 0;
+      `;
+      ttsButton.onmouseover = () => ttsButton.style.opacity = '1';
+      ttsButton.onmouseout = () => ttsButton.style.opacity = '0.7';
+      
+      // 提取纯文本用于TTS
+      const textContent = extractTextFromHTML(contentWrapper.innerHTML);
+      ttsButton.onclick = () => playTTS(textContent, ttsButton);
+      
+      messageContainer.appendChild(ttsButton);
+    }
+    
+    messageDiv.appendChild(messageContainer);
   } else {
     // 用户消息保持纯文本
     const messageP = document.createElement('p');
@@ -417,10 +543,22 @@ async function sendMessage() {
   const assistantMessageDiv = document.createElement('div');
   assistantMessageDiv.className = 'message-bubble assistant-message';
   
+  // 创建消息容器
+  const messageContainer = document.createElement('div');
+  messageContainer.style.display = 'flex';
+  messageContainer.style.alignItems = 'flex-start';
+  messageContainer.style.gap = '8px';
+  messageContainer.style.width = '100%';
+  
+  const contentWrapper = document.createElement('div');
+  contentWrapper.style.flex = '1';
+  
   const contentDiv = document.createElement('div');
   contentDiv.className = 'markdown-content';
   contentDiv.innerHTML = '';
-  assistantMessageDiv.appendChild(contentDiv);
+  contentWrapper.appendChild(contentDiv);
+  messageContainer.appendChild(contentWrapper);
+  assistantMessageDiv.appendChild(messageContainer);
   
   chatMessages.appendChild(assistantMessageDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -474,6 +612,36 @@ async function sendMessage() {
     } catch (error) {
       console.error('Final render error:', error);
       contentDiv.textContent = streamingContent;
+    }
+    
+    // 添加TTS按钮（如果有TTS配置）
+    if (ttsConfigs && ttsConfigs.length > 0) {
+      const existingTTSButton = messageContainer.querySelector('.tts-button');
+      if (!existingTTSButton) {
+        const ttsButton = document.createElement('button');
+        ttsButton.className = 'tts-button';
+        ttsButton.textContent = '🔊';
+        ttsButton.title = '朗读';
+        ttsButton.style.cssText = `
+          background: none;
+          border: 1px solid #e0e0e0;
+          border-radius: 4px;
+          padding: 4px 8px;
+          cursor: pointer;
+          font-size: 16px;
+          opacity: 0.7;
+          transition: opacity 0.2s;
+          flex-shrink: 0;
+        `;
+        ttsButton.onmouseover = () => ttsButton.style.opacity = '1';
+        ttsButton.onmouseout = () => ttsButton.style.opacity = '0.7';
+        
+        // 提取纯文本用于TTS
+        const textContent = extractTextFromHTML(contentDiv.innerHTML);
+        ttsButton.onclick = () => playTTS(textContent, ttsButton);
+        
+        messageContainer.appendChild(ttsButton);
+      }
     }
     
     // 滚动到底部并启用发送按钮
@@ -631,6 +799,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   // 2. 初始化渲染器 - 确保在其他操作之前完成
   console.log('开始初始化渲染器...');
   await initializeRenderer();
+  
+  // 3. 加载TTS配置
+  console.log('加载TTS配置...');
+  await loadTTSConfigs();
   console.log('渲染器初始化完成，状态:', {
     exists: !!contentRenderer,
     initialized: contentRenderer?.initialized,

@@ -321,8 +321,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       console.log('点击检测:', { currentTime, lastClickTime, timeSinceLastClick });
       
-      if (lastClickTime > 0 && timeSinceLastClick < 400) { 
-        // 双击事件
+      if (timeSinceLastClick < 400) { 
+        // 双击事件（移除了 lastClickTime > 0 的条件）
         console.log('检测到双击');
         if (clickTimeout) {
           clearTimeout(clickTimeout);

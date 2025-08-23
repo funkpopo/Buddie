@@ -13,6 +13,7 @@
     <div class="settings-nav">
       <button class="nav-btn active" onclick="showPage('general')">通用</button>
       <button class="nav-btn" onclick="showPage('models')">模型配置</button>
+      <button class="nav-btn" onclick="showPage('tts')">语音合成</button>
     </div>
     
     <div class="settings-content">
@@ -68,6 +69,15 @@
         </div>
         <div style="text-align: center; margin-top: 8px; font-size: 10px; color: #666;">
           当前卡片数量: <span id="card-count">1</span> | 模型配置数量: <span id="model-count">1</span>
+        </div>
+      </div>
+
+      <div id="tts-page" class="settings-page">
+        <button class="add-tts-btn" onclick="addNewTTS()">+ 添加TTS配置</button>
+        <div id="tts-container">
+        </div>
+        <div style="text-align: center; margin-top: 8px; font-size: 10px; color: #666;">
+          配置OpenAI格式的TTS接口以启用语音合成功能
         </div>
       </div>
     </div>

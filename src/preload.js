@@ -45,5 +45,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onCardSwitched: (callback) => {
     ipcRenderer.on('card-switched', callback);
     return () => ipcRenderer.removeListener('card-switched', callback);
-  }
+  },
+  // TTS相关API
+  sendTTSRequest: (data) => ipcRenderer.invoke('send-tts-request', data),
+  getTTSConfigs: () => ipcRenderer.invoke('get-tts-configs')
 });
