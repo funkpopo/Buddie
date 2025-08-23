@@ -96,3 +96,5 @@ settings.json
 CLAUDE.md
 
 .claude/
+
+temp/
