@@ -1,7 +1,7 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, dialog, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const chokidar = require('chokidar');
@@ -73,7 +73,8 @@ const defaultSettings = {
       apiUrl: '',
       apiKey: '',
       modelName: 'gpt-3.5-turbo',
-      temperature: 0.7
+      temperature: 0.7,
+      isMultimodal: false
     }
   ],
   useSystemProxy: true
@@ -733,7 +734,7 @@ ipcMain.handle('show-chat-interface', (event, cardData) => {
 
 // 添加发送聊天消息的IPC处理
 ipcMain.handle('send-chat-message', async (event, data) => {
-  const { message, modelId } = data;
+  const { message, modelId, image } = data;
   
   try {
     // 获取当前设置以获取模型配置
@@ -743,7 +744,8 @@ ipcMain.handle('send-chat-message', async (event, data) => {
     console.log('发送聊天消息 - 设置信息:', {
       modelsCount: models.length,
       modelId: modelId,
-      availableModels: models.map(m => ({ name: m.name, id: m.id, modelName: m.modelName }))
+      hasImage: !!image,
+      availableModels: models.map(m => ({ name: m.name, id: m.id, modelName: m.modelName, isMultimodal: m.isMultimodal }))
     });
     
     // 查找对应的模型配置
@@ -762,7 +764,28 @@ ipcMain.handle('send-chat-message', async (event, data) => {
       throw new Error('模型配置不完整，请检查API URL和API Key');
     }
     
-    console.log('开始发送聊天消息:', { message, modelConfig: { ...modelConfig, apiKey: '***' } });
+    console.log('开始发送聊天消息:', { message, hasImage: !!image, modelConfig: { ...modelConfig, apiKey: '***' } });
+    
+    // 构建消息内容，支持多模态
+    let messageContent;
+    if (image && modelConfig.isMultimodal) {
+      // 多模态消息：包含文本和图片
+      messageContent = [
+        {
+          type: "text",
+          text: message || "请分析这张图片"
+        },
+        {
+          type: "image_url",
+          image_url: {
+            url: image.dataUrl
+          }
+        }
+      ];
+    } else {
+      // 纯文本消息
+      messageContent = message;
+    }
     
     // 发送请求到AI API
     const response = await fetch(modelConfig.apiUrl, {
@@ -776,7 +799,7 @@ ipcMain.handle('send-chat-message', async (event, data) => {
         messages: [
           {
             role: 'user',
-            content: message
+            content: messageContent
           }
         ],
         temperature: modelConfig.temperature || 0.7,
@@ -938,6 +961,281 @@ ipcMain.handle('get-tts-configs', async () => {
   } catch (error) {
     console.error('获取TTS配置失败:', error);
     return [];
+  }
+});
+
+// 屏幕截图功能
+ipcMain.handle('capture-screen', async () => {
+  try {
+    // 保存当前窗口状态
+    const windowStates = [];
+    
+    // 隐藏所有应用窗口
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      windowStates.push({
+        window: mainWindow,
+        wasVisible: mainWindow.isVisible(),
+        opacity: mainWindow.getOpacity()
+      });
+      mainWindow.hide();
+    }
+    
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      windowStates.push({
+        window: settingsWindow,
+        wasVisible: settingsWindow.isVisible(),
+        opacity: settingsWindow.getOpacity()
+      });
+      settingsWindow.hide();
+    }
+    
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      windowStates.push({
+        window: chatWindow,
+        wasVisible: chatWindow.isVisible(),
+        opacity: chatWindow.getOpacity()
+      });
+      chatWindow.hide();
+    }
+    
+    // 等待一小段时间确保窗口完全隐藏
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    try {
+      // 获取所有屏幕源
+      const sources = await desktopCapturer.getSources({ 
+        types: ['screen'],
+        thumbnailSize: { width: 1920, height: 1080 }
+      });
+      
+      if (sources.length > 0) {
+        // 返回主屏幕的截图数据URL
+        const screenSource = sources[0];
+        const result = {
+          success: true,
+          dataUrl: screenSource.thumbnail.toDataURL(),
+          name: screenSource.name
+        };
+        
+        return result;
+      }
+      
+      return {
+        success: false,
+        error: '未找到可用的屏幕'
+      };
+    } finally {
+      // 恢复所有应用窗口
+      windowStates.forEach(state => {
+        if (state.window && !state.window.isDestroyed()) {
+          if (state.wasVisible) {
+            state.window.show();
+            state.window.setOpacity(state.opacity);
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.error('屏幕截图失败:', error);
+    
+    // 确保在错误情况下也恢复窗口
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+      }
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.show();
+      }
+      if (chatWindow && !chatWindow.isDestroyed()) {
+        chatWindow.show();
+      }
+    } catch (restoreError) {
+      console.error('恢复窗口失败:', restoreError);
+    }
+    
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// 获取可用的屏幕源（用于选择屏幕）
+ipcMain.handle('get-screen-sources', async () => {
+  try {
+    // 同样需要隐藏窗口来获取干净的预览
+    const windowStates = [];
+    
+    // 隐藏所有应用窗口
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      windowStates.push({
+        window: mainWindow,
+        wasVisible: mainWindow.isVisible(),
+        opacity: mainWindow.getOpacity()
+      });
+      mainWindow.hide();
+    }
+    
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      windowStates.push({
+        window: settingsWindow,
+        wasVisible: settingsWindow.isVisible(),
+        opacity: settingsWindow.getOpacity()
+      });
+      settingsWindow.hide();
+    }
+    
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      windowStates.push({
+        window: chatWindow,
+        wasVisible: chatWindow.isVisible(),
+        opacity: chatWindow.getOpacity()
+      });
+      chatWindow.hide();
+    }
+    
+    // 等待一小段时间确保窗口完全隐藏
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    try {
+      const sources = await desktopCapturer.getSources({ 
+        types: ['screen'],
+        thumbnailSize: { width: 150, height: 150 }
+      });
+      
+      return {
+        success: true,
+        sources: sources.map(source => ({
+          id: source.id,
+          name: source.name,
+          thumbnail: source.thumbnail.toDataURL()
+        }))
+      };
+    } finally {
+      // 恢复所有应用窗口
+      windowStates.forEach(state => {
+        if (state.window && !state.window.isDestroyed()) {
+          if (state.wasVisible) {
+            state.window.show();
+            state.window.setOpacity(state.opacity);
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.error('获取屏幕源失败:', error);
+    
+    // 确保在错误情况下也恢复窗口
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+      }
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.show();
+      }
+      if (chatWindow && !chatWindow.isDestroyed()) {
+        chatWindow.show();
+      }
+    } catch (restoreError) {
+      console.error('恢复窗口失败:', restoreError);
+    }
+    
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// 截取指定屏幕
+ipcMain.handle('capture-specific-screen', async (event, sourceId) => {
+  try {
+    // 保存当前窗口状态
+    const windowStates = [];
+    
+    // 隐藏所有应用窗口
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      windowStates.push({
+        window: mainWindow,
+        wasVisible: mainWindow.isVisible(),
+        opacity: mainWindow.getOpacity()
+      });
+      mainWindow.hide();
+    }
+    
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      windowStates.push({
+        window: settingsWindow,
+        wasVisible: settingsWindow.isVisible(),
+        opacity: settingsWindow.getOpacity()
+      });
+      settingsWindow.hide();
+    }
+    
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      windowStates.push({
+        window: chatWindow,
+        wasVisible: chatWindow.isVisible(),
+        opacity: chatWindow.getOpacity()
+      });
+      chatWindow.hide();
+    }
+    
+    // 等待一小段时间确保窗口完全隐藏
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    try {
+      const sources = await desktopCapturer.getSources({ 
+        types: ['screen'],
+        thumbnailSize: { width: 1920, height: 1080 }
+      });
+      
+      const targetSource = sources.find(source => source.id === sourceId);
+      if (targetSource) {
+        return {
+          success: true,
+          dataUrl: targetSource.thumbnail.toDataURL(),
+          name: targetSource.name
+        };
+      }
+      
+      return {
+        success: false,
+        error: '未找到指定的屏幕'
+      };
+    } finally {
+      // 恢复所有应用窗口
+      windowStates.forEach(state => {
+        if (state.window && !state.window.isDestroyed()) {
+          if (state.wasVisible) {
+            state.window.show();
+            state.window.setOpacity(state.opacity);
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.error('截取指定屏幕失败:', error);
+    
+    // 确保在错误情况下也恢复窗口
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+      }
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.show();
+      }
+      if (chatWindow && !chatWindow.isDestroyed()) {
+        chatWindow.show();
+      }
+    } catch (restoreError) {
+      console.error('恢复窗口失败:', restoreError);
+    }
+    
+    return {
+      success: false,
+      error: error.message
+    };
   }
 });
 

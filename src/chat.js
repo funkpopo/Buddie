@@ -307,6 +307,7 @@ function createFallbackRenderer() {
 
 // 获取卡片数据（由main.js传入）
 let cardData = null;
+let currentImage = null; // 存储当前截图数据
 
 // 初始化函数 - 由main.js调用
 window.initializeCardData = function(data) {
@@ -316,6 +317,7 @@ window.initializeCardData = function(data) {
   // 更新UI元素
   const chatModelName = document.getElementById('chatModelName');
   const chatModelType = document.getElementById('chatModelType');
+  const chatCaptureBtn = document.getElementById('chatCaptureBtn');
   
   if (chatModelName && cardData) {
     chatModelName.textContent = (cardData.emoji ? cardData.emoji + ' ' : '') + (cardData.title || 'AI助手');
@@ -323,6 +325,15 @@ window.initializeCardData = function(data) {
   
   if (chatModelType && cardData) {
     chatModelType.textContent = cardData.subtitle || 'Chat';
+  }
+  
+  // 显示或隐藏截图按钮（仅当模型支持多模态时显示）
+  if (chatCaptureBtn && cardData && cardData.isMultimodal) {
+    console.log('Model supports multimodal, showing capture button');
+    chatCaptureBtn.style.display = 'flex';
+  } else if (chatCaptureBtn) {
+    console.log('Model does not support multimodal, hiding capture button');
+    chatCaptureBtn.style.display = 'none';
   }
 };
 
@@ -412,6 +423,213 @@ function extractTextFromHTML(html) {
   const codeBlocks = div.querySelectorAll('pre, code');
   codeBlocks.forEach(block => block.remove());
   return div.textContent || div.innerText || '';
+}
+
+// 屏幕截图功能
+async function captureScreen() {
+  const chatCaptureBtn = document.getElementById('chatCaptureBtn');
+  const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+  const previewImage = document.getElementById('previewImage');
+  
+  try {
+    // 更新按钮状态，显示加载中
+    chatCaptureBtn.disabled = true;
+    chatCaptureBtn.classList.add('capturing');
+    const originalHTML = chatCaptureBtn.innerHTML;
+    chatCaptureBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+        <path d="M21 12a9 9 0 11-6.219-8.56"/>
+      </svg>
+    `;
+    
+    // 添加旋转动画样式（如果还没有的话）
+    if (!document.querySelector('#capture-spin-style')) {
+      const style = document.createElement('style');
+      style.id = 'capture-spin-style';
+      style.textContent = `
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    console.log('开始屏幕截图...');
+    const result = await window.electronAPI.captureScreen();
+    
+    if (result.success) {
+      console.log('截图成功，名称:', result.name);
+      currentImage = {
+        dataUrl: result.dataUrl,
+        name: result.name
+      };
+      
+      // 显示预览
+      previewImage.src = result.dataUrl;
+      imagePreviewContainer.style.display = 'block';
+      
+      // 成功反馈
+      chatCaptureBtn.classList.remove('capturing');
+      chatCaptureBtn.classList.add('success');
+      chatCaptureBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"></path>
+          <path d="M22 4L12 14.01l-3-3"></path>
+        </svg>
+      `;
+      
+      // 1秒后恢复原始状态
+      setTimeout(() => {
+        chatCaptureBtn.classList.remove('success');
+        chatCaptureBtn.innerHTML = originalHTML;
+      }, 1000);
+      
+    } else {
+      console.error('截图失败:', result.error);
+      
+      // 错误反馈
+      chatCaptureBtn.classList.remove('capturing');
+      chatCaptureBtn.classList.add('error');
+      chatCaptureBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="m15 9-6 6"></path>
+          <path d="m9 9 6 6"></path>
+        </svg>
+      `;
+      
+      // 1.5秒后恢复原始状态
+      setTimeout(() => {
+        chatCaptureBtn.classList.remove('error');
+        chatCaptureBtn.innerHTML = originalHTML;
+      }, 1500);
+      
+      alert('截图失败: ' + result.error);
+    }
+  } catch (error) {
+    console.error('截图操作失败:', error);
+    
+    // 错误状态
+    chatCaptureBtn.classList.remove('capturing');
+    chatCaptureBtn.classList.add('error');
+    
+    // 恢复原始图标
+    const originalHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M23 7l-7 5 7 5V7z"></path>
+        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+      </svg>
+    `;
+    chatCaptureBtn.innerHTML = originalHTML;
+    
+    // 1.5秒后清除错误状态
+    setTimeout(() => {
+      chatCaptureBtn.classList.remove('error');
+    }, 1500);
+    
+    alert('截图操作失败: ' + error.message);
+  } finally {
+    chatCaptureBtn.disabled = false;
+  }
+}
+
+// 移除图片预览
+function removeImagePreview() {
+  const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+  imagePreviewContainer.style.display = 'none';
+  currentImage = null;
+  console.log('已移除图片预览');
+}
+
+// 在用户消息中添加图片显示
+async function addMessageWithImage(content, type = 'user', imageData = null) {
+  const chatMessages = document.getElementById('chatMessages');
+  const messageDiv = document.createElement('div');
+  messageDiv.className = 'message-bubble ' + type + '-message';
+  
+  if (type === 'user' && imageData) {
+    // 用户消息包含图片
+    const messageP = document.createElement('p');
+    messageP.textContent = content || '发送了一张图片';
+    messageDiv.appendChild(messageP);
+    
+    // 添加图片
+    const img = document.createElement('img');
+    img.className = 'message-image';
+    img.src = imageData.dataUrl;
+    img.alt = imageData.name || '截图';
+    messageDiv.appendChild(img);
+  } else if (type === 'assistant') {
+    // AI回复支持markdown/latex/mermaid渲染
+    console.log('添加AI消息，内容长度:', content.length);
+    
+    const messageContainer = document.createElement('div');
+    messageContainer.style.display = 'flex';
+    messageContainer.style.alignItems = 'flex-start';
+    messageContainer.style.gap = '8px';
+    messageContainer.style.width = '100%';
+    
+    const contentWrapper = document.createElement('div');
+    contentWrapper.style.flex = '1';
+    
+    try {
+      if (contentRenderer && contentRenderer.initialized) {
+        const renderedContent = await contentRenderer.render(content);
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'markdown-content';
+        contentDiv.innerHTML = renderedContent;
+        contentWrapper.appendChild(contentDiv);
+      } else {
+        const messageP = document.createElement('p');
+        messageP.textContent = content;
+        contentWrapper.appendChild(messageP);
+      }
+    } catch (error) {
+      console.error('Content rendering failed:', error);
+      const messageP = document.createElement('p');
+      messageP.textContent = content;
+      contentWrapper.appendChild(messageP);
+    }
+    
+    messageContainer.appendChild(contentWrapper);
+    
+    // 添加TTS按钮（仅当有TTS配置时）
+    if (ttsConfigs && ttsConfigs.length > 0) {
+      const ttsButton = document.createElement('button');
+      ttsButton.className = 'tts-button';
+      ttsButton.textContent = '🔊';
+      ttsButton.title = '朗读';
+      ttsButton.style.cssText = `
+        background: none;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 16px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        flex-shrink: 0;
+      `;
+      ttsButton.onmouseover = () => ttsButton.style.opacity = '1';
+      ttsButton.onmouseout = () => ttsButton.style.opacity = '0.7';
+      
+      const textContent = extractTextFromHTML(contentWrapper.innerHTML);
+      ttsButton.onclick = () => playTTS(textContent, ttsButton);
+      
+      messageContainer.appendChild(ttsButton);
+    }
+    
+    messageDiv.appendChild(messageContainer);
+  } else {
+    // 纯文本用户消息
+    const messageP = document.createElement('p');
+    messageP.textContent = content;
+    messageDiv.appendChild(messageP);
+  }
+  
+  chatMessages.appendChild(messageDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 async function addMessage(content, type = 'user') {
@@ -522,15 +740,23 @@ async function sendMessage() {
   console.log('chatInput value:', chatInput.value);
   
   const message = chatInput.value.trim();
-  if (!message) {
-    console.log('Message is empty, not sending');
+  const hasImage = currentImage !== null;
+  
+  if (!message && !hasImage) {
+    console.log('Message is empty and no image, not sending');
     return;
   }
   
-  console.log('Sending message:', message);
+  console.log('Sending message:', message, 'with image:', hasImage);
   
-  // 添加用户消息
-  await addMessage(message, 'user');
+  // 添加用户消息（支持图片）
+  if (hasImage) {
+    await addMessageWithImage(message || '发送了一张图片', 'user', currentImage);
+    // 隐藏图片预览
+    removeImagePreview();
+  } else {
+    await addMessage(message, 'user');
+  }
   
   // 清空输入框
   chatInput.value = '';
@@ -673,11 +899,15 @@ async function sendMessage() {
   });
   
   try {
-    // 启动流式响应
-    await window.electronAPI.sendChatMessage({
+    // 准备发送数据，支持多模态
+    const messageData = {
       message: message,
-      modelId: cardData ? cardData.modelId : null
-    });
+      modelId: cardData ? cardData.modelId : null,
+      image: hasImage ? currentImage : null
+    };
+    
+    // 启动流式响应
+    await window.electronAPI.sendChatMessage(messageData);
   } catch (error) {
     console.error('发送消息失败:', error);
     
@@ -704,11 +934,37 @@ function setupEventHandlers() {
   // 重新获取DOM元素，确保它们已经被正确加载
   const chatInput = document.getElementById('chatInput');
   const chatSendBtn = document.getElementById('chatSendBtn');
+  const chatCaptureBtn = document.getElementById('chatCaptureBtn');
+  const removeImageBtn = document.getElementById('removeImageBtn');
   
   // 添加全局点击监听器来调试
   document.addEventListener('click', function(e) {
     console.log('Document clicked, target:', e.target.tagName, e.target.id, e.target.className);
   });
+  
+  // 设置截图按钮事件
+  if (chatCaptureBtn) {
+    console.log('Found capture button, setting up click handler');
+    chatCaptureBtn.addEventListener('click', (e) => {
+      console.log('Capture button clicked');
+      e.preventDefault();
+      e.stopPropagation();
+      captureScreen();
+    });
+    console.log('Capture button event listener added');
+  }
+  
+  // 设置移除图片按钮事件
+  if (removeImageBtn) {
+    console.log('Found remove image button, setting up click handler');
+    removeImageBtn.addEventListener('click', (e) => {
+      console.log('Remove image button clicked');
+      e.preventDefault();
+      e.stopPropagation();
+      removeImagePreview();
+    });
+    console.log('Remove image button event listener added');
+  }
   
   // 设置发送按钮事件
   if (chatSendBtn) {

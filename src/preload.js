@@ -48,5 +48,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // TTS相关API
   sendTTSRequest: (data) => ipcRenderer.invoke('send-tts-request', data),
-  getTTSConfigs: () => ipcRenderer.invoke('get-tts-configs')
+  getTTSConfigs: () => ipcRenderer.invoke('get-tts-configs'),
+  // 屏幕截图相关API
+  captureScreen: () => ipcRenderer.invoke('capture-screen'),
+  getScreenSources: () => ipcRenderer.invoke('get-screen-sources'),
+  captureSpecificScreen: (sourceId) => ipcRenderer.invoke('capture-specific-screen', sourceId)
 });

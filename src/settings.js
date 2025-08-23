@@ -41,7 +41,8 @@ function addNewModel() {
     apiUrl: '',
     apiKey: '',
     modelName: '',
-    temperature: 0.7
+    temperature: 0.7,
+    isMultimodal: false
   };
   currentModels.push(model);
   renderModels();
@@ -105,6 +106,12 @@ function renderModels() {
       <div class="setting-item">
         <label>温度 (Temperature)</label>
         <input type="number" min="0" max="2" step="0.1" value="${model.temperature}" onchange="updateModel('${model.id}', 'temperature', parseFloat(this.value))">
+      </div>
+      <div class="setting-item">
+        <label class="checkbox-label">
+          <input type="checkbox" ${model.isMultimodal ? 'checked' : ''} onchange="updateModel('${model.id}', 'isMultimodal', this.checked)">
+          多模态模型 (支持图像输入)
+        </label>
       </div>
     `;
     container.appendChild(modelDiv);

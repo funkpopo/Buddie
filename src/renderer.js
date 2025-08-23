@@ -82,7 +82,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           emoji: getModelEmoji(index),
           title: model.name || `模型 ${index + 1}`,
           subtitle: model.modelName || 'AI Model',
-          modelId: model.id
+          modelId: model.id,
+          isMultimodal: model.isMultimodal || false
         }));
         console.log('生成的卡片数据:', cardData);
       } else {
@@ -91,7 +92,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           emoji: '🤖',
           title: '默认AI助手',
           subtitle: 'AI Model',
-          modelId: null
+          modelId: null,
+          isMultimodal: false
         }];
         console.log('使用默认卡片数据（没有找到模型配置）');
       }
@@ -114,7 +116,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         emoji: '🤖',
         title: '默认AI助手',
         subtitle: 'AI Model',
-        modelId: null
+        modelId: null,
+        isMultimodal: false
       }];
       currentIndex = 0;
       generateCardElements();

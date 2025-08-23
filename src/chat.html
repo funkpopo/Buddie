@@ -26,12 +26,24 @@
     <div class="chat-input-area">
       <div class="chat-input-container">
         <textarea class="chat-input" id="chatInput" placeholder="输入你的消息...按Enter发送，Shift+Enter换行" rows="1"></textarea>
+        <button class="chat-capture-btn" id="chatCaptureBtn" title="屏幕截图" style="display: none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 7l-7 5 7 5V7z"></path>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+          </svg>
+        </button>
         <button class="chat-send-btn" id="chatSendBtn" title="发送消息">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="22" y1="2" x2="11" y2="13"></line>
             <polygon points="22,2 15,22 11,13 2,9"></polygon>
           </svg>
         </button>
+      </div>
+      <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
+        <div class="image-preview" id="imagePreview">
+          <img id="previewImage" src="" alt="截图预览">
+          <button class="remove-image-btn" id="removeImageBtn" title="移除图片">×</button>
+        </div>
       </div>
     </div>
   </div>
