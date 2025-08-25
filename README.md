@@ -36,7 +36,7 @@
 ```bash
 # 克隆项目
 git clone <repository-url>
-cd Lyxie-desktop
+cd Buddie
 
 # 安装依赖
 npm install

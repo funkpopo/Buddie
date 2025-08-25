@@ -295,6 +295,15 @@ const createTray = () => {
       type: 'separator'
     },
     {
+      label: '重置窗口位置',
+      click: () => {
+        resetWindowPosition();
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
       label: '退出',
       click: () => {
         app.isQuitting = true;
@@ -314,6 +323,41 @@ const createTray = () => {
       mainWindow.show();
     }
   });
+};
+
+// 重置窗口位置到屏幕中央
+const resetWindowPosition = async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  try {
+    // 获取当前显示器的工作区域
+    const { screen } = require('electron');
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { workArea } = primaryDisplay;
+    
+    // 计算窗口居中位置
+    const centerX = Math.round(workArea.x + (workArea.width - 260) / 2);
+    const centerY = Math.round(workArea.y + (workArea.height - 300) / 2);
+    
+    // 设置窗口位置
+    mainWindow.setPosition(centerX, centerY);
+    
+    // 显示窗口（如果隐藏的话）
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+    
+    // 保存新位置到设置
+    await saveSettings({
+      windowPosition: { x: centerX, y: centerY }
+    });
+    
+    console.log('窗口位置已重置到屏幕中央:', centerX, centerY);
+  } catch (error) {
+    console.error('重置窗口位置失败:', error);
+  }
 };
 
 // 在Electron完成初始化并准备创建浏览器窗口时调用此方法
