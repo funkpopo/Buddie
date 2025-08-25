@@ -372,5 +372,171 @@ namespace Buddie
             // 开始第一阶段动画
             scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, scaleDownAnimation);
         }
+
+        // 卡片悬停事件处理
+        private void CardContainer_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            var hoverButtons = FindName("HoverButtons") as StackPanel;
+            if (hoverButtons != null)
+            {
+                hoverButtons.Visibility = Visibility.Visible;
+            }
+        }
+
+        private void CardContainer_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            var hoverButtons = FindName("HoverButtons") as StackPanel;
+            if (hoverButtons != null)
+            {
+                hoverButtons.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        // 对话按钮点击事件
+        private void DialogButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var dialogInterface = FindName("DialogInterface") as Border;
+            var settingsInterface = FindName("SettingsInterface") as Border;
+            
+            if (dialogInterface != null && settingsInterface != null)
+            {
+                // 如果对话界面已经显示，则关闭它
+                if (dialogInterface.Visibility == Visibility.Visible)
+                {
+                    dialogInterface.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    // 隐藏设置界面，显示对话界面
+                    settingsInterface.Visibility = Visibility.Collapsed;
+                    dialogInterface.Visibility = Visibility.Visible;
+                    
+                    // 聚焦到输入框
+                    var dialogInput = FindName("DialogInput") as System.Windows.Controls.TextBox;
+                    dialogInput?.Focus();
+                }
+            }
+        }
+
+        // 设置按钮点击事件
+        private void SettingsButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var dialogInterface = FindName("DialogInterface") as Border;
+            var settingsInterface = FindName("SettingsInterface") as Border;
+            
+            if (dialogInterface != null && settingsInterface != null)
+            {
+                // 如果设置界面已经显示，则关闭它
+                if (settingsInterface.Visibility == Visibility.Visible)
+                {
+                    settingsInterface.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    // 隐藏对话界面，显示设置界面
+                    dialogInterface.Visibility = Visibility.Collapsed;
+                    settingsInterface.Visibility = Visibility.Visible;
+                }
+            }
+        }
+
+        // 关闭对话界面
+        private void CloseDialog_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var dialogInterface = FindName("DialogInterface") as Border;
+            if (dialogInterface != null)
+            {
+                dialogInterface.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        // 关闭设置界面
+        private void CloseSettings_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var settingsInterface = FindName("SettingsInterface") as Border;
+            if (settingsInterface != null)
+            {
+                settingsInterface.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        // 发送消息
+        private void SendMessage_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var dialogInput = FindName("DialogInput") as System.Windows.Controls.TextBox;
+            var dialogContent = FindName("DialogContent") as TextBlock;
+            
+            if (dialogInput != null && dialogContent != null && !string.IsNullOrWhiteSpace(dialogInput.Text))
+            {
+                string message = dialogInput.Text.Trim();
+                string currentTime = DateTime.Now.ToString("HH:mm:ss");
+                
+                // 添加用户消息到对话内容
+                dialogContent.Text += $"\n[{currentTime}] 您: {message}";
+                
+                // 模拟回复
+                dialogContent.Text += $"\n[{currentTime}] 系统: 收到您的消息: {message}";
+                
+                // 清空输入框
+                dialogInput.Text = "";
+                
+                // 滚动到底部
+                var scrollViewer = dialogContent.Parent as ScrollViewer;
+                scrollViewer?.ScrollToEnd();
+            }
+        }
+
+        // 置顶设置更改
+        private void TopMostCheckBox_Changed(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var checkBox = sender as System.Windows.Controls.CheckBox;
+            if (checkBox != null)
+            {
+                this.Topmost = checkBox.IsChecked ?? true;
+            }
+        }
+
+        // 任务栏显示设置更改
+        private void ShowInTaskbarCheckBox_Changed(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var checkBox = sender as System.Windows.Controls.CheckBox;
+            if (checkBox != null)
+            {
+                this.ShowInTaskbar = checkBox.IsChecked ?? true;
+            }
+        }
+
+        // 重置设置
+        private void ResetSettings_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var topMostCheckBox = FindName("TopMostCheckBox") as System.Windows.Controls.CheckBox;
+            var showInTaskbarCheckBox = FindName("ShowInTaskbarCheckBox") as System.Windows.Controls.CheckBox;
+            var enableAnimationCheckBox = FindName("EnableAnimationCheckBox") as System.Windows.Controls.CheckBox;
+            
+            if (topMostCheckBox != null)
+            {
+                topMostCheckBox.IsChecked = true;
+                this.Topmost = true;
+            }
+            
+            if (showInTaskbarCheckBox != null)
+            {
+                showInTaskbarCheckBox.IsChecked = true;
+                this.ShowInTaskbar = true;
+            }
+            
+            if (enableAnimationCheckBox != null)
+            {
+                enableAnimationCheckBox.IsChecked = true;
+            }
+            
+            // 显示重置完成的提示
+            var dialogContent = FindName("DialogContent") as TextBlock;
+            if (dialogContent != null)
+            {
+                string currentTime = DateTime.Now.ToString("HH:mm:ss");
+                dialogContent.Text += $"\n[{currentTime}] 系统: 设置已重置为默认值。";
+            }
+        }
     }
 }

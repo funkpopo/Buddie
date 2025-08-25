@@ -101,7 +101,9 @@
                             HorizontalAlignment="Right"
                             VerticalAlignment="Bottom"
                             Margin="0,0,38,20"
-                            Effect="{StaticResource CardShadow}">
+                            Effect="{StaticResource CardShadow}"
+                            MouseEnter="CardContainer_MouseEnter"
+                            MouseLeave="CardContainer_MouseLeave">
                         <Border.RenderTransform>
                             <TransformGroup>
                                 <ScaleTransform x:Name="CardScaleTransform" CenterX="100" CenterY="75"/>
@@ -143,6 +145,300 @@
                                               HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
+                            
+                            <!-- 悬停时显示的按钮 -->
+                            <StackPanel x:Name="HoverButtons" 
+                                      Orientation="Horizontal"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Top"
+                                      Margin="0,10,0,0"
+                                      Visibility="Collapsed">
+                                <Button x:Name="DialogButton"
+                                       Content="💬"
+                                       Width="30"
+                                       Height="30"
+                                       Margin="5,0"
+                                       Background="#80FFFFFF"
+                                       Foreground="#333333"
+                                       BorderThickness="0"
+                                       FontSize="14"
+                                       Click="DialogButton_Click"
+                                       Cursor="Hand"
+                                       ToolTip="对话">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}"
+                                                               CornerRadius="15"
+                                                               BorderThickness="{TemplateBinding BorderThickness}">
+                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                             VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#A0FFFFFF"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                
+                                <Button x:Name="SettingsButton"
+                                       Content="⚙"
+                                       Width="30"
+                                       Height="30"
+                                       Margin="5,0"
+                                       Background="#80FFFFFF"
+                                       Foreground="#333333"
+                                       BorderThickness="0"
+                                       FontSize="14"
+                                       Click="SettingsButton_Click"
+                                       Cursor="Hand"
+                                       ToolTip="设置">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}"
+                                                               CornerRadius="15"
+                                                               BorderThickness="{TemplateBinding BorderThickness}">
+                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                             VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#A0FFFFFF"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- 对话界面 - 位于左上角 -->
+                    <Border x:Name="DialogInterface"
+                            Width="450"
+                            Height="800"
+                            Background="White"
+                            CornerRadius="10"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="20,20,0,0"
+                            Effect="{StaticResource CardShadow}"
+                            Visibility="Collapsed">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="40"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="50"/>
+                            </Grid.RowDefinitions>
+                            
+                            <!-- 对话界面标题栏 -->
+                            <Border Grid.Row="0" 
+                                    Background="#F0F0F0"
+                                    CornerRadius="10,10,0,0">
+                                <Grid>
+                                    <TextBlock Text="对话" 
+                                               Foreground="Black"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"
+                                               Margin="15,0,0,0"
+                                               FontWeight="Bold"/>
+                                    <Button Content="×"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            Width="20"
+                                            Height="20"
+                                            Margin="0,0,10,0"
+                                            Background="Transparent"
+                                            Foreground="Black"
+                                            BorderThickness="0"
+                                            FontSize="14"
+                                            FontWeight="Bold"
+                                            Click="CloseDialog_Click"
+                                            Cursor="Hand"/>
+                                </Grid>
+                            </Border>
+                            
+                            <!-- 对话内容区域 -->
+                            <ScrollViewer Grid.Row="1" 
+                                         Margin="10"
+                                         VerticalScrollBarVisibility="Auto">
+                                <TextBlock x:Name="DialogContent"
+                                          Text="这是对话界面内容区域。您可以在这里进行对话交互。"
+                                          TextWrapping="Wrap"
+                                          Foreground="Black"/>
+                            </ScrollViewer>
+                            
+                            <!-- 输入区域 -->
+                            <Grid Grid.Row="2" Margin="10,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="60"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBox x:Name="DialogInput"
+                                         Grid.Column="0"
+                                         Margin="0,0,10,0"
+                                         VerticalAlignment="Center"
+                                         Background="#F8F8F8"
+                                         BorderThickness="1"
+                                         BorderBrush="#CCCCCC"
+                                         Padding="8,5"/>
+                                
+                                <Button Grid.Column="1"
+                                       Content="发送"
+                                       Background="#007ACC"
+                                       Foreground="White"
+                                       BorderThickness="0"
+                                       Click="SendMessage_Click"
+                                       Cursor="Hand">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}"
+                                                               CornerRadius="3"
+                                                               BorderThickness="{TemplateBinding BorderThickness}">
+                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                             VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- 设置界面 - 位于左上角 -->
+                    <Border x:Name="SettingsInterface"
+                            Width="450"
+                            Height="800"
+                            Background="White"
+                            CornerRadius="10"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="20,20,0,0"
+                            Effect="{StaticResource CardShadow}"
+                            Visibility="Collapsed">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="40"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            
+                            <!-- 设置界面标题栏 -->
+                            <Border Grid.Row="0" 
+                                    Background="#F0F0F0"
+                                    CornerRadius="10,10,0,0">
+                                <Grid>
+                                    <TextBlock Text="设置" 
+                                               Foreground="Black"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"
+                                               Margin="15,0,0,0"
+                                               FontWeight="Bold"/>
+                                    <Button Content="×"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            Width="20"
+                                            Height="20"
+                                            Margin="0,0,10,0"
+                                            Background="Transparent"
+                                            Foreground="Black"
+                                            BorderThickness="0"
+                                            FontSize="14"
+                                            FontWeight="Bold"
+                                            Click="CloseSettings_Click"
+                                            Cursor="Hand"/>
+                                </Grid>
+                            </Border>
+                            
+                            <!-- 设置内容区域 -->
+                            <StackPanel Grid.Row="1" Margin="20">
+                                <TextBlock Text="外观设置"
+                                          FontWeight="Bold"
+                                          Margin="0,0,0,10"
+                                          Foreground="Black"/>
+                                
+                                <CheckBox x:Name="TopMostCheckBox"
+                                         Content="始终置顶"
+                                         IsChecked="True"
+                                         Margin="0,5"
+                                         Foreground="Black"
+                                         Checked="TopMostCheckBox_Changed"
+                                         Unchecked="TopMostCheckBox_Changed"/>
+                                
+                                <CheckBox x:Name="ShowInTaskbarCheckBox"
+                                         Content="在任务栏显示"
+                                         IsChecked="True"
+                                         Margin="0,5"
+                                         Foreground="Black"
+                                         Checked="ShowInTaskbarCheckBox_Changed"
+                                         Unchecked="ShowInTaskbarCheckBox_Changed"/>
+                                
+                                <Separator Margin="0,15"/>
+                                
+                                <TextBlock Text="动画设置"
+                                          FontWeight="Bold"
+                                          Margin="0,0,0,10"
+                                          Foreground="Black"/>
+                                
+                                <CheckBox x:Name="EnableAnimationCheckBox"
+                                         Content="启用卡片动画"
+                                         IsChecked="True"
+                                         Margin="0,5"
+                                         Foreground="Black"/>
+                                
+                                <Separator Margin="0,15"/>
+                                
+                                <TextBlock Text="其他设置"
+                                          FontWeight="Bold"
+                                          Margin="0,0,0,10"
+                                          Foreground="Black"/>
+                                
+                                <Button Content="重置所有设置"
+                                       Background="#FF6B6B"
+                                       Foreground="White"
+                                       BorderThickness="0"
+                                       Padding="10,5"
+                                       Margin="0,10,0,0"
+                                       Click="ResetSettings_Click"
+                                       Cursor="Hand">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}"
+                                                               CornerRadius="3"
+                                                               BorderThickness="{TemplateBinding BorderThickness}"
+                                                               Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                             VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
                         </Grid>
                     </Border>
                     
