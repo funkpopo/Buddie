@@ -13,6 +13,8 @@ namespace Buddie
         private string _modelName = "";
         private bool _isStreamingEnabled = true;
         private bool _isMultimodalEnabled = false;
+        private bool _isEditMode = true;
+        private bool _isSaved = false;
 
         public string Name
         {
@@ -50,6 +52,95 @@ namespace Buddie
             set => SetProperty(ref _isMultimodalEnabled, value);
         }
 
+        public bool IsEditMode
+        {
+            get => _isEditMode;
+            set => SetProperty(ref _isEditMode, value);
+        }
+
+        public bool IsSaved
+        {
+            get => _isSaved;
+            set => SetProperty(ref _isSaved, value);
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string? propertyName = null)
+        {
+            if (Equals(backingStore, value))
+                return false;
+
+            backingStore = value;
+            OnPropertyChanged(propertyName);
+            return true;
+        }
+    }
+
+    public class OpenAiTtsConfiguration : INotifyPropertyChanged
+    {
+        private string _name = "";
+        private string _apiUrl = "http://localhost:5050/v1/audio/speech";
+        private string _apiKey = "";
+        private string _model = "tts-1";
+        private string _voice = "alloy";
+        private double _speed = 1.0;
+        private bool _isEditMode = true;
+        private bool _isSaved = false;
+
+        public string Name
+        {
+            get => _name;
+            set => SetProperty(ref _name, value);
+        }
+
+        public string ApiUrl
+        {
+            get => _apiUrl;
+            set => SetProperty(ref _apiUrl, value);
+        }
+
+        public string ApiKey
+        {
+            get => _apiKey;
+            set => SetProperty(ref _apiKey, value);
+        }
+
+        public string Model
+        {
+            get => _model;
+            set => SetProperty(ref _model, value);
+        }
+
+        public string Voice
+        {
+            get => _voice;
+            set => SetProperty(ref _voice, value);
+        }
+
+        public double Speed
+        {
+            get => _speed;
+            set => SetProperty(ref _speed, value);
+        }
+
+        public bool IsEditMode
+        {
+            get => _isEditMode;
+            set => SetProperty(ref _isEditMode, value);
+        }
+
+        public bool IsSaved
+        {
+            get => _isSaved;
+            set => SetProperty(ref _isSaved, value);
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -74,6 +165,7 @@ namespace Buddie
         private bool _showInTaskbar = true;
         private bool _enableAnimation = true;
         private ObservableCollection<OpenApiConfiguration> _apiConfigurations = new ObservableCollection<OpenApiConfiguration>();
+        private ObservableCollection<OpenAiTtsConfiguration> _ttsConfigurations = new ObservableCollection<OpenAiTtsConfiguration>();
 
         public bool IsTopmost
         {
@@ -97,6 +189,12 @@ namespace Buddie
         {
             get => _apiConfigurations;
             set => SetProperty(ref _apiConfigurations, value);
+        }
+
+        public ObservableCollection<OpenAiTtsConfiguration> TtsConfigurations
+        {
+            get => _ttsConfigurations;
+            set => SetProperty(ref _ttsConfigurations, value);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

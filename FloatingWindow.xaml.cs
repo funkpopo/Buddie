@@ -9,6 +9,7 @@ using System.ComponentModel;
 using System.Windows.Media.Animation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Collections.ObjectModel;
 
 namespace Buddie
 {
@@ -27,12 +28,14 @@ namespace Buddie
         private NotifyIcon? trayIcon;
         private List<CardData> cards = new List<CardData>();
         private int currentCardIndex = 0;
+        private AppSettings appSettings = new AppSettings();
 
         public FloatingWindow()
         {
             InitializeComponent();
             InitializeTrayIcon();
             InitializeCards();
+            InitializeApiConfigurations();
             UpdateCardDisplay();
         }
 
@@ -277,32 +280,8 @@ namespace Buddie
             {
                 cardInfo.Text = $"卡片 {currentCardIndex + 1} / {cards.Count}";
             }
-            
-            // 更新卡片指示器
-            UpdateCardIndicator();
         }
         
-        private void UpdateCardIndicator()
-        {
-            var indicator = FindName("CardIndicator") as StackPanel;
-            if (indicator == null)
-                return;
-                
-            indicator.Children.Clear();
-            
-            for (int i = 0; i < cards.Count; i++)
-            {
-                var dot = new System.Windows.Shapes.Ellipse
-                {
-                    Width = 8,
-                    Height = 8,
-                    Margin = new Thickness(2),
-                    Fill = i == currentCardIndex ? System.Windows.Media.Brushes.White : new SolidColorBrush(System.Windows.Media.Color.FromArgb(100, 255, 255, 255))
-                };
-                indicator.Children.Add(dot);
-            }
-        }
-
         private void FlipCard()
         {
             // 如果正在动画中，忽略点击
@@ -589,6 +568,318 @@ namespace Buddie
                 Colors.Orange, Colors.Gold, Colors.LightPink, Colors.LightCyan
             };
             return colors[random.Next(colors.Length)];
+        }
+
+        private void InitializeApiConfigurations()
+        {
+            var apiConfigList = FindName("ApiConfigList") as ItemsControl;
+            var noConfigMessage = FindName("NoConfigMessage") as Border;
+            var ttsConfigList = FindName("TtsConfigList") as ItemsControl;
+            var noTtsConfigMessage = FindName("NoTtsConfigMessage") as Border;
+            
+            if (apiConfigList != null)
+            {
+                apiConfigList.ItemsSource = appSettings.ApiConfigurations;
+                UpdateNoConfigMessageVisibility();
+            }
+
+            if (ttsConfigList != null)
+            {
+                ttsConfigList.ItemsSource = appSettings.TtsConfigurations;
+                UpdateNoTtsConfigMessageVisibility();
+            }
+            
+            // 绑定整个设置到设置界面
+            var settingsInterface = FindName("SettingsInterface") as Border;
+            if (settingsInterface != null)
+            {
+                settingsInterface.DataContext = appSettings;
+            }
+        }
+
+        private void UpdateNoTtsConfigMessageVisibility()
+        {
+            var noTtsConfigMessage = FindName("NoTtsConfigMessage") as Border;
+            if (noTtsConfigMessage != null)
+            {
+                noTtsConfigMessage.Visibility = appSettings.TtsConfigurations.Count == 0 
+                    ? Visibility.Visible 
+                    : Visibility.Collapsed;
+            }
+        }
+
+        private void UpdateNoConfigMessageVisibility()
+        {
+            var noConfigMessage = FindName("NoConfigMessage") as Border;
+            if (noConfigMessage != null)
+            {
+                noConfigMessage.Visibility = appSettings.ApiConfigurations.Count == 0 
+                    ? Visibility.Visible 
+                    : Visibility.Collapsed;
+            }
+        }
+
+        private void AddApiConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var newConfig = new OpenApiConfiguration
+            {
+                Name = $"配置 {appSettings.ApiConfigurations.Count + 1}",
+                ApiUrl = "https://api.openai.com/v1/chat/completions",
+                ModelName = "gpt-3.5-turbo",
+                IsStreamingEnabled = true,
+                IsMultimodalEnabled = false,
+                IsEditMode = true,
+                IsSaved = false
+            };
+            
+            appSettings.ApiConfigurations.Add(newConfig);
+            UpdateNoConfigMessageVisibility();
+        }
+
+        private void SaveApiConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is OpenApiConfiguration config)
+            {
+                // 验证必填字段
+                if (string.IsNullOrWhiteSpace(config.Name) || 
+                    string.IsNullOrWhiteSpace(config.ApiUrl) || 
+                    string.IsNullOrWhiteSpace(config.ModelName))
+                {
+                    System.Windows.MessageBox.Show(
+                        "请填写完整的配置信息（配置名称、API URL、模型名称为必填项）", 
+                        "验证错误", 
+                        MessageBoxButton.OK, 
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                config.IsEditMode = false;
+                config.IsSaved = true;
+                
+                // 显示成功消息
+                var dialogContent = FindName("DialogContent") as TextBlock;
+                if (dialogContent != null)
+                {
+                    string currentTime = DateTime.Now.ToString("HH:mm:ss");
+                    dialogContent.Text += $"\n[{currentTime}] 系统: API配置 \"{config.Name}\" 已保存。";
+                    
+                    var scrollViewer = dialogContent.Parent as ScrollViewer;
+                    scrollViewer?.ScrollToEnd();
+                }
+            }
+        }
+
+        private void CancelApiConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is OpenApiConfiguration config)
+            {
+                if (!config.IsSaved)
+                {
+                    // 新配置，直接删除
+                    appSettings.ApiConfigurations.Remove(config);
+                    UpdateNoConfigMessageVisibility();
+                }
+                else
+                {
+                    // 已保存的配置，恢复到显示模式
+                    config.IsEditMode = false;
+                }
+            }
+        }
+
+        private void EditApiConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is OpenApiConfiguration config)
+            {
+                config.IsEditMode = true;
+            }
+        }
+
+        private void RemoveApiConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is OpenApiConfiguration config)
+            {
+                var result = System.Windows.MessageBox.Show(
+                    $"确定要删除配置 \"{config.Name}\" 吗？", 
+                    "确认删除", 
+                    MessageBoxButton.YesNo, 
+                    MessageBoxImage.Question);
+                
+                if (result == MessageBoxResult.Yes)
+                {
+                    appSettings.ApiConfigurations.Remove(config);
+                    UpdateNoConfigMessageVisibility();
+                }
+            }
+        }
+
+        private void ApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            var passwordBox = sender as PasswordBox;
+            if (passwordBox?.DataContext is OpenApiConfiguration config)
+            {
+                config.ApiKey = passwordBox.Password;
+            }
+        }
+
+        private void TtsApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            var passwordBox = sender as PasswordBox;
+            if (passwordBox?.DataContext is OpenAiTtsConfiguration config)
+            {
+                config.ApiKey = passwordBox.Password;
+            }
+        }
+
+        private void AddTtsConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var newConfig = new OpenAiTtsConfiguration
+            {
+                Name = $"TTS配置 {appSettings.TtsConfigurations.Count + 1}",
+                ApiUrl = "http://localhost:5050/v1/audio/speech",
+                Model = "tts-1",
+                Voice = "alloy",
+                Speed = 1.0,
+                IsEditMode = true,
+                IsSaved = false
+            };
+            
+            appSettings.TtsConfigurations.Add(newConfig);
+            UpdateNoTtsConfigMessageVisibility();
+        }
+
+        private void SaveTtsConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is OpenAiTtsConfiguration config)
+            {
+                // 验证必填字段
+                if (string.IsNullOrWhiteSpace(config.Name) || 
+                    string.IsNullOrWhiteSpace(config.ApiUrl) || 
+                    string.IsNullOrWhiteSpace(config.Model) ||
+                    string.IsNullOrWhiteSpace(config.Voice))
+                {
+                    System.Windows.MessageBox.Show(
+                        "请填写完整的配置信息（配置名称、API URL、模型、语音为必填项）", 
+                        "验证错误", 
+                        MessageBoxButton.OK, 
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                config.IsEditMode = false;
+                config.IsSaved = true;
+                
+                // 显示成功消息
+                var dialogContent = FindName("DialogContent") as TextBlock;
+                if (dialogContent != null)
+                {
+                    string currentTime = DateTime.Now.ToString("HH:mm:ss");
+                    dialogContent.Text += $"\n[{currentTime}] 系统: TTS配置 \"{config.Name}\" 已保存。";
+                    
+                    var scrollViewer = dialogContent.Parent as ScrollViewer;
+                    scrollViewer?.ScrollToEnd();
+                }
+            }
+        }
+
+        private void CancelTtsConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is OpenAiTtsConfiguration config)
+            {
+                if (!config.IsSaved)
+                {
+                    // 新配置，直接删除
+                    appSettings.TtsConfigurations.Remove(config);
+                    UpdateNoTtsConfigMessageVisibility();
+                }
+                else
+                {
+                    // 已保存的配置，恢复到显示模式
+                    config.IsEditMode = false;
+                }
+            }
+        }
+
+        private void EditTtsConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is OpenAiTtsConfiguration config)
+            {
+                config.IsEditMode = true;
+            }
+        }
+
+        private void RemoveTtsConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is OpenAiTtsConfiguration config)
+            {
+                var result = System.Windows.MessageBox.Show(
+                    $"确定要删除TTS配置 \"{config.Name}\" 吗？", 
+                    "确认删除", 
+                    MessageBoxButton.YesNo, 
+                    MessageBoxImage.Question);
+                
+                if (result == MessageBoxResult.Yes)
+                {
+                    appSettings.TtsConfigurations.Remove(config);
+                    UpdateNoTtsConfigMessageVisibility();
+                }
+            }
+        }
+
+        private void TtsEditSpeedSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            // 这个方法主要用于实时更新显示的速度值，数据绑定会自动处理实际值的更新
+        }
+
+        private void SpeedSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var speedValueText = FindName("SpeedValueText") as TextBlock;
+            if (speedValueText != null)
+            {
+                speedValueText.Text = $"{e.NewValue:F1}x";
+            }
+        }
+
+        private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var volumeValueText = FindName("VolumeValueText") as TextBlock;
+            if (volumeValueText != null)
+            {
+                volumeValueText.Text = $"{e.NewValue:F0}%";
+            }
+        }
+
+        private void TestTts_Click(object sender, RoutedEventArgs e)
+        {
+            var testTextBox = FindName("TestTextBox") as System.Windows.Controls.TextBox;
+            var dialogContent = FindName("DialogContent") as TextBlock;
+            
+            if (testTextBox != null && dialogContent != null)
+            {
+                string testText = testTextBox.Text;
+                string currentTime = DateTime.Now.ToString("HH:mm:ss");
+                
+                if (appSettings.TtsConfigurations.Count > 0)
+                {
+                    var firstTtsConfig = appSettings.TtsConfigurations.First();
+                    dialogContent.Text += $"\n[{currentTime}] OpenAI TTS测试: 使用配置 \"{firstTtsConfig.Name}\" (模型: {firstTtsConfig.Model}，语音: {firstTtsConfig.Voice})，播放文本 \"{testText}\"";
+                }
+                else
+                {
+                    dialogContent.Text += $"\n[{currentTime}] TTS测试: 暂无可用的TTS配置，请先添加配置。播放文本 \"{testText}\"";
+                }
+                
+                var scrollViewer = dialogContent.Parent as ScrollViewer;
+                scrollViewer?.ScrollToEnd();
+            }
         }
     }
 }
