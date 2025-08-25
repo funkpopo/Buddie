@@ -1,0 +1,383 @@
+<UserControl x:Class="Buddie.Controls.ApiConfigControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Buddie">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/SharedResources.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    
+    <StackPanel Margin="15">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="OpenAI API 配置"
+                       FontWeight="Bold"
+                       FontSize="16"
+                       Margin="0,0,0,15"
+                       Foreground="Black"
+                       VerticalAlignment="Center"/>
+            <Button Grid.Column="1"
+                    Content="+ 添加配置"
+                    Background="#28A745"
+                    Foreground="White"
+                    BorderThickness="0"
+                    Padding="12,8"
+                    Margin="0,0,10,0"
+                    FontWeight="Bold"
+                    Click="AddApiConfig_Click"
+                    Cursor="Hand"
+                    Style="{StaticResource RoundedButtonStyle}"/>
+            <Button Grid.Column="2"
+                    Content="🧪 测试全部"
+                    Background="#17A2B8"
+                    Foreground="White"
+                    BorderThickness="0"
+                    Padding="12,8"
+                    FontWeight="Bold"
+                    Click="TestAllApiConfigs_Click"
+                    Cursor="Hand"
+                    Style="{StaticResource RoundedButtonStyle}"/>
+        </Grid>
+        
+        <!-- API配置列表 -->
+        <ItemsControl x:Name="ApiConfigList">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="White"
+                            CornerRadius="12"
+                            Margin="0,8"
+                            Padding="20"
+                            BorderBrush="#E0E6ED"
+                            BorderThickness="1"
+                            Effect="{StaticResource CardShadow}">
+                        <!-- 编辑模式和显示模式 -->
+                        <Grid>
+                            <!-- 编辑模式 -->
+                            <StackPanel Visibility="{Binding IsEditMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- 配置名称 -->
+                                    <TextBlock Grid.Row="0" Grid.Column="0"
+                                               Text="配置名称:"
+                                               FontWeight="Bold"
+                                               Margin="0,0,10,8"
+                                               VerticalAlignment="Center"
+                                               Foreground="#495057"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1"
+                                             Text="{Binding Name, Mode=TwoWay}"
+                                             Margin="0,0,10,8"
+                                             Style="{StaticResource RoundedTextBoxStyle}"
+                                             Background="#F8F9FA"
+                                             BorderBrush="#DEE2E6"
+                                             BorderThickness="1"
+                                             Padding="10,8"
+                                             GotFocus="TextBox_GotFocus"/>
+                                    
+                                    <!-- API URL -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0"
+                                               Text="API URL:"
+                                               FontWeight="Bold"
+                                               Margin="0,0,10,8"
+                                               VerticalAlignment="Center"
+                                               Foreground="#495057"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1"
+                                             Text="{Binding ApiUrl, Mode=TwoWay}"
+                                             Margin="0,0,10,8"
+                                             Style="{StaticResource RoundedTextBoxStyle}"
+                                             Background="#F8F9FA"
+                                             BorderBrush="#DEE2E6"
+                                             BorderThickness="1"
+                                             Padding="10,8"
+                                             GotFocus="TextBox_GotFocus"/>
+                                    
+                                    <!-- API Key -->
+                                    <TextBlock Grid.Row="2" Grid.Column="0"
+                                               Text="API Key:"
+                                               FontWeight="Bold"
+                                               Margin="0,0,10,8"
+                                               VerticalAlignment="Center"
+                                               Foreground="#495057"/>
+                                    <PasswordBox Grid.Row="2" Grid.Column="1"
+                                                 x:Name="ApiKeyBox"
+                                                 Margin="0,0,10,8"
+                                                 Style="{StaticResource RoundedPasswordBoxStyle}"
+                                                 Background="#F8F9FA"
+                                                 BorderBrush="#DEE2E6"
+                                                 BorderThickness="1"
+                                                 Padding="10,8"
+                                                 PasswordChanged="ApiKeyBox_PasswordChanged"/>
+                                    
+                                    <!-- Model Name -->
+                                    <TextBlock Grid.Row="3" Grid.Column="0"
+                                               Text="模型名称:"
+                                               FontWeight="Bold"
+                                               Margin="0,0,10,8"
+                                               VerticalAlignment="Center"
+                                               Foreground="#495057"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1"
+                                             Text="{Binding ModelName, Mode=TwoWay}"
+                                             Margin="0,0,10,8"
+                                             Style="{StaticResource RoundedTextBoxStyle}"
+                                             Background="#F8F9FA"
+                                             BorderBrush="#DEE2E6"
+                                             BorderThickness="1"
+                                             Padding="10,8"
+                                             GotFocus="TextBox_GotFocus"/>
+                                    
+                                    <!-- 开关设置 -->
+                                    <StackPanel Grid.Row="4" Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                Margin="0,10,10,15">
+                                        <CheckBox Content="启用流式输出"
+                                                  IsChecked="{Binding IsStreamingEnabled, Mode=TwoWay}"
+                                                  Margin="0,0,25,0"
+                                                  Foreground="#495057"
+                                                  FontWeight="Medium"/>
+                                        <CheckBox Content="启用多模态"
+                                                  IsChecked="{Binding IsMultimodalEnabled, Mode=TwoWay}"
+                                                  Foreground="#495057"
+                                                  FontWeight="Medium"/>
+                                    </StackPanel>
+                                    
+                                    <!-- 操作按钮 -->
+                                    <StackPanel Grid.Row="5" Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,10,10,0">
+                                        <Button Content="保存"
+                                                Background="#007BFF"
+                                                Foreground="White"
+                                                BorderThickness="0"
+                                                Padding="16,8"
+                                                Margin="0,0,10,0"
+                                                FontWeight="Bold"
+                                                Click="SaveApiConfig_Click"
+                                                Cursor="Hand"
+                                                Style="{StaticResource RoundedButtonStyle}"/>
+                                        <Button Content="取消"
+                                                Background="#6C757D"
+                                                Foreground="White"
+                                                BorderThickness="0"
+                                                Padding="16,8"
+                                                FontWeight="Bold"
+                                                Click="CancelApiConfig_Click"
+                                                Cursor="Hand"
+                                                Style="{StaticResource RoundedButtonStyle}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                            
+                            <!-- 显示模式 -->
+                            <StackPanel Visibility="{Binding IsEditMode, Converter={StaticResource InvertedBooleanToVisibilityConverter}}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- 配置名称 -->
+                                    <TextBlock Grid.Row="0" Grid.Column="0"
+                                               Text="{Binding Name}"
+                                               FontWeight="Bold"
+                                               FontSize="18"
+                                               Foreground="#212529"
+                                               Margin="0,0,0,8"/>
+                                    
+                                    <!-- API URL -->
+                                    <StackPanel Grid.Row="1" Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                Margin="0,0,0,8">
+                                        <TextBlock Text="API URL: "
+                                                   FontWeight="Bold"
+                                                   Foreground="#6C757D"/>
+                                        <TextBlock Text="{Binding ApiUrl}"
+                                                   Foreground="#495057"/>
+                                    </StackPanel>
+                                    
+                                    <!-- 模型名称 -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                Margin="0,0,0,8">
+                                        <TextBlock Text="模型: "
+                                                   FontWeight="Bold"
+                                                   Foreground="#6C757D"/>
+                                        <TextBlock Text="{Binding ModelName}"
+                                                   Foreground="#495057"/>
+                                    </StackPanel>
+                                    
+                                    <!-- 多模态状态 -->
+                                    <StackPanel Grid.Row="3" Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                Margin="0,0,0,15">
+                                        <TextBlock Text="多模态: "
+                                                   FontWeight="Bold"
+                                                   Foreground="#6C757D"/>
+                                        <TextBlock Text="{Binding IsMultimodalEnabled, Converter={StaticResource BooleanToYesNoConverter}}"
+                                                   Foreground="{Binding IsMultimodalEnabled, Converter={StaticResource BooleanToColorConverter}}"/>
+                                    </StackPanel>
+                                    
+                                    <!-- 测试状态 -->
+                                    <StackPanel Grid.Row="4" Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                Margin="0,0,0,15">
+                                        <TextBlock Text="测试状态: "
+                                                   FontWeight="Bold"
+                                                   Foreground="#6C757D"/>
+                                        <Border CornerRadius="3"
+                                                Padding="6,2"
+                                                Margin="5,0,0,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding TestStatus}" Value="NotTested">
+                                                            <Setter Property="Background" Value="#E9ECEF"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding TestStatus}" Value="Testing">
+                                                            <Setter Property="Background" Value="#FFF3CD"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding TestStatus}" Value="Success">
+                                                            <Setter Property="Background" Value="#D1EDD8"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding TestStatus}" Value="Failed">
+                                                            <Setter Property="Background" Value="#F8D7DA"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock FontWeight="Bold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding TestStatus}" Value="NotTested">
+                                                                    <Setter Property="Text" Value="未测试"/>
+                                                                    <Setter Property="Foreground" Value="#6C757D"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding TestStatus}" Value="Testing">
+                                                                    <Setter Property="Text" Value="测试中..."/>
+                                                                    <Setter Property="Foreground" Value="#856404"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding TestStatus}" Value="Success">
+                                                                    <Setter Property="Text" Value="✓ 成功"/>
+                                                                    <Setter Property="Foreground" Value="#155724"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding TestStatus}" Value="Failed">
+                                                                    <Setter Property="Text" Value="✗ 失败"/>
+                                                                    <Setter Property="Foreground" Value="#721C24"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding TestMessage}"
+                                                           Margin="5,0,0,0"
+                                                           FontSize="11"
+                                                           Foreground="#495057"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    
+                                    <!-- 操作按钮 -->
+                                    <StackPanel Grid.Row="0" Grid.Column="1"
+                                                Grid.RowSpan="5"
+                                                VerticalAlignment="Center">
+                                        <!-- 第一行：测试和编辑按钮 -->
+                                        <StackPanel Orientation="Horizontal"
+                                                    Margin="0,0,0,8">
+                                            <Button Content="测试"
+                                                    Background="#28A745"
+                                                    Foreground="White"
+                                                    BorderThickness="0"
+                                                    Padding="12,6"
+                                                    Margin="0,0,8,0"
+                                                    FontWeight="Bold"
+                                                    Click="TestApiConfig_Click"
+                                                    Cursor="Hand"
+                                                    Style="{StaticResource RoundedButtonStyle}"/>
+                                            <Button Content="编辑"
+                                                    Background="#FFC107"
+                                                    Foreground="White"
+                                                    BorderThickness="0"
+                                                    Padding="12,6"
+                                                    FontWeight="Bold"
+                                                    Click="EditApiConfig_Click"
+                                                    Cursor="Hand"
+                                                    Style="{StaticResource RoundedButtonStyle}"/>
+                                        </StackPanel>
+                                        <!-- 第二行：删除按钮 -->
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Center">
+                                            <Button Content="删除"
+                                                    Background="#DC3545"
+                                                    Foreground="White"
+                                                    BorderThickness="0"
+                                                    Padding="12,6"
+                                                    FontWeight="Bold"
+                                                    Click="RemoveApiConfig_Click"
+                                                    Cursor="Hand"
+                                                    Style="{StaticResource RoundedButtonStyle}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        
+        <!-- 当没有配置时显示的提示 -->
+        <Border x:Name="NoConfigMessage"
+                Background="#F8F9FA"
+                CornerRadius="8"
+                Padding="30,20"
+                Margin="0,10"
+                BorderBrush="#DEE2E6"
+                BorderThickness="1"
+                Visibility="Visible">
+            <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="🔧"
+                           FontSize="32"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,10"/>
+                <TextBlock Text="暂无API配置"
+                           FontWeight="Bold"
+                           FontSize="16"
+                           Foreground="#6C757D"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,5"/>
+                <TextBlock Text="点击右上角【添加配置】按钮来添加第一个配置"
+                           Foreground="#6C757D"
+                           HorizontalAlignment="Center"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

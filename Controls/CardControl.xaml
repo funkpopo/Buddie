@@ -1,0 +1,284 @@
+<UserControl x:Class="Buddie.Controls.CardControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Buddie.Controls">
+    
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/SharedResources.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    
+    <Grid>
+        <!-- 固定在右下角的卡片 -->
+        <Border x:Name="CardContainer"
+                Width="200"
+                Height="150"
+                Background="White"
+                CornerRadius="15"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,38,20"
+                Effect="{StaticResource CardShadow}"
+                MouseEnter="CardContainer_MouseEnter"
+                MouseLeave="CardContainer_MouseLeave">
+            <Border.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform x:Name="CardScaleTransform"
+                                    CenterX="100"
+                                    CenterY="75"/>
+                    <RotateTransform x:Name="CardRotateTransform"
+                                     CenterX="100"
+                                     CenterY="75"/>
+                    <TranslateTransform x:Name="CardTranslateTransform"/>
+                </TransformGroup>
+            </Border.RenderTransform>
+            <Grid>
+                <!-- 卡片正面 -->
+                <Border x:Name="CardFront"
+                        Background="{StaticResource CardFrontGradient}"
+                        CornerRadius="15">
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center">
+                        <TextBlock x:Name="FrontText"
+                                   Text="卡片正面"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,10"
+                                   Foreground="White">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="Black"
+                                                  Direction="0"
+                                                  ShadowDepth="1"
+                                                  Opacity="0.8"
+                                                  BlurRadius="1"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                        <TextBlock x:Name="FrontSubText"
+                                   Text="点击按钮翻转"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   Foreground="White">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="Black"
+                                                  Direction="0"
+                                                  ShadowDepth="1"
+                                                  Opacity="0.7"
+                                                  BlurRadius="1"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+                <!-- 卡片背面 -->
+                <Border x:Name="CardBack"
+                        Background="{StaticResource CardBackGradient}"
+                        CornerRadius="15"
+                        Visibility="Collapsed">
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center">
+                        <TextBlock x:Name="BackText"
+                                   Text="卡片背面"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,10"
+                                   Foreground="White">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="Black"
+                                                  Direction="0"
+                                                  ShadowDepth="1"
+                                                  Opacity="0.8"
+                                                  BlurRadius="1"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                        <TextBlock x:Name="BackSubText"
+                                   Text="再次点击翻回"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   Foreground="White">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="Black"
+                                                  Direction="0"
+                                                  ShadowDepth="1"
+                                                  Opacity="0.7"
+                                                  BlurRadius="1"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+                <!-- 悬停时显示的按钮 -->
+                <StackPanel x:Name="HoverButtons"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Top"
+                            Margin="0,10,0,0"
+                            Visibility="Collapsed">
+                    <Button x:Name="DialogButton"
+                            Content="💬"
+                            Width="30"
+                            Height="30"
+                            Margin="5,0"
+                            Background="#80FFFFFF"
+                            Foreground="#333333"
+                            BorderThickness="0"
+                            FontSize="14"
+                            Click="DialogButton_Click"
+                            Cursor="Hand"
+                            ToolTip="对话"
+                            Style="{StaticResource CircularButtonStyle}"/>
+                    <Button x:Name="SettingsButton"
+                            Content="⚙"
+                            Width="30"
+                            Height="30"
+                            Margin="5,0"
+                            Background="#80FFFFFF"
+                            Foreground="#333333"
+                            BorderThickness="0"
+                            FontSize="14"
+                            Click="SettingsButton_Click"
+                            Cursor="Hand"
+                            ToolTip="设置"
+                            Style="{StaticResource CircularButtonStyle}"/>
+                    <Button x:Name="AddButton"
+                            Content="+"
+                            Width="30"
+                            Height="30"
+                            Margin="5,0"
+                            Background="#80FFFFFF"
+                            Foreground="#333333"
+                            BorderThickness="0"
+                            FontSize="18"
+                            FontWeight="Bold"
+                            Click="AddButton_Click"
+                            Cursor="Hand"
+                            ToolTip="添加"
+                            Style="{StaticResource CircularButtonStyle}"/>
+                </StackPanel>
+                <!-- 卡片信息显示 - 位于卡片右下角 -->
+                <TextBlock x:Name="CardInfo"
+                           Text="卡片 1 / 4"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Bottom"
+                           Margin="0,0,10,10"
+                           Foreground="Black"
+                           FontSize="10"
+                           Background="#80FFFFFF"
+                           Padding="4,2"
+                           Opacity="0.8"/>
+            </Grid>
+        </Border>
+        
+        <!-- 左边按钮 - 用于切换卡片 -->
+        <Button x:Name="LeftFlipButton"
+                Content="◀"
+                Width="35"
+                Height="35"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,235,75"
+                Background="#40FFFFFF"
+                Foreground="#666666"
+                BorderThickness="0"
+                FontSize="12"
+                FontWeight="Bold"
+                Click="LeftFlipButton_Click"
+                Cursor="Hand"
+                ToolTip="上一张卡片 / 翻转卡片（当卡片已翻转时）">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}"
+                                        CornerRadius="8"
+                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver"
+                                 Value="True">
+                            <Setter Property="Background"
+                                    Value="#60FFFFFF"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed"
+                                 Value="True">
+                            <Setter Property="Background"
+                                    Value="#80FFFFFF"/>
+                            <Setter Property="Foreground"
+                                    Value="#000000"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled"
+                                 Value="False">
+                            <Setter Property="Background"
+                                    Value="#20FFFFFF"/>
+                            <Setter Property="Foreground"
+                                    Value="#40666666"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Button.Style>
+        </Button>
+        
+        <!-- 右边按钮 - 用于切换卡片 -->
+        <Button x:Name="RightFlipButton"
+                Content="▶"
+                Width="35"
+                Height="35"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,5,75"
+                Background="#40FFFFFF"
+                Foreground="#666666"
+                BorderThickness="0"
+                FontSize="12"
+                FontWeight="Bold"
+                Click="RightFlipButton_Click"
+                Cursor="Hand"
+                ToolTip="下一张卡片 / 翻转卡片（当卡片已翻转时）">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}"
+                                        CornerRadius="8"
+                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver"
+                                 Value="True">
+                            <Setter Property="Background"
+                                    Value="#60FFFFFF"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed"
+                                 Value="True">
+                            <Setter Property="Background"
+                                    Value="#80FFFFFF"/>
+                            <Setter Property="Foreground"
+                                    Value="#000000"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled"
+                                 Value="False">
+                            <Setter Property="Background"
+                                    Value="#20FFFFFF"/>
+                            <Setter Property="Foreground"
+                                    Value="#40666666"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Button.Style>
+        </Button>
+    </Grid>
+</UserControl>

@@ -186,6 +186,7 @@ namespace Buddie
         private bool _isTopmost = true;
         private bool _showInTaskbar = true;
         private bool _enableAnimation = true;
+        private bool _isDarkTheme = false;
         private ObservableCollection<OpenApiConfiguration> _apiConfigurations = new ObservableCollection<OpenApiConfiguration>();
         private ObservableCollection<OpenAiTtsConfiguration> _ttsConfigurations = new ObservableCollection<OpenAiTtsConfiguration>();
 
@@ -205,6 +206,12 @@ namespace Buddie
         {
             get => _enableAnimation;
             set => SetProperty(ref _enableAnimation, value);
+        }
+
+        public bool IsDarkTheme
+        {
+            get => _isDarkTheme;
+            set => SetProperty(ref _isDarkTheme, value);
         }
 
         public ObservableCollection<OpenApiConfiguration> ApiConfigurations
