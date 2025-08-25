@@ -223,18 +223,30 @@
                                     </Button.Style>
                                 </Button>
                             </StackPanel>
+                            
+                            <!-- 卡片信息显示 - 位于卡片右下角 -->
+                            <TextBlock x:Name="CardInfo"
+                                      Text="卡片 1 / 4"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Bottom"
+                                      Margin="0,0,10,10"
+                                      Foreground="Black"
+                                      FontSize="10"
+                                      Background="#80FFFFFF"
+                                      Padding="4,2"
+                                      Opacity="0.8"/>
                         </Grid>
                     </Border>
                     
                     <!-- 对话界面 - 位于左上角 -->
                     <Border x:Name="DialogInterface"
-                            Width="450"
-                            Height="800"
+                            Width="460"
+                            Height="700"
                             Background="White"
                             CornerRadius="10"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Top"
-                            Margin="20,20,0,0"
+                            Margin="20,60,0,0"
                             Effect="{StaticResource CardShadow}"
                             Visibility="Collapsed">
                         <Grid>
@@ -327,13 +339,13 @@
                     
                     <!-- 设置界面 - 位于左上角 -->
                     <Border x:Name="SettingsInterface"
-                            Width="450"
-                            Height="800"
+                            Width="460"
+                            Height="700"
                             Background="White"
                             CornerRadius="10"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Top"
-                            Margin="20,20,0,0"
+                            Margin="20,60,0,0"
                             Effect="{StaticResource CardShadow}"
                             Visibility="Collapsed">
                         <Grid>
@@ -476,6 +488,10 @@
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter Property="Background" Value="#60FFFFFF"/>
                                     </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter Property="Background" Value="#80FFFFFF"/>
+                                        <Setter Property="Foreground" Value="#000000"/>
+                                    </Trigger>
                                     <Trigger Property="IsEnabled" Value="False">
                                         <Setter Property="Background" Value="#20FFFFFF"/>
                                         <Setter Property="Foreground" Value="#40666666"/>
@@ -519,6 +535,10 @@
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter Property="Background" Value="#60FFFFFF"/>
                                     </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter Property="Background" Value="#80FFFFFF"/>
+                                        <Setter Property="Foreground" Value="#000000"/>
+                                    </Trigger>
                                     <Trigger Property="IsEnabled" Value="False">
                                         <Setter Property="Background" Value="#20FFFFFF"/>
                                         <Setter Property="Foreground" Value="#40666666"/>
@@ -536,17 +556,6 @@
                               Margin="0,0,95,40">
                         <!-- 动态生成卡片指示点 -->
                     </StackPanel>
-                    
-                    <!-- 卡片信息显示 -->
-                    <TextBlock x:Name="CardInfo"
-                              Text="卡片 1 / 4"
-                              HorizontalAlignment="Right"
-                              VerticalAlignment="Bottom"
-                              Margin="0,0,90,20"
-                              Foreground="White"
-                              FontSize="10"
-                              Background="#80000000"
-                              Padding="5,2"/>
                 </Grid>
             </Border>
         </Grid>
