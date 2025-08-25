@@ -226,14 +226,51 @@ namespace Buddie
                 
             var leftButton = FindName("LeftFlipButton") as System.Windows.Controls.Button;
             var rightButton = FindName("RightFlipButton") as System.Windows.Controls.Button;
+            var scaleTransform = FindName("CardScaleTransform") as ScaleTransform;
             
-            if (leftButton == null || rightButton == null)
+            if (leftButton == null || rightButton == null || scaleTransform == null)
                 return;
                 
-            // 直接更新卡片内容，不使用位移动画
-            currentCardIndex = newIndex;
-            isFlipped = false;
-            UpdateCardDisplay();
+            // 设置动画状态并禁用按钮
+            isAnimating = true;
+            leftButton.IsEnabled = false;
+            rightButton.IsEnabled = false;
+            
+            // 创建翻转动画 - 使用与FlipCard相同的效果
+            var scaleDownAnimation = new DoubleAnimation();
+            scaleDownAnimation.From = 1.0;
+            scaleDownAnimation.To = 0.0;
+            scaleDownAnimation.Duration = TimeSpan.FromMilliseconds(200);
+            scaleDownAnimation.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn };
+
+            var scaleUpAnimation = new DoubleAnimation();
+            scaleUpAnimation.From = 0.0;
+            scaleUpAnimation.To = 1.0;
+            scaleUpAnimation.Duration = TimeSpan.FromMilliseconds(200);
+            scaleUpAnimation.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+            // 第一阶段：横向缩小到0
+            scaleDownAnimation.Completed += (s, e) =>
+            {
+                // 在中间点切换卡片
+                currentCardIndex = newIndex;
+                isFlipped = false;
+                UpdateCardDisplay();
+                
+                // 开始第二阶段：从0放大到1
+                scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, scaleUpAnimation);
+            };
+
+            // 动画完成后更新状态并重新启用按钮
+            scaleUpAnimation.Completed += (s, e) =>
+            {
+                isAnimating = false;
+                leftButton.IsEnabled = true;
+                rightButton.IsEnabled = true;
+            };
+
+            // 开始第一阶段动画
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, scaleDownAnimation);
         }
         
         private void UpdateCardDisplay()
@@ -490,7 +527,6 @@ namespace Buddie
         {
             var topMostCheckBox = FindName("TopMostCheckBox") as System.Windows.Controls.CheckBox;
             var showInTaskbarCheckBox = FindName("ShowInTaskbarCheckBox") as System.Windows.Controls.CheckBox;
-            var enableAnimationCheckBox = FindName("EnableAnimationCheckBox") as System.Windows.Controls.CheckBox;
             
             if (topMostCheckBox != null)
             {
@@ -502,11 +538,6 @@ namespace Buddie
             {
                 showInTaskbarCheckBox.IsChecked = true;
                 this.ShowInTaskbar = true;
-            }
-            
-            if (enableAnimationCheckBox != null)
-            {
-                enableAnimationCheckBox.IsChecked = true;
             }
             
             // 显示重置完成的提示

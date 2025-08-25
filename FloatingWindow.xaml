@@ -486,19 +486,6 @@
                                             
                                             <Separator Margin="0,15"/>
                                             
-                                            <TextBlock Text="动画设置"
-                                                      FontWeight="Bold"
-                                                      Margin="0,0,0,10"
-                                                      Foreground="Black"/>
-                                            
-                                            <CheckBox x:Name="EnableAnimationCheckBox"
-                                                     Content="启用卡片动画"
-                                                     IsChecked="True"
-                                                     Margin="0,5"
-                                                     Foreground="Black"/>
-                                            
-                                            <Separator Margin="0,15"/>
-                                            
                                             <TextBlock Text="其他设置"
                                                       FontWeight="Bold"
                                                       Margin="0,0,0,10"
