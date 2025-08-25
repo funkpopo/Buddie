@@ -12,8 +12,6 @@ if (require('electron-squirrel-startup')) {
 }
 
 let mainWindow = null;
-let settingsWindow = null;
-let chatWindow = null;
 let tray = null;
 let refreshWatcher = null; // 热重载监听器
 
@@ -445,12 +443,7 @@ const setupHotReload = () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.reload();
       }
-      if (settingsWindow && !settingsWindow.isDestroyed()) {
-        settingsWindow.webContents.reload();
-      }
-      if (chatWindow && !chatWindow.isDestroyed()) {
-        chatWindow.webContents.reload();
-      }
+      // 统一窗口架构，只需重载主窗口
     }
   });
 };
@@ -464,238 +457,19 @@ app.on('before-quit', async () => {
   await cleanupTempDir();
 });
 
-// 设置窗口功能
+// 设置功能现在集成到主窗口中
 const showSettings = () => {
-  if (settingsWindow) {
-    settingsWindow.show();
-    settingsWindow.focus();
-    settingsWindow.setAlwaysOnTop(true);
-    return;
+  // 设置面板现在在主窗口中显示，通过渲染进程处理
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('show-settings-panel');
   }
-
-  const mainPos = mainWindow.getPosition();
-  const mainBounds = mainWindow.getBounds();
-  
-  // 根据环境和平台确定正确的图标路径
-  let iconPath;
-  if (process.env.NODE_ENV === 'development') {
-    // 开发环境：从项目根目录的 src/assets 查找
-    iconPath = process.platform === 'win32' 
-      ? path.join(__dirname, '..', 'src', 'assets', 'logo.ico')
-      : path.join(__dirname, '..', 'src', 'assets', 'logo.png');
-  } else {
-    // 生产环境：从打包后的 assets 目录查找
-    iconPath = process.platform === 'win32' 
-      ? path.join(__dirname, 'assets', 'logo.ico')
-      : path.join(__dirname, 'assets', 'logo.png');
-  }
-  
-  const appIcon = nativeImage.createFromPath(iconPath);
-  
-  settingsWindow = new BrowserWindow({
-    width: 400,
-    height: 500,
-    x: mainPos[0] + (mainBounds.width - 400) / 2, // 水平居中
-    y: mainPos[1] - 510, // 向上显示在主窗口正上方，留10px间距
-    frame: false,
-    transparent: true,
-    resizable: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    icon: appIcon,
-    webPreferences: {
-      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-    title: 'Buddie 设置',
-  });
-  
-  // 添加焦点事件处理，确保点击时窗口显示在最上层
-  settingsWindow.on('focus', () => {
-    settingsWindow.setAlwaysOnTop(true);
-    settingsWindow.show();
-  });
-  
-  settingsWindow.on('blur', () => {
-    // 可选：失去焦点时仍保持置顶
-    settingsWindow.setAlwaysOnTop(true);
-  });
-
-  // 加载设置页面
-  try {
-    // In development, always use loadFile to avoid webpack issues
-    if (process.env.NODE_ENV === 'development') {
-      // 在开发环境中使用项目根目录作为基准
-      const projectRoot = path.resolve(__dirname, '..', '..');
-      const settingsPath = path.join(projectRoot, 'src', 'settings.html');
-      console.log('Loading settings window from:', settingsPath);
-      settingsWindow.loadFile(settingsPath);
-    } else if (typeof SETTINGS_WINDOW_WEBPACK_ENTRY !== 'undefined') {
-      settingsWindow.loadURL(SETTINGS_WINDOW_WEBPACK_ENTRY);
-    } else {
-      // Fallback
-      const settingsPath = path.resolve(__dirname, '..', 'src', 'settings.html');
-      settingsWindow.loadFile(settingsPath);
-    }
-  } catch (error) {
-    console.error('Error loading settings window:', error);
-    // Fallback method
-    const projectRoot = path.resolve(__dirname, '..', '..');
-    const settingsPath = path.join(projectRoot, 'src', 'settings.html');
-    console.log('Fallback: Loading settings window from:', settingsPath);
-    settingsWindow.loadFile(settingsPath);
-  }
-
-  // 注入卡片数据到设置页面
-  settingsWindow.webContents.once('dom-ready', () => {
-    // 可以在这里注入数据
-  });
-
-  // 监听主窗口位置变化，让设置窗口跟随移动
-  const updateSettingsPosition = () => {
-    if (settingsWindow && !settingsWindow.isDestroyed() && mainWindow && !mainWindow.isDestroyed()) {
-      const mainPos = mainWindow.getPosition();
-      const mainBounds = mainWindow.getBounds();
-      settingsWindow.setPosition(
-        mainPos[0] + (mainBounds.width - 260) / 2, // 水平居中
-        mainPos[1] - 310 // 向上显示在主窗口正上方，留10px间距
-      );
-    }
-  };
-
-  // 监听主窗口移动事件
-  mainWindow.on('move', updateSettingsPosition);
-
-  settingsWindow.on('closed', () => {
-    settingsWindow = null;
-    // 移除主窗口的move监听器（先检查主窗口是否存在）
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.removeListener('move', updateSettingsPosition);
-    }
-  });
 };
 
 const showChatInterface = (cardData) => {
-  if (chatWindow) {
-    chatWindow.show();
-    chatWindow.focus();
-    chatWindow.setAlwaysOnTop(true);
-    return;
+  // 聊天界面现在在主窗口中显示，通过渲染进程处理
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('show-chat-panel', cardData);
   }
-
-  const mainPos = mainWindow.getPosition();
-  const mainBounds = mainWindow.getBounds();
-  
-  // 根据环境和平台确定正确的图标路径
-  let iconPath;
-  if (process.env.NODE_ENV === 'development') {
-    // 开发环境：从项目根目录的 src/assets 查找
-    iconPath = process.platform === 'win32' 
-      ? path.join(__dirname, '..', 'src', 'assets', 'logo.ico')
-      : path.join(__dirname, '..', 'src', 'assets', 'logo.png');
-  } else {
-    // 生产环境：从打包后的 assets 目录查找
-    iconPath = process.platform === 'win32' 
-      ? path.join(__dirname, 'assets', 'logo.ico')
-      : path.join(__dirname, 'assets', 'logo.png');
-  }
-  
-  const appIcon = nativeImage.createFromPath(iconPath);
-  
-  chatWindow = new BrowserWindow({
-    width: 500,
-    height: 700,
-    x: mainPos[0] + mainBounds.width - 500 + 10, // 右边缘对齐，留10px间距
-    y: mainPos[1] - 710, // 上方显示，留10px间距
-    frame: false,
-    transparent: true,
-    resizable: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    icon: appIcon,
-    webPreferences: {
-      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-    title: 'Buddie 对话',
-  });
-  
-  // 添加焦点事件处理，确保点击时窗口显示在最上层
-  chatWindow.on('focus', () => {
-    chatWindow.setAlwaysOnTop(true);
-    chatWindow.show();
-  });
-  
-  chatWindow.on('blur', () => {
-    // 可选：失去焦点时仍保持置顶
-    chatWindow.setAlwaysOnTop(true);
-  });
-  
-  // 开发环境下打开开发者工具
-  if (process.env.NODE_ENV === 'development') {
-    chatWindow.webContents.openDevTools({ mode: 'detach' });
-  }
-
-  // 加载对话页面
-  try {
-    // In development, always use loadFile to avoid webpack issues
-    if (process.env.NODE_ENV === 'development') {
-      // 在开发环境中使用项目根目录作为基准
-      const projectRoot = path.resolve(__dirname, '..', '..');
-      const chatPath = path.join(projectRoot, 'src', 'chat.html');
-      console.log('Loading chat window from:', chatPath);
-      chatWindow.loadFile(chatPath);
-    } else if (typeof CHAT_WINDOW_WEBPACK_ENTRY !== 'undefined') {
-      chatWindow.loadURL(CHAT_WINDOW_WEBPACK_ENTRY);
-    } else {
-      // Fallback
-      const chatPath = path.resolve(__dirname, '..', 'src', 'chat.html');
-      chatWindow.loadFile(chatPath);
-    }
-  } catch (error) {
-    console.error('Error loading chat window:', error);
-    // Fallback method
-    const projectRoot = path.resolve(__dirname, '..', '..');
-    const chatPath = path.join(projectRoot, 'src', 'chat.html');
-    console.log('Fallback: Loading chat window from:', chatPath);
-    chatWindow.loadFile(chatPath);
-  }
-
-  // 注入卡片数据到对话页面
-  chatWindow.webContents.once('dom-ready', () => {
-    if (cardData) {
-      chatWindow.webContents.executeJavaScript(`
-        if (window.initializeCardData) {
-          window.initializeCardData(${JSON.stringify(cardData)});
-        }
-      `);
-    }
-  });
-
-  // 监听主窗口位置变化，让对话窗口跟随移动
-  const updateChatPosition = () => {
-    if (chatWindow && !chatWindow.isDestroyed() && mainWindow && !mainWindow.isDestroyed()) {
-      const mainPos = mainWindow.getPosition();
-      const mainBounds = mainWindow.getBounds();
-      chatWindow.setPosition(
-        mainPos[0] + mainBounds.width - 500 + 10, // 右边缘对齐
-        mainPos[1] - 710 // 向上显示在主窗口正上方，留10px间距
-      );
-    }
-  };
-
-  // 监听主窗口移动事件
-  mainWindow.on('move', updateChatPosition);
-
-  chatWindow.on('closed', () => {
-    chatWindow = null;
-    // 移除主窗口的move监听器（先检查主窗口是否存在）
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.removeListener('move', updateChatPosition);
-    }
-  });
 };
 
 // 处理拖动窗口的IPC消息
@@ -866,8 +640,8 @@ ipcMain.handle('send-chat-message', async (event, data) => {
         
         if (done) {
           // 流式响应完成
-          if (chatWindow && !chatWindow.isDestroyed()) {
-            chatWindow.webContents.send('chat-stream-end');
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('chat-stream-end');
           }
           break;
         }
@@ -882,8 +656,8 @@ ipcMain.handle('send-chat-message', async (event, data) => {
             
             if (data === '[DONE]') {
               // 流式响应完成
-              if (chatWindow && !chatWindow.isDestroyed()) {
-                chatWindow.webContents.send('chat-stream-end');
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('chat-stream-end');
               }
               return;
             }
@@ -892,8 +666,8 @@ ipcMain.handle('send-chat-message', async (event, data) => {
               const parsed = JSON.parse(data);
               const content = parsed.choices?.[0]?.delta?.content;
               
-              if (content && chatWindow && !chatWindow.isDestroyed()) {
-                chatWindow.webContents.send('chat-stream-chunk', content);
+              if (content && mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('chat-stream-chunk', content);
               }
             } catch (parseError) {
               // 忽略解析错误，继续处理下一行
@@ -911,9 +685,9 @@ ipcMain.handle('send-chat-message', async (event, data) => {
   } catch (error) {
     console.error('发送聊天消息失败:', error);
     
-    // 发送错误到聊天窗口
-    if (chatWindow && !chatWindow.isDestroyed()) {
-      chatWindow.webContents.send('chat-stream-error', error.message);
+    // 发送错误到主窗口
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('chat-stream-error', error.message);
     }
     
   }
@@ -1014,7 +788,7 @@ ipcMain.handle('capture-screen', async () => {
     // 保存当前窗口状态
     const windowStates = [];
     
-    // 隐藏所有应用窗口
+    // 隐藏主窗口
     if (mainWindow && !mainWindow.isDestroyed()) {
       windowStates.push({
         window: mainWindow,
@@ -1022,24 +796,6 @@ ipcMain.handle('capture-screen', async () => {
         opacity: mainWindow.getOpacity()
       });
       mainWindow.hide();
-    }
-    
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      windowStates.push({
-        window: settingsWindow,
-        wasVisible: settingsWindow.isVisible(),
-        opacity: settingsWindow.getOpacity()
-      });
-      settingsWindow.hide();
-    }
-    
-    if (chatWindow && !chatWindow.isDestroyed()) {
-      windowStates.push({
-        window: chatWindow,
-        wasVisible: chatWindow.isVisible(),
-        opacity: chatWindow.getOpacity()
-      });
-      chatWindow.hide();
     }
     
     // 等待一小段时间确保窗口完全隐藏
@@ -1087,12 +843,6 @@ ipcMain.handle('capture-screen', async () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.show();
       }
-      if (settingsWindow && !settingsWindow.isDestroyed()) {
-        settingsWindow.show();
-      }
-      if (chatWindow && !chatWindow.isDestroyed()) {
-        chatWindow.show();
-      }
     } catch (restoreError) {
       console.error('恢复窗口失败:', restoreError);
     }
@@ -1110,7 +860,7 @@ ipcMain.handle('get-screen-sources', async () => {
     // 同样需要隐藏窗口来获取干净的预览
     const windowStates = [];
     
-    // 隐藏所有应用窗口
+    // 隐藏主窗口
     if (mainWindow && !mainWindow.isDestroyed()) {
       windowStates.push({
         window: mainWindow,
@@ -1118,24 +868,6 @@ ipcMain.handle('get-screen-sources', async () => {
         opacity: mainWindow.getOpacity()
       });
       mainWindow.hide();
-    }
-    
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      windowStates.push({
-        window: settingsWindow,
-        wasVisible: settingsWindow.isVisible(),
-        opacity: settingsWindow.getOpacity()
-      });
-      settingsWindow.hide();
-    }
-    
-    if (chatWindow && !chatWindow.isDestroyed()) {
-      windowStates.push({
-        window: chatWindow,
-        wasVisible: chatWindow.isVisible(),
-        opacity: chatWindow.getOpacity()
-      });
-      chatWindow.hide();
     }
     
     // 等待一小段时间确保窗口完全隐藏
@@ -1174,12 +906,6 @@ ipcMain.handle('get-screen-sources', async () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.show();
       }
-      if (settingsWindow && !settingsWindow.isDestroyed()) {
-        settingsWindow.show();
-      }
-      if (chatWindow && !chatWindow.isDestroyed()) {
-        chatWindow.show();
-      }
     } catch (restoreError) {
       console.error('恢复窗口失败:', restoreError);
     }
@@ -1197,7 +923,7 @@ ipcMain.handle('capture-specific-screen', async (event, sourceId) => {
     // 保存当前窗口状态
     const windowStates = [];
     
-    // 隐藏所有应用窗口
+    // 隐藏主窗口
     if (mainWindow && !mainWindow.isDestroyed()) {
       windowStates.push({
         window: mainWindow,
@@ -1205,24 +931,6 @@ ipcMain.handle('capture-specific-screen', async (event, sourceId) => {
         opacity: mainWindow.getOpacity()
       });
       mainWindow.hide();
-    }
-    
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      windowStates.push({
-        window: settingsWindow,
-        wasVisible: settingsWindow.isVisible(),
-        opacity: settingsWindow.getOpacity()
-      });
-      settingsWindow.hide();
-    }
-    
-    if (chatWindow && !chatWindow.isDestroyed()) {
-      windowStates.push({
-        window: chatWindow,
-        wasVisible: chatWindow.isVisible(),
-        opacity: chatWindow.getOpacity()
-      });
-      chatWindow.hide();
     }
     
     // 等待一小段时间确保窗口完全隐藏
@@ -1266,12 +974,6 @@ ipcMain.handle('capture-specific-screen', async (event, sourceId) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.show();
       }
-      if (settingsWindow && !settingsWindow.isDestroyed()) {
-        settingsWindow.show();
-      }
-      if (chatWindow && !chatWindow.isDestroyed()) {
-        chatWindow.show();
-      }
     } catch (restoreError) {
       console.error('恢复窗口失败:', restoreError);
     }
@@ -1283,23 +985,16 @@ ipcMain.handle('capture-specific-screen', async (event, sourceId) => {
   }
 });
 
-// 通知卡片索引变化（从主窗口到设置窗口）
+// 通知卡片索引变化（统一在主窗口处理）
 ipcMain.on('card-index-changed', (event, cardIndex) => {
-  // 转发给设置窗口
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.webContents.send('card-index-changed', cardIndex);
-  }
+  // 卡片索引变化事件现在在主窗口内部处理
+  console.log('卡片索引变化:', cardIndex);
 });
 
 // 在main.js中添加卡片切换同步
 ipcMain.on('card-switched', (event, cardData) => {
   console.log('主进程收到卡片切换事件:', cardData);
-  
-  // 转发给聊天窗口
-  if (chatWindow && !chatWindow.isDestroyed()) {
-    console.log('转发卡片切换事件到聊天窗口');
-    chatWindow.webContents.send('card-switched', cardData);
-  }
+  // 卡片切换事件现在在主窗口内部处理
 });
 
 // 在此文件中处理其他任何特定于应用程序的需求的代码...

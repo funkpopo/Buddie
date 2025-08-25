@@ -30,6 +30,187 @@ import './index.css';
 
 console.log('👋 This message is being logged by "renderer.js", included via webpack');
 
+// 面板管理函数 - 声明为全局函数
+window.showPanel = function(panelType) {
+  const overlay = document.getElementById('panelOverlay');
+  const panel = document.getElementById(panelType + 'Panel');
+  
+  if (overlay && panel) {
+    overlay.classList.add('show');
+    panel.classList.add('show');
+    
+    // 加载面板内容
+    if (panelType === 'settings') {
+      loadSettingsContent();
+    } else if (panelType === 'chat') {
+      loadChatContent();
+    }
+  }
+};
+
+window.closePanel = function(panelType) {
+  const overlay = document.getElementById('panelOverlay');
+  const panel = document.getElementById(panelType + 'Panel');
+  
+  if (overlay && panel) {
+    overlay.classList.remove('show');
+    panel.classList.remove('show');
+  }
+};
+
+async function loadSettingsContent() {
+  const settingsContent = document.getElementById('settingsContent');
+  if (!settingsContent) return;
+  
+  try {
+    const settings = await window.electronAPI.getSettings();
+    
+    settingsContent.innerHTML = `
+      <div class="settings-nav">
+        <button class="nav-btn active" onclick="showSettingsPage('general')">通用</button>
+        <button class="nav-btn" onclick="showSettingsPage('models')">模型配置</button>
+      </div>
+      
+      <div class="settings-content">
+        <div id="general-page" class="settings-page active">
+          <div class="setting-item">
+            <label>主题</label>
+            <select id="theme">
+              <option value="auto" ${settings.theme === 'auto' ? 'selected' : ''}>跟随系统</option>
+              <option value="light" ${settings.theme === 'light' ? 'selected' : ''}>浅色</option>
+              <option value="dark" ${settings.theme === 'dark' ? 'selected' : ''}>深色</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <label>悬浮窗透明度</label>
+            <div class="opacity-control">
+              <input type="range" id="opacity" min="0.3" max="1" step="0.1" value="${settings.opacity || 1}">
+              <span id="opacityValue">${Math.round((settings.opacity || 1) * 100)}%</span>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="autoStart" ${settings.autoStart ? 'checked' : ''}>
+              开机自启动
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="alwaysOnTop" ${settings.alwaysOnTop ? 'checked' : ''}>
+              始终置顶
+            </label>
+          </div>
+        </div>
+        
+        <div id="models-page" class="settings-page" style="display: none;">
+          <div id="modelsList">
+            <!-- 模型配置将在这里动态生成 -->
+          </div>
+          <button class="add-model-btn" onclick="addNewModel()">+ 添加新模型</button>
+        </div>
+      </div>
+    `;
+    
+    // 添加事件监听器
+    setupSettingsEvents();
+    
+  } catch (error) {
+    console.error('加载设置失败:', error);
+    settingsContent.innerHTML = '<p>加载设置失败</p>';
+  }
+}
+
+function loadChatContent() {
+  const chatContent = document.getElementById('chatContent');
+  if (!chatContent) return;
+  
+  chatContent.innerHTML = `
+    <div class="chat-messages" id="chatMessages">
+      <div class="welcome-message">
+        <div class="message-bubble system-message">
+          <p>你好！我是你的AI助手，有什么可以帮助你的吗？</p>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <div class="chat-input-container">
+        <textarea class="chat-input" id="chatInput" placeholder="输入你的消息...按Enter发送，Shift+Enter换行" rows="1"></textarea>
+        <button class="chat-send-btn" id="chatSendBtn" title="发送消息">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22,2 15,22 11,13 2,9"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  `;
+  
+  // 添加聊天事件监听器
+  setupChatEvents();
+}
+
+function setupSettingsEvents() {
+  // 透明度滑块
+  const opacitySlider = document.getElementById('opacity');
+  const opacityValue = document.getElementById('opacityValue');
+  
+  if (opacitySlider && opacityValue) {
+    opacitySlider.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      opacityValue.textContent = Math.round(value * 100) + '%';
+      window.electronAPI.saveSettings({ opacity: value });
+    });
+  }
+  
+  // 其他设置事件监听器...
+}
+
+function setupChatEvents() {
+  const chatInput = document.getElementById('chatInput');
+  const chatSendBtn = document.getElementById('chatSendBtn');
+  
+  if (chatSendBtn) {
+    chatSendBtn.addEventListener('click', () => {
+      sendMessage();
+    });
+  }
+  
+  if (chatInput) {
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  }
+}
+
+function sendMessage() {
+  const chatInput = document.getElementById('chatInput');
+  const message = chatInput.value.trim();
+  
+  if (message) {
+    // 添加用户消息到聊天界面
+    addMessageToChat('user', message);
+    chatInput.value = '';
+    
+    // 发送消息给AI
+    window.electronAPI.sendChatMessage(message);
+  }
+}
+
+function addMessageToChat(role, content) {
+  const chatMessages = document.getElementById('chatMessages');
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `message-bubble ${role}-message`;
+  messageDiv.innerHTML = `<p>${content}</p>`;
+  chatMessages.appendChild(messageDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
 // 添加拖动功能和卡片翻动功能
 document.addEventListener('DOMContentLoaded', async () => {
   const cardStack = document.getElementById('cardStack');
@@ -599,6 +780,37 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.error('调用showChatInterface失败:', error);
     }
   };
+  
+  // 工具栏按钮事件监听器
+  const settingsBtn = document.getElementById('settingsBtn');
+  const chatBtn = document.getElementById('chatBtn');
+  const panelOverlay = document.getElementById('panelOverlay');
+  
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.showPanel('settings');
+    });
+  }
+  
+  if (chatBtn) {
+    chatBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.showPanel('chat');
+    });
+  }
+  
+  // 点击遮罩关闭面板
+  if (panelOverlay) {
+    panelOverlay.addEventListener('click', (e) => {
+      if (e.target === panelOverlay) {
+        window.closePanel('settings');
+        window.closePanel('chat');
+      }
+    });
+  }
   
   // 监听窗口关闭事件，保存当前卡片状态
   window.addEventListener('beforeunload', () => {
