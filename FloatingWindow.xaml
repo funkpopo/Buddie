@@ -529,6 +529,7 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 
                                                 <TextBlock Text="OpenAI API 配置"
@@ -544,6 +545,7 @@
                                                        Foreground="White"
                                                        BorderThickness="0"
                                                        Padding="12,8"
+                                                       Margin="0,0,10,0"
                                                        FontWeight="Bold"
                                                        Click="AddApiConfig_Click"
                                                        Cursor="Hand">
@@ -562,6 +564,39 @@
                                                                         <ControlTemplate.Triggers>
                                                                             <Trigger Property="IsMouseOver" Value="True">
                                                                                 <Setter Property="Background" Value="#218838"/>
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                
+                                                <Button Grid.Column="2" 
+                                                       Content="🧪 测试全部"
+                                                       Background="#17A2B8"
+                                                       Foreground="White"
+                                                       BorderThickness="0"
+                                                       Padding="12,8"
+                                                       FontWeight="Bold"
+                                                       Click="TestAllApiConfigs_Click"
+                                                       Cursor="Hand">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border Background="{TemplateBinding Background}"
+                                                                               CornerRadius="8"
+                                                                               BorderThickness="{TemplateBinding BorderThickness}"
+                                                                               Padding="{TemplateBinding Padding}">
+                                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                                             VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter Property="Background" Value="#138496"/>
                                                                             </Trigger>
                                                                         </ControlTemplate.Triggers>
                                                                     </ControlTemplate>
@@ -867,10 +902,97 @@
                                                                                       Foreground="{Binding IsMultimodalEnabled, Converter={StaticResource BooleanToColorConverter}}"/>
                                                                         </StackPanel>
                                                                         
+                                                                        <!-- 测试状态 -->
+                                                                        <StackPanel Grid.Row="4" Grid.Column="0" Orientation="Horizontal" Margin="0,0,0,15">
+                                                                            <TextBlock Text="测试状态: " FontWeight="Bold" Foreground="#6C757D"/>
+                                                                            <Border CornerRadius="3" Padding="6,2" Margin="5,0,0,0">
+                                                                                <Border.Style>
+                                                                                    <Style TargetType="Border">
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding TestStatus}" Value="NotTested">
+                                                                                                <Setter Property="Background" Value="#E9ECEF"/>
+                                                                                            </DataTrigger>
+                                                                                            <DataTrigger Binding="{Binding TestStatus}" Value="Testing">
+                                                                                                <Setter Property="Background" Value="#FFF3CD"/>
+                                                                                            </DataTrigger>
+                                                                                            <DataTrigger Binding="{Binding TestStatus}" Value="Success">
+                                                                                                <Setter Property="Background" Value="#D1EDD8"/>
+                                                                                            </DataTrigger>
+                                                                                            <DataTrigger Binding="{Binding TestStatus}" Value="Failed">
+                                                                                                <Setter Property="Background" Value="#F8D7DA"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </Border.Style>
+                                                                                <StackPanel Orientation="Horizontal">
+                                                                                    <TextBlock FontWeight="Bold">
+                                                                                        <TextBlock.Style>
+                                                                                            <Style TargetType="TextBlock">
+                                                                                                <Style.Triggers>
+                                                                                                    <DataTrigger Binding="{Binding TestStatus}" Value="NotTested">
+                                                                                                        <Setter Property="Text" Value="未测试"/>
+                                                                                                        <Setter Property="Foreground" Value="#6C757D"/>
+                                                                                                    </DataTrigger>
+                                                                                                    <DataTrigger Binding="{Binding TestStatus}" Value="Testing">
+                                                                                                        <Setter Property="Text" Value="测试中..."/>
+                                                                                                        <Setter Property="Foreground" Value="#856404"/>
+                                                                                                    </DataTrigger>
+                                                                                                    <DataTrigger Binding="{Binding TestStatus}" Value="Success">
+                                                                                                        <Setter Property="Text" Value="✓ 成功"/>
+                                                                                                        <Setter Property="Foreground" Value="#155724"/>
+                                                                                                    </DataTrigger>
+                                                                                                    <DataTrigger Binding="{Binding TestStatus}" Value="Failed">
+                                                                                                        <Setter Property="Text" Value="✗ 失败"/>
+                                                                                                        <Setter Property="Foreground" Value="#721C24"/>
+                                                                                                    </DataTrigger>
+                                                                                                </Style.Triggers>
+                                                                                            </Style>
+                                                                                        </TextBlock.Style>
+                                                                                    </TextBlock>
+                                                                                    <TextBlock Text="{Binding TestMessage}" 
+                                                                                              Margin="5,0,0,0" 
+                                                                                              FontSize="11"
+                                                                                              Foreground="#495057"/>
+                                                                                </StackPanel>
+                                                                            </Border>
+                                                                        </StackPanel>
+                                                                        
                                                                         <!-- 操作按钮 -->
-                                                                        <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="4"
+                                                                        <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="5"
                                                                                    Orientation="Horizontal"
                                                                                    VerticalAlignment="Center">
+                                                                            <Button Content="测试"
+                                                                                   Background="#28A745"
+                                                                                   Foreground="White"
+                                                                                   BorderThickness="0"
+                                                                                   Padding="12,6"
+                                                                                   Margin="0,0,8,0"
+                                                                                   FontWeight="Bold"
+                                                                                   Click="TestApiConfig_Click"
+                                                                                   Cursor="Hand">
+                                                                                <Button.Style>
+                                                                                    <Style TargetType="Button">
+                                                                                        <Setter Property="Template">
+                                                                                            <Setter.Value>
+                                                                                                <ControlTemplate TargetType="Button">
+                                                                                                    <Border Background="{TemplateBinding Background}"
+                                                                                                           CornerRadius="6"
+                                                                                                           BorderThickness="{TemplateBinding BorderThickness}"
+                                                                                                           Padding="{TemplateBinding Padding}">
+                                                                                                        <ContentPresenter HorizontalAlignment="Center"
+                                                                                                                         VerticalAlignment="Center"/>
+                                                                                                    </Border>
+                                                                                                    <ControlTemplate.Triggers>
+                                                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                                                            <Setter Property="Background" Value="#218838"/>
+                                                                                                        </Trigger>
+                                                                                                    </ControlTemplate.Triggers>
+                                                                                                </ControlTemplate>
+                                                                                            </Setter.Value>
+                                                                                        </Setter>
+                                                                                    </Style>
+                                                                                </Button.Style>
+                                                                            </Button>
                                                                             <Button Content="编辑"
                                                                                    Background="#FFC107"
                                                                                    Foreground="White"

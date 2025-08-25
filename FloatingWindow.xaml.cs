@@ -10,6 +10,12 @@ using System.Windows.Media.Animation;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Collections.ObjectModel;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace Buddie
 {
@@ -29,6 +35,8 @@ namespace Buddie
         private List<CardData> cards = new List<CardData>();
         private int currentCardIndex = 0;
         private AppSettings appSettings = new AppSettings();
+        private readonly HttpClient httpClient = new HttpClient();
+        private readonly ConcurrentDictionary<string, CancellationTokenSource> testCancellationTokens = new();
 
         public FloatingWindow()
         {
@@ -153,12 +161,6 @@ namespace Buddie
             // 阻止窗口关闭，改为隐藏到托盘
             e.Cancel = true;
             HideWindow();
-        }
-
-        protected override void OnClosed(EventArgs e)
-        {
-            trayIcon?.Dispose();
-            base.OnClosed(e);
         }
 
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -911,6 +913,158 @@ namespace Buddie
                 var scrollViewer = dialogContent.Parent as ScrollViewer;
                 scrollViewer?.ScrollToEnd();
             }
+        }
+
+        private async void TestApiConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is OpenApiConfiguration config)
+            {
+                await TestApiConfigurationAsync(config);
+            }
+        }
+
+        private async void TestAllApiConfigs_Click(object sender, RoutedEventArgs e)
+        {
+            var tasks = new List<Task>();
+            foreach (var config in appSettings.ApiConfigurations)
+            {
+                tasks.Add(TestApiConfigurationAsync(config));
+            }
+            await Task.WhenAll(tasks);
+        }
+
+        private async Task TestApiConfigurationAsync(OpenApiConfiguration config)
+        {
+            if (config == null)
+            {
+                return;
+            }
+            
+            if (string.IsNullOrWhiteSpace(config.ApiUrl) || 
+                string.IsNullOrWhiteSpace(config.ApiKey) || string.IsNullOrWhiteSpace(config.ModelName))
+            {
+                config.TestStatus = TestStatus.Failed;
+                config.TestMessage = "配置信息不完整";
+                return;
+            }
+
+            string configId = $"{config.Name}_{DateTime.Now.Ticks}";
+            
+            // 如果已经有测试在进行，先取消
+            if (testCancellationTokens.TryGetValue(configId, out var existingCts))
+            {
+                existingCts.Cancel();
+                testCancellationTokens.TryRemove(configId, out _);
+            }
+
+            var cts = new CancellationTokenSource();
+            testCancellationTokens.TryAdd(configId, cts);
+
+            try
+            {
+                config.TestStatus = TestStatus.Testing;
+                config.TestMessage = "正在测试...";
+
+                var requestData = new
+                {
+                    model = config.ModelName,
+                    messages = new[]
+                    {
+                        new { role = "user", content = "ping" }
+                    },
+                    max_tokens = 10
+                };
+
+                var json = JsonSerializer.Serialize(requestData);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, config.ApiUrl);
+                request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
+                request.Content = content;
+
+                var response = await httpClient.SendAsync(request, cts.Token);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    var responseObj = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    
+                    if (responseObj.TryGetProperty("choices", out var choices) && 
+                        choices.GetArrayLength() > 0)
+                    {
+                        config.TestStatus = TestStatus.Success;
+                        config.TestMessage = "连接成功";
+                        LogTestResult(config, "API测试成功", true);
+                    }
+                    else
+                    {
+                        config.TestStatus = TestStatus.Failed;
+                        config.TestMessage = "响应格式异常";
+                        LogTestResult(config, "API响应格式异常", false);
+                    }
+                }
+                else
+                {
+                    config.TestStatus = TestStatus.Failed;
+                    config.TestMessage = $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}";
+                    LogTestResult(config, $"API测试失败: {response.StatusCode}", false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                config.TestStatus = TestStatus.Failed;
+                config.TestMessage = "测试被取消";
+            }
+            catch (HttpRequestException ex)
+            {
+                config.TestStatus = TestStatus.Failed;
+                config.TestMessage = $"网络错误: {ex.Message}";
+                LogTestResult(config, $"网络连接失败: {ex.Message}", false);
+            }
+            catch (Exception ex)
+            {
+                config.TestStatus = TestStatus.Failed;
+                config.TestMessage = $"错误: {ex.Message}";
+                LogTestResult(config, $"测试异常: {ex.Message}", false);
+            }
+            finally
+            {
+                testCancellationTokens.TryRemove(configId, out _);
+                cts.Dispose();
+            }
+        }
+
+        private void LogTestResult(OpenApiConfiguration config, string message, bool success)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                var dialogContent = FindName("DialogContent") as TextBlock;
+                if (dialogContent != null)
+                {
+                    string currentTime = DateTime.Now.ToString("HH:mm:ss");
+                    string status = success ? "✓" : "✗";
+                    dialogContent.Text += $"\n[{currentTime}] {status} {config.Name}: {message}";
+                    
+                    var scrollViewer = dialogContent.Parent as ScrollViewer;
+                    scrollViewer?.ScrollToEnd();
+                }
+            });
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            // 取消所有正在进行的测试
+            foreach (var cts in testCancellationTokens.Values)
+            {
+                cts.Cancel();
+                cts.Dispose();
+            }
+            testCancellationTokens.Clear();
+            
+            httpClient?.Dispose();
+            trayIcon?.Dispose();
+            base.OnClosed(e);
         }
     }
 }

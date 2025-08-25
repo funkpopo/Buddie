@@ -5,6 +5,14 @@ using System.Runtime.CompilerServices;
 
 namespace Buddie
 {
+    public enum TestStatus
+    {
+        NotTested,
+        Testing,
+        Success,
+        Failed
+    }
+
     public class OpenApiConfiguration : INotifyPropertyChanged
     {
         private string _name = "";
@@ -15,6 +23,8 @@ namespace Buddie
         private bool _isMultimodalEnabled = false;
         private bool _isEditMode = true;
         private bool _isSaved = false;
+        private TestStatus _testStatus = TestStatus.NotTested;
+        private string _testMessage = "";
 
         public string Name
         {
@@ -62,6 +72,18 @@ namespace Buddie
         {
             get => _isSaved;
             set => SetProperty(ref _isSaved, value);
+        }
+
+        public TestStatus TestStatus
+        {
+            get => _testStatus;
+            set => SetProperty(ref _testStatus, value);
+        }
+
+        public string TestMessage
+        {
+            get => _testMessage;
+            set => SetProperty(ref _testMessage, value);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
