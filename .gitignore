@@ -1,32 +1,44 @@
-*.swp
-*.*~
-project.lock.json
-.DS_Store
-*.pyc
-
-# Visual Studio Code
-.vscode
-
-# User-specific files
+# User and IDE files
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
-
-# Build results
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-build/
-bld/
-bin/
-[Oo]bj/
-msbuild.log
-msbuild.err
-msbuild.wrn
-
-# Visual Studio 2015
+*.userstates
+*.DotSettings.user
 .vs/
+Build/
+
+# User-specific files for IDEs
+*.user
+*.userosscache
+
+# Temporary files
+*.tmp
+*.temp
+
+# Project-specific files
+bin/
+obj/
+
+# Debug and Release artifacts
+Debug/
+Release/
+
+# NuGet packages
+.nuget/
+packages/
+
+# ASP.NET Core development files
+node_modules/
+
+# Azure DevOps files
+.azdevops/
+
+# Local environment files
+local.settings.json
+
+# Secrets file
+*.secrets.json
+
+# Secrets management
+Secrets.toml

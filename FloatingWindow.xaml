@@ -222,6 +222,42 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
+                                
+                                <Button x:Name="AddButton"
+                                       Content="+"
+                                       Width="30"
+                                       Height="30"
+                                       Margin="5,0"
+                                       Background="#80FFFFFF"
+                                       Foreground="#333333"
+                                       BorderThickness="0"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Click="AddButton_Click"
+                                       Cursor="Hand"
+                                       ToolTip="添加">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}"
+                                                               CornerRadius="15"
+                                                               BorderThickness="{TemplateBinding BorderThickness}">
+                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                             VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#A0FFFFFF"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                             </StackPanel>
                             
                             <!-- 卡片信息显示 - 位于卡片右下角 -->

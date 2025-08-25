@@ -538,5 +538,57 @@ namespace Buddie
                 dialogContent.Text += $"\n[{currentTime}] 系统: 设置已重置为默认值。";
             }
         }
+
+        // 添加新卡片
+        private void AddButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            // 创建一个新的卡片数据
+            int newCardNumber = cards.Count + 1;
+            var newCard = new CardData
+            {
+                FrontText = $"新卡片 {newCardNumber}",
+                FrontSubText = $"这是第 {newCardNumber} 张卡片",
+                BackText = $"新卡片 {newCardNumber} 背面",
+                BackSubText = $"第 {newCardNumber} 张卡片的背面",
+                FrontBackground = new LinearGradientBrush(
+                    GetRandomColor(), Colors.White, new System.Windows.Point(0, 0), new System.Windows.Point(1, 1)
+                ),
+                BackBackground = new LinearGradientBrush(
+                    GetRandomColor(), Colors.White, new System.Windows.Point(0, 0), new System.Windows.Point(1, 1)
+                )
+            };
+            
+            // 添加到卡片列表
+            cards.Add(newCard);
+            
+            // 切换到新添加的卡片
+            currentCardIndex = cards.Count - 1;
+            isFlipped = false;
+            UpdateCardDisplay();
+            
+            // 在对话框中显示添加成功的消息
+            var dialogContent = FindName("DialogContent") as TextBlock;
+            if (dialogContent != null)
+            {
+                string currentTime = DateTime.Now.ToString("HH:mm:ss");
+                dialogContent.Text += $"\n[{currentTime}] 系统: 已添加新卡片 '{newCard.FrontText}'。";
+                
+                // 滚动到底部
+                var scrollViewer = dialogContent.Parent as ScrollViewer;
+                scrollViewer?.ScrollToEnd();
+            }
+        }
+        
+        // 获取随机颜色的辅助方法
+        private System.Windows.Media.Color GetRandomColor()
+        {
+            var random = new Random();
+            var colors = new[] { 
+                Colors.LightBlue, Colors.LightGreen, Colors.LightCoral, 
+                Colors.Plum, Colors.LightSalmon, Colors.LightSeaGreen,
+                Colors.Orange, Colors.Gold, Colors.LightPink, Colors.LightCyan
+            };
+            return colors[random.Next(colors.Length)];
+        }
     }
 }
