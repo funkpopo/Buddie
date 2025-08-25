@@ -961,6 +961,8 @@ namespace Buddie
             var cts = new CancellationTokenSource();
             testCancellationTokens.TryAdd(configId, cts);
 
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
             try
             {
                 config.TestStatus = TestStatus.Testing;
@@ -984,6 +986,8 @@ namespace Buddie
                 request.Content = content;
 
                 var response = await httpClient.SendAsync(request, cts.Token);
+                stopwatch.Stop();
+                var delayMs = stopwatch.ElapsedMilliseconds;
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -994,39 +998,44 @@ namespace Buddie
                         choices.GetArrayLength() > 0)
                     {
                         config.TestStatus = TestStatus.Success;
-                        config.TestMessage = "连接成功";
-                        LogTestResult(config, "API测试成功", true);
+                        config.TestMessage = $"连接成功 ({delayMs}ms)";
+                        LogTestResult(config, $"API测试成功 (延迟: {delayMs}ms)", true);
                     }
                     else
                     {
                         config.TestStatus = TestStatus.Failed;
-                        config.TestMessage = "响应格式异常";
-                        LogTestResult(config, "API响应格式异常", false);
+                        config.TestMessage = $"响应格式异常 ({delayMs}ms)";
+                        LogTestResult(config, $"API响应格式异常 (延迟: {delayMs}ms)", false);
                     }
                 }
                 else
                 {
                     config.TestStatus = TestStatus.Failed;
-                    config.TestMessage = $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}";
-                    LogTestResult(config, $"API测试失败: {response.StatusCode}", false);
+                    config.TestMessage = $"HTTP {(int)response.StatusCode} ({delayMs}ms)";
+                    LogTestResult(config, $"API测试失败: {response.StatusCode} (延迟: {delayMs}ms)", false);
                 }
             }
             catch (OperationCanceledException)
             {
+                stopwatch.Stop();
                 config.TestStatus = TestStatus.Failed;
                 config.TestMessage = "测试被取消";
             }
             catch (HttpRequestException ex)
             {
+                stopwatch.Stop();
+                var delayMs = stopwatch.ElapsedMilliseconds;
                 config.TestStatus = TestStatus.Failed;
-                config.TestMessage = $"网络错误: {ex.Message}";
-                LogTestResult(config, $"网络连接失败: {ex.Message}", false);
+                config.TestMessage = $"网络错误 ({delayMs}ms)";
+                LogTestResult(config, $"网络连接失败: {ex.Message} (延迟: {delayMs}ms)", false);
             }
             catch (Exception ex)
             {
+                stopwatch.Stop();
+                var delayMs = stopwatch.ElapsedMilliseconds;
                 config.TestStatus = TestStatus.Failed;
-                config.TestMessage = $"错误: {ex.Message}";
-                LogTestResult(config, $"测试异常: {ex.Message}", false);
+                config.TestMessage = $"错误 ({delayMs}ms)";
+                LogTestResult(config, $"测试异常: {ex.Message} (延迟: {delayMs}ms)", false);
             }
             finally
             {
@@ -1065,6 +1074,18 @@ namespace Buddie
             httpClient?.Dispose();
             trayIcon?.Dispose();
             base.OnClosed(e);
+        }
+
+        private void TextBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBox textBox)
+            {
+                // 延迟选择所有文本，确保用户体验更好
+                textBox.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    textBox.SelectAll();
+                }), System.Windows.Threading.DispatcherPriority.Input);
+            }
         }
     }
 }
