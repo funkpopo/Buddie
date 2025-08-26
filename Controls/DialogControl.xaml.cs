@@ -12,6 +12,8 @@ using System.Windows.Media.Animation;
 using System.Windows.Media;
 using System.Linq;
 using System.IO;
+using Markdig;
+using System.Windows.Documents;
 
 namespace Buddie.Controls
 {
@@ -24,10 +26,15 @@ namespace Buddie.Controls
         private bool isSending = false;
         private bool isSidebarVisible = false;
         private List<string> conversationHistory = new List<string>();
+        private MarkdownPipeline markdownPipeline;
 
         public DialogControl()
         {
             InitializeComponent();
+            // 初始化Markdown管道，启用常用的扩展
+            markdownPipeline = new MarkdownPipelineBuilder()
+                .UseAdvancedExtensions()
+                .Build();
         }
 
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -369,42 +376,68 @@ namespace Buddie.Controls
 
         private Border CreateMessageBubble(string message, bool isUser)
         {
-            var messageBlock = new TextBlock
+            FrameworkElement contentElement;
+            
+            if (!isUser && ContainsMarkdown(message))
             {
-                Text = message,
-                Padding = new Thickness(12, 8, 12, 8),
-                TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 300,
-                FontSize = 13,
-                LineHeight = 18
-            };
+                // 对于AI回复，如果包含Markdown内容，使用RichTextBox渲染
+                contentElement = CreateMarkdownRichTextBox(message);
+            }
+            else
+            {
+                // 普通文本使用TextBlock
+                contentElement = new TextBlock
+                {
+                    Text = message,
+                    Padding = new Thickness(12, 8, 12, 8),
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = 300,
+                    FontSize = 13,
+                    LineHeight = 18
+                };
+            }
 
             // 创建气泡样式
             var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
             
             if (isDarkTheme)
             {
-                messageBlock.Foreground = Brushes.White;
-                messageBlock.Background = isUser ? 
-                    new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
-                    new SolidColorBrush(Color.FromRgb(58, 58, 60));
+                if (contentElement is TextBlock textBlock)
+                {
+                    textBlock.Foreground = Brushes.White;
+                    textBlock.Background = isUser ? 
+                        new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
+                        new SolidColorBrush(Color.FromRgb(58, 58, 60));
+                }
+                else if (contentElement is RichTextBox richTextBox)
+                {
+                    richTextBox.Foreground = Brushes.White;
+                    richTextBox.Background = new SolidColorBrush(Color.FromRgb(58, 58, 60));
+                }
             }
             else
             {
-                messageBlock.Foreground = isUser ? Brushes.White : Brushes.Black;
-                messageBlock.Background = isUser ? 
-                    new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
-                    new SolidColorBrush(Color.FromRgb(240, 240, 240));
+                if (contentElement is TextBlock textBlock)
+                {
+                    textBlock.Foreground = isUser ? Brushes.White : Brushes.Black;
+                    textBlock.Background = isUser ? 
+                        new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
+                        new SolidColorBrush(Color.FromRgb(240, 240, 240));
+                }
+                else if (contentElement is RichTextBox richTextBox)
+                {
+                    richTextBox.Foreground = Brushes.Black;
+                    richTextBox.Background = new SolidColorBrush(Color.FromRgb(240, 240, 240));
+                }
             }
 
             // 设置圆角和阴影
             var border = new Border
             {
-                Child = messageBlock,
+                Child = contentElement,
                 CornerRadius = new CornerRadius(18),
                 HorizontalAlignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
                 Margin = isUser ? new Thickness(50, 5, 10, 5) : new Thickness(10, 5, 50, 5),
-                Background = messageBlock.Background,
                 Effect = new System.Windows.Media.Effects.DropShadowEffect
                 {
                     Color = Colors.Black,
@@ -415,9 +448,197 @@ namespace Buddie.Controls
                 }
             };
 
-            messageBlock.Background = Brushes.Transparent;
+            // 设置背景颜色到Border而不是内容元素
+            if (contentElement is TextBlock tb)
+            {
+                border.Background = tb.Background;
+                tb.Background = Brushes.Transparent;
+            }
+            else if (contentElement is RichTextBox rtb)
+            {
+                border.Background = rtb.Background;
+                rtb.Background = Brushes.Transparent;
+                rtb.BorderThickness = new Thickness(0);
+            }
 
             return border;
+        }
+
+        private bool ContainsMarkdown(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            // 检测常见的Markdown语法
+            return text.Contains("**") ||        // 粗体
+                   text.Contains("*") ||         // 斜体
+                   text.Contains("```") ||       // 代码块
+                   text.Contains("`") ||         // 内联代码
+                   text.Contains("# ") ||        // 标题
+                   text.Contains("## ") ||       // 标题
+                   text.Contains("### ") ||      // 标题
+                   text.Contains("- ") ||        // 列表
+                   text.Contains("1. ") ||       // 有序列表
+                   text.Contains("[") && text.Contains("]("); // 链接
+        }
+
+        private RichTextBox CreateMarkdownRichTextBox(string markdownText)
+        {
+            var richTextBox = new RichTextBox
+            {
+                Padding = new Thickness(12, 8, 12, 8),
+                MaxWidth = 320,
+                FontSize = 13,
+                IsReadOnly = true,
+                IsDocumentEnabled = true,
+                BorderThickness = new Thickness(0),
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
+
+            try
+            {
+                // 将Markdown转换为HTML
+                var html = Markdown.ToHtml(markdownText, markdownPipeline);
+                
+                // 将HTML转换为FlowDocument
+                var flowDocument = ConvertHtmlToFlowDocument(html);
+                richTextBox.Document = flowDocument;
+            }
+            catch (Exception)
+            {
+                // 如果转换失败，回退到普通文本
+                var paragraph = new Paragraph(new Run(markdownText));
+                richTextBox.Document = new FlowDocument(paragraph);
+            }
+
+            return richTextBox;
+        }
+
+        private FlowDocument ConvertHtmlToFlowDocument(string html)
+        {
+            var flowDocument = new FlowDocument();
+            var paragraph = new Paragraph();
+
+            // 简单的HTML到FlowDocument转换
+            // 这是一个基本实现，可以根据需要扩展
+            var lines = html.Split('\n');
+            
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+                if (string.IsNullOrEmpty(trimmedLine))
+                    continue;
+
+                if (trimmedLine.StartsWith("<h"))
+                {
+                    // 处理标题
+                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
+                    var headingRun = new Run(text)
+                    {
+                        FontWeight = FontWeights.Bold,
+                        FontSize = 16
+                    };
+                    paragraph.Inlines.Add(headingRun);
+                    paragraph.Inlines.Add(new LineBreak());
+                }
+                else if (trimmedLine.StartsWith("<code>") || trimmedLine.Contains("<code>"))
+                {
+                    // 处理代码
+                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
+                    var codeRun = new Run(text)
+                    {
+                        FontFamily = new FontFamily("Consolas, 'Courier New', monospace"),
+                        Background = new SolidColorBrush(Color.FromRgb(245, 245, 245))
+                    };
+                    paragraph.Inlines.Add(codeRun);
+                }
+                else if (trimmedLine.StartsWith("<pre>"))
+                {
+                    // 处理代码块
+                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
+                    var codeBlockRun = new Run(text)
+                    {
+                        FontFamily = new FontFamily("Consolas, 'Courier New', monospace"),
+                        Background = new SolidColorBrush(Color.FromRgb(245, 245, 245))
+                    };
+                    paragraph.Inlines.Add(codeBlockRun);
+                    paragraph.Inlines.Add(new LineBreak());
+                }
+                else if (trimmedLine.Contains("<strong>") || trimmedLine.Contains("<b>"))
+                {
+                    // 处理粗体文本
+                    ProcessInlineFormatting(paragraph, trimmedLine, "strong", FontWeights.Bold);
+                }
+                else if (trimmedLine.Contains("<em>") || trimmedLine.Contains("<i>"))
+                {
+                    // 处理斜体文本
+                    ProcessInlineFormatting(paragraph, trimmedLine, "em", FontWeights.Normal, FontStyles.Italic);
+                }
+                else if (trimmedLine.StartsWith("<li>"))
+                {
+                    // 处理列表项
+                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
+                    paragraph.Inlines.Add(new Run("• " + text));
+                    paragraph.Inlines.Add(new LineBreak());
+                }
+                else if (trimmedLine.StartsWith("<p>") || !trimmedLine.StartsWith("<"))
+                {
+                    // 处理普通段落
+                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
+                    if (!string.IsNullOrEmpty(text))
+                    {
+                        paragraph.Inlines.Add(new Run(text));
+                        paragraph.Inlines.Add(new LineBreak());
+                    }
+                }
+            }
+
+            if (paragraph.Inlines.Count > 0)
+            {
+                flowDocument.Blocks.Add(paragraph);
+            }
+
+            return flowDocument;
+        }
+
+        private void ProcessInlineFormatting(Paragraph paragraph, string html, string tag, FontWeight fontWeight, FontStyle fontStyle = default)
+        {
+            var pattern = $"<{tag}>(.*?)</{tag}>";
+            var matches = System.Text.RegularExpressions.Regex.Matches(html, pattern);
+            
+            var lastIndex = 0;
+            foreach (System.Text.RegularExpressions.Match match in matches)
+            {
+                // 添加标签前的文本
+                if (match.Index > lastIndex)
+                {
+                    var beforeText = html.Substring(lastIndex, match.Index - lastIndex);
+                    beforeText = System.Text.RegularExpressions.Regex.Replace(beforeText, "<[^>]*>", "");
+                    if (!string.IsNullOrEmpty(beforeText))
+                        paragraph.Inlines.Add(new Run(beforeText));
+                }
+
+                // 添加格式化的文本
+                var formattedRun = new Run(match.Groups[1].Value)
+                {
+                    FontWeight = fontWeight
+                };
+                if (fontStyle != default(FontStyle))
+                    formattedRun.FontStyle = fontStyle;
+                
+                paragraph.Inlines.Add(formattedRun);
+                lastIndex = match.Index + match.Length;
+            }
+
+            // 添加剩余的文本
+            if (lastIndex < html.Length)
+            {
+                var remainingText = html.Substring(lastIndex);
+                remainingText = System.Text.RegularExpressions.Regex.Replace(remainingText, "<[^>]*>", "");
+                if (!string.IsNullOrEmpty(remainingText))
+                    paragraph.Inlines.Add(new Run(remainingText));
+            }
         }
 
         public void AddMessageBubbleWithReasoning(string? content, string? reasoningContent = null)
@@ -971,10 +1192,24 @@ namespace Buddie.Controls
                         currentStreamingBubble.Visibility = Visibility.Collapsed;
                     }
                 }
-                else if (currentStreamingBubble != null)
+                else if (!string.IsNullOrEmpty(finalContent))
                 {
-                    // 确保内容气泡是可见的
-                    currentStreamingBubble.Visibility = Visibility.Visible;
+                    // 有实际内容，需要重新创建支持Markdown的气泡
+                    if (currentStreamingBubble != null && ContainsMarkdown(finalContent))
+                    {
+                        // 移除当前的简单文本气泡
+                        currentStreamingContainer.Children.Remove(currentStreamingBubble);
+                        
+                        // 创建新的Markdown气泡并添加到容器
+                        var markdownBubble = CreateMessageBubble(finalContent, false);
+                        markdownBubble.Margin = new Thickness(0);
+                        currentStreamingContainer.Children.Add(markdownBubble);
+                    }
+                    else if (currentStreamingBubble != null)
+                    {
+                        // 确保普通文本气泡是可见的
+                        currentStreamingBubble.Visibility = Visibility.Visible;
+                    }
                 }
                 
                 // 确保思维过程在最终完成时是折叠的
@@ -990,6 +1225,9 @@ namespace Buddie.Controls
                 currentReasoningExpander = null;
                 currentReasoningTextBlock = null;
                 isReasoningPhase = true;
+                
+                // 滚动到底部显示完整内容
+                DialogScrollViewer.ScrollToEnd();
             }
         }
     }
