@@ -1310,7 +1310,7 @@ namespace Buddie.Controls
             var button = sender as Button;
             var messageText = button?.Tag as string;
             
-            if (string.IsNullOrEmpty(messageText))
+            if (string.IsNullOrEmpty(messageText) || button == null)
                 return;
 
             var appSettings = DataContext as AppSettings;
@@ -1345,7 +1345,7 @@ namespace Buddie.Controls
             var button = sender as Button;
             var messageText = button?.Tag as string;
             
-            if (string.IsNullOrEmpty(messageText))
+            if (string.IsNullOrEmpty(messageText) || button == null)
                 return;
 
             try
