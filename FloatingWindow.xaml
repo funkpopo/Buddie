@@ -5,7 +5,7 @@
         xmlns:controls="clr-namespace:Buddie.Controls"
         Title="Buddie"
         Width="500"
-        Height="1000"
+        Height="860"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
