@@ -35,6 +35,7 @@
     <local:InvertedBooleanToVisibilityConverter x:Key="InvertedBooleanToVisibilityConverter"/>
     <local:BooleanToYesNoConverter x:Key="BooleanToYesNoConverter"/>
     <local:BooleanToColorConverter x:Key="BooleanToColorConverter"/>
+    <local:ChannelTypeToNameConverter x:Key="ChannelTypeToNameConverter"/>
     
     <!-- 通用按钮样式 -->
     <Style x:Key="RoundedButtonStyle" TargetType="Button">
@@ -178,6 +179,143 @@
                 Value="Black"/>
         <Setter Property="FontWeight"
                 Value="Normal"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                <Setter Property="Foreground" Value="White"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 多行文本框样式 -->
+    <Style x:Key="MultilineTextBoxStyle" TargetType="TextBox">
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="Foreground" Value="Black"/>
+        <Setter Property="BorderBrush" Value="#CED4DA"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
+                                      HorizontalScrollBarVisibility="Disabled"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                <Setter Property="Background" Value="#2D2D30"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="BorderBrush" Value="#3F3F46"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 美观的Toggle开关样式 -->
+    <Style x:Key="ToggleSwitchStyle" TargetType="CheckBox">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Toggle Switch -->
+                        <Border x:Name="SwitchTrack"
+                                Grid.Column="0"
+                                Width="48"
+                                Height="24"
+                                Background="#E0E0E0"
+                                CornerRadius="12"
+                                BorderThickness="1"
+                                BorderBrush="#CCCCCC">
+                            <Canvas>
+                                <Ellipse x:Name="SwitchThumb"
+                                         Width="20"
+                                         Height="20"
+                                         Canvas.Left="2"
+                                         Canvas.Top="2"
+                                         Fill="White"
+                                         Stroke="#CCCCCC"
+                                         StrokeThickness="1">
+                                    <Ellipse.RenderTransform>
+                                        <TranslateTransform x:Name="ThumbTransform" X="0"/>
+                                    </Ellipse.RenderTransform>
+                                </Ellipse>
+                            </Canvas>
+                        </Border>
+                        
+                        <!-- Content -->
+                        <ContentPresenter Grid.Column="2"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"/>
+                    </Grid>
+                    
+                    <ControlTemplate.Triggers>
+                        <!-- Checked State -->
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="SwitchTrack" Property="Background" Value="#4CAF50"/>
+                            <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#4CAF50"/>
+                            <Setter TargetName="SwitchThumb" Property="Stroke" Value="#4CAF50"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ThumbTransform"
+                                                         Storyboard.TargetProperty="X"
+                                                         To="24"
+                                                         Duration="0:0:0.2"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ThumbTransform"
+                                                         Storyboard.TargetProperty="X"
+                                                         To="0"
+                                                         Duration="0:0:0.2"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        
+                        <!-- Mouse Over -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="SwitchThumb" Property="Fill" Value="#F5F5F5"/>
+                        </Trigger>
+                        
+                        <!-- Dark Theme -->
+                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                            <Setter TargetName="SwitchTrack" Property="Background" Value="#555555"/>
+                            <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#777777"/>
+                            <Setter TargetName="SwitchThumb" Property="Fill" Value="#DDDDDD"/>
+                            <Setter TargetName="SwitchThumb" Property="Stroke" Value="#777777"/>
+                        </DataTrigger>
+                        
+                        <!-- Dark Theme + Checked -->
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                <Condition Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter TargetName="SwitchTrack" Property="Background" Value="#66BB6A"/>
+                            <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#66BB6A"/>
+                            <Setter TargetName="SwitchThumb" Property="Stroke" Value="#66BB6A"/>
+                        </MultiDataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Foreground" Value="#495057"/>
+        <Setter Property="FontWeight" Value="Medium"/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
                 <Setter Property="Foreground" Value="White"/>

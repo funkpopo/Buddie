@@ -71,4 +71,22 @@ namespace Buddie
             throw new NotImplementedException();
         }
     }
+
+    public class ChannelTypeToNameConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is ChannelType channelType)
+            {
+                var channel = PresetChannels.GetPresetChannel(channelType);
+                return channel.Name;
+            }
+            return "未知渠道";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

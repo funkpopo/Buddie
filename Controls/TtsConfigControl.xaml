@@ -129,8 +129,13 @@
                                     <TextBox Grid.Row="1" Grid.Column="1"
                                              Text="{Binding ApiUrl, Mode=TwoWay}"
                                              Margin="0,0,10,8"
-                                             Style="{StaticResource RoundedTextBoxStyle}"
+                                             Style="{StaticResource MultilineTextBoxStyle}"
                                              Padding="10,8"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="60"
+                                             MaxHeight="120"
+                                             VerticalScrollBarVisibility="Auto"
                                              GotFocus="TextBox_GotFocus"/>
                                     
                                     <!-- API Key -->
@@ -150,12 +155,17 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <PasswordBox Grid.Row="2" Grid.Column="1"
-                                                 x:Name="TtsApiKeyBox"
-                                                 Margin="0,0,10,8"
-                                                 Style="{StaticResource RoundedPasswordBoxStyle}"
-                                                 Padding="10,8"
-                                                 PasswordChanged="TtsApiKeyBox_PasswordChanged"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1"
+                                             Text="{Binding ApiKey, Mode=TwoWay}"
+                                             Margin="0,0,10,8"
+                                             Style="{StaticResource MultilineTextBoxStyle}"
+                                             Padding="10,8"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="60"
+                                             MaxHeight="120"
+                                             VerticalScrollBarVisibility="Auto"
+                                             GotFocus="TextBox_GotFocus"/>
                                     
                                     <!-- Model -->
                                     <TextBlock Grid.Row="3" Grid.Column="0"

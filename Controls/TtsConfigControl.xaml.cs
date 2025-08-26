@@ -134,15 +134,6 @@ namespace Buddie.Controls
             }
         }
 
-        private void TtsApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
-        {
-            var passwordBox = sender as PasswordBox;
-            if (passwordBox?.DataContext is OpenAiTtsConfiguration config)
-            {
-                config.ApiKey = passwordBox.Password;
-            }
-        }
-
         private void TtsEditSpeedSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             // 这个方法主要用于实时更新显示的速度值，数据绑定会自动处理实际值的更新

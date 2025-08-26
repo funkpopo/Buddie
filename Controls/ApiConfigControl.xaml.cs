@@ -25,6 +25,12 @@ namespace Buddie.Controls
         public ApiConfigControl()
         {
             InitializeComponent();
+            InitializeChannelTypeComboBox();
+        }
+
+        private void InitializeChannelTypeComboBox()
+        {
+            // This will be handled in the Loaded event of each ComboBox instance
         }
 
         public void Initialize(ObservableCollection<OpenApiConfiguration> configurations)
@@ -52,9 +58,11 @@ namespace Buddie.Controls
             {
                 Name = $"配置 {configurations.Count + 1}",
                 ApiUrl = "https://api.openai.com/v1/chat/completions",
-                ModelName = "gpt-3.5-turbo",
+                ModelName = "", // 空的模型名称，让用户手动填写
                 IsStreamingEnabled = true,
                 IsMultimodalEnabled = false,
+                SupportsThinking = false,
+                ChannelType = ChannelType.OpenAI,
                 IsEditMode = true,
                 IsSaved = false
             };
@@ -141,15 +149,6 @@ namespace Buddie.Controls
                         ConfigurationRemoved?.Invoke(this, config);
                     }
                 }
-            }
-        }
-
-        private void ApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
-        {
-            var passwordBox = sender as PasswordBox;
-            if (passwordBox?.DataContext is OpenApiConfiguration config)
-            {
-                config.ApiKey = passwordBox.Password;
             }
         }
 
@@ -309,6 +308,60 @@ namespace Buddie.Controls
             testCancellationTokens.Clear();
             
             httpClient?.Dispose();
+        }
+
+        private void ChannelTypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var comboBox = sender as ComboBox;
+            if (comboBox?.SelectedItem is not ComboBoxItem selectedItem)
+                return;
+                
+            var selectedChannel = selectedItem.Tag as PresetChannel;
+            if (selectedChannel == null || comboBox.DataContext is not OpenApiConfiguration config)
+                return;
+
+            config.ChannelType = selectedChannel.ChannelType;
+            
+            if (selectedChannel.ChannelType != ChannelType.Custom)
+            {
+                config.ApiUrl = selectedChannel.DefaultApiUrl;
+                config.IsStreamingEnabled = selectedChannel.SupportsStreaming;
+                config.IsMultimodalEnabled = selectedChannel.SupportsMultimodal;
+                config.SupportsThinking = selectedChannel.SupportsThinking;
+                
+                // 不填充模型名称，让用户手动输入
+            }
+        }
+
+        private void ChannelTypeComboBox_Loaded(object sender, RoutedEventArgs e)
+        {
+            var comboBox = sender as ComboBox;
+            if (comboBox != null)
+            {
+                // Initialize ComboBox items
+                comboBox.Items.Clear();
+                var channels = PresetChannels.GetPresetChannels();
+                foreach (var channel in channels)
+                {
+                    var comboBoxItem = new ComboBoxItem
+                    {
+                        Content = channel.Name,
+                        Tag = channel
+                    };
+                    comboBox.Items.Add(comboBoxItem);
+                }
+
+                // Set selected item based on current ChannelType
+                if (comboBox.DataContext is OpenApiConfiguration config)
+                {
+                    var selectedChannel = channels.FirstOrDefault(c => c.ChannelType == config.ChannelType);
+                    if (selectedChannel != null)
+                    {
+                        var item = comboBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (i.Tag as PresetChannel)?.ChannelType == selectedChannel.ChannelType);
+                        comboBox.SelectedItem = item;
+                    }
+                }
+            }
         }
     }
 }
