@@ -381,35 +381,49 @@ namespace Buddie
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("Starting to load settings from database...");
+                
                 // Load app settings
                 var dbAppSettings = await _databaseService.GetAppSettingsAsync();
                 if (dbAppSettings != null)
                 {
+                    System.Diagnostics.Debug.WriteLine($"Loaded app settings: Topmost={dbAppSettings.IsTopmost}, DarkTheme={dbAppSettings.IsDarkTheme}");
                     IsTopmost = dbAppSettings.IsTopmost;
                     ShowInTaskbar = dbAppSettings.ShowInTaskbar;
                     EnableAnimation = dbAppSettings.EnableAnimation;
                     IsDarkTheme = dbAppSettings.IsDarkTheme;
                 }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("No app settings found in database");
+                }
 
                 // Load API configurations
                 var dbApiConfigs = await _databaseService.GetApiConfigurationsAsync();
+                System.Diagnostics.Debug.WriteLine($"Found {dbApiConfigs.Count} API configurations in database");
                 ApiConfigurations.Clear();
                 foreach (var dbConfig in dbApiConfigs)
                 {
                     ApiConfigurations.Add(OpenApiConfiguration.FromDbModel(dbConfig));
+                    System.Diagnostics.Debug.WriteLine($"Loaded API config: {dbConfig.Name} - {dbConfig.ModelName}");
                 }
 
                 // Load TTS configurations
                 var dbTtsConfigs = await _databaseService.GetTtsConfigurationsAsync();
+                System.Diagnostics.Debug.WriteLine($"Found {dbTtsConfigs.Count} TTS configurations in database");
                 TtsConfigurations.Clear();
                 foreach (var dbConfig in dbTtsConfigs)
                 {
                     TtsConfigurations.Add(OpenAiTtsConfiguration.FromDbModel(dbConfig));
+                    System.Diagnostics.Debug.WriteLine($"Loaded TTS config: {dbConfig.Name}");
                 }
+                
+                System.Diagnostics.Debug.WriteLine("Successfully loaded settings from database");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to load settings from database: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
 
@@ -418,6 +432,8 @@ namespace Buddie
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("Starting to save settings to database...");
+                
                 // Save app settings
                 var dbAppSettings = new DbAppSettings
                 {
@@ -428,30 +444,48 @@ namespace Buddie
                     IsDarkTheme = IsDarkTheme
                 };
                 await _databaseService.SaveAppSettingsAsync(dbAppSettings);
+                System.Diagnostics.Debug.WriteLine("App settings saved to database");
 
                 // Save API configurations
+                System.Diagnostics.Debug.WriteLine($"Saving {ApiConfigurations.Count} API configurations...");
                 foreach (var config in ApiConfigurations)
                 {
-                    if (config.IsSaved && config.Id > 0)
+                    if (config.IsSaved) // Remove the Id > 0 condition to allow new configurations
                     {
                         var dbConfig = config.ToDbModel();
-                        await _databaseService.SaveApiConfigurationAsync(dbConfig);
+                        var savedId = await _databaseService.SaveApiConfigurationAsync(dbConfig);
+                        config.Id = savedId; // Update the configuration with the new ID
+                        System.Diagnostics.Debug.WriteLine($"Saved API config: {config.Name} with ID {savedId}");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Skipped API config: {config.Name} (not marked as saved)");
                     }
                 }
 
                 // Save TTS configurations
+                System.Diagnostics.Debug.WriteLine($"Saving {TtsConfigurations.Count} TTS configurations...");
                 foreach (var config in TtsConfigurations)
                 {
-                    if (config.IsSaved && config.Id > 0)
+                    if (config.IsSaved) // Remove the Id > 0 condition to allow new configurations
                     {
                         var dbConfig = config.ToDbModel();
-                        await _databaseService.SaveTtsConfigurationAsync(dbConfig);
+                        var savedId = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
+                        config.Id = savedId; // Update the configuration with the new ID
+                        System.Diagnostics.Debug.WriteLine($"Saved TTS config: {config.Name} with ID {savedId}");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Skipped TTS config: {config.Name} (not marked as saved)");
                     }
                 }
+                
+                System.Diagnostics.Debug.WriteLine("Successfully saved all settings to database");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to save settings to database: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
 
@@ -460,14 +494,17 @@ namespace Buddie
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"Saving individual API configuration: {config.Name} (ID: {config.Id})");
                 var dbConfig = config.ToDbModel();
                 var id = await _databaseService.SaveApiConfigurationAsync(dbConfig);
                 config.Id = id;
                 config.IsSaved = true;
+                System.Diagnostics.Debug.WriteLine($"Successfully saved API configuration: {config.Name} with new ID: {id}");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to save API configuration: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 throw;
             }
         }
@@ -477,14 +514,17 @@ namespace Buddie
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"Saving individual TTS configuration: {config.Name} (ID: {config.Id})");
                 var dbConfig = config.ToDbModel();
                 var id = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
                 config.Id = id;
                 config.IsSaved = true;
+                System.Diagnostics.Debug.WriteLine($"Successfully saved TTS configuration: {config.Name} with new ID: {id}");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to save TTS configuration: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 throw;
             }
         }

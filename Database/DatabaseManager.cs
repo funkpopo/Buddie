@@ -202,6 +202,8 @@ namespace Buddie.Database
             using var checkCommand = connection.CreateCommand();
             checkCommand.CommandText = "SELECT COUNT(*) FROM AppSettings";
             var count = Convert.ToInt32(checkCommand.ExecuteScalar());
+            
+            Debug.WriteLine($"Found {count} app settings records in database");
 
             if (count == 0)
             {
@@ -211,6 +213,11 @@ namespace Buddie.Database
                     INSERT INTO AppSettings (IsTopmost, ShowInTaskbar, EnableAnimation, IsDarkTheme, UpdatedAt)
                     VALUES (1, 1, 1, 0, datetime('now'))";
                 insertCommand.ExecuteNonQuery();
+                Debug.WriteLine("Inserted default app settings into database");
+            }
+            else
+            {
+                Debug.WriteLine("App settings already exist, skipping default initialization");
             }
         }
 
