@@ -259,14 +259,19 @@
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
+                        <!-- 深色主题基础样式 -->
+                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                            <Setter TargetName="ToggleBackground" Property="Background" Value="#3F3F46"/>
+                            <Setter TargetName="ToggleButton" Property="Fill" Value="#CCCCCC"/>
+                        </DataTrigger>
+                        
+                        <!-- 浅色主题选中状态 -->
                         <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="ToggleBackground" Property="Background" Value="#10B981"/>
+                            <Setter TargetName="ToggleButton" Property="Fill" Value="White"/>
                             <Trigger.EnterActions>
                                 <BeginStoryboard>
                                     <Storyboard>
-                                        <ColorAnimation Storyboard.TargetName="ToggleBackground"
-                                                        Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                                        To="#10B981"
-                                                        Duration="0:0:0.2"/>
                                         <DoubleAnimation Storyboard.TargetName="ToggleTransform"
                                                          Storyboard.TargetProperty="X"
                                                          To="20"
@@ -281,10 +286,6 @@
                             <Trigger.ExitActions>
                                 <BeginStoryboard>
                                     <Storyboard>
-                                        <ColorAnimation Storyboard.TargetName="ToggleBackground"
-                                                        Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                                        To="#E4E4E7"
-                                                        Duration="0:0:0.2"/>
                                         <DoubleAnimation Storyboard.TargetName="ToggleTransform"
                                                          Storyboard.TargetProperty="X"
                                                          To="0"
@@ -297,6 +298,17 @@
                                 </BeginStoryboard>
                             </Trigger.ExitActions>
                         </Trigger>
+                        
+                        <!-- 深色主题下选中状态覆盖 -->
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                <Condition Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter TargetName="ToggleBackground" Property="Background" Value="#059669"/>
+                            <Setter TargetName="ToggleButton" Property="Fill" Value="White"/>
+                        </MultiDataTrigger>
+                        
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="ToggleBackground" Property="Opacity" Value="0.8"/>
                         </Trigger>
