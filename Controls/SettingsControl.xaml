@@ -106,13 +106,22 @@
     <Border x:Name="SettingsInterface"
             Width="460"
             Height="700"
-            Background="White"
             CornerRadius="10"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
             Margin="0,0,38,160"
             Effect="{StaticResource CardShadow}"
             Visibility="Collapsed">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="Background" Value="White"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                        <Setter Property="Background" Value="#1E1E1E"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="40"/>
@@ -120,17 +129,36 @@
             </Grid.RowDefinitions>
             <!-- 设置界面标题栏 -->
             <Border Grid.Row="0"
-                    Background="#F0F0F0"
                     CornerRadius="10,10,0,0"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
                     Cursor="Hand">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#F0F0F0"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                <Setter Property="Background" Value="#333333"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Grid>
                     <TextBlock Text="设置"
-                               Foreground="Black"
                                VerticalAlignment="Center"
                                HorizontalAlignment="Left"
                                Margin="15,0,0,0"
-                               FontWeight="Bold"/>
+                               FontWeight="Bold">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="Black"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                     <Button Content="×"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
@@ -138,12 +166,22 @@
                             Height="20"
                             Margin="0,0,10,0"
                             Background="Transparent"
-                            Foreground="Black"
                             BorderThickness="0"
                             FontSize="14"
                             FontWeight="Bold"
                             Click="CloseSettings_Click"
-                            Cursor="Hand"/>
+                            Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Foreground" Value="Black"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </Grid>
             </Border>
             <!-- 设置内容区域 -->
@@ -161,8 +199,18 @@
                             <TextBlock Text="外观设置"
                                        FontWeight="Bold"
                                        Margin="0,0,0,15"
-                                       Foreground="Black"
-                                       FontSize="14"/>
+                                       FontSize="14">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="Black"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                <Setter Property="Foreground" Value="White"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                             
                             <Grid Margin="0,10">
                                 <Grid.ColumnDefinitions>
@@ -170,8 +218,30 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="始终置顶" FontWeight="Medium" Foreground="Black"/>
-                                    <TextBlock Text="窗口始终保持在其他窗口之上" FontSize="11" Foreground="Gray" Margin="0,2,0,0" x:Name="TopMostDescription"/>
+                                    <TextBlock Text="始终置顶" FontWeight="Medium">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="Black"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="窗口始终保持在其他窗口之上" FontSize="11" Margin="0,2,0,0" x:Name="TopMostDescription">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="Gray"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                        <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </StackPanel>
                                 <CheckBox x:Name="TopMostCheckBox"
                                           Grid.Column="1"
@@ -181,7 +251,18 @@
                                           Unchecked="TopMostCheckBox_Changed"/>
                             </Grid>
                             
-                            <Separator Margin="0,8" Background="#E0E0E0"/>
+                            <Separator Margin="0,8">
+                                <Separator.Style>
+                                    <Style TargetType="Separator">
+                                        <Setter Property="Background" Value="#E0E0E0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                <Setter Property="Background" Value="#404040"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Separator.Style>
+                            </Separator>
                             
                             <Grid Margin="0,10">
                                 <Grid.ColumnDefinitions>
@@ -189,8 +270,30 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="在任务栏显示" FontWeight="Medium" Foreground="Black"/>
-                                    <TextBlock Text="在Windows任务栏中显示应用图标" FontSize="11" Foreground="Gray" Margin="0,2,0,0" x:Name="TaskbarDescription"/>
+                                    <TextBlock Text="在任务栏显示" FontWeight="Medium">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="Black"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="在Windows任务栏中显示应用图标" FontSize="11" Margin="0,2,0,0" x:Name="TaskbarDescription">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="Gray"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                        <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </StackPanel>
                                 <CheckBox x:Name="ShowInTaskbarCheckBox"
                                           Grid.Column="1"
@@ -200,7 +303,18 @@
                                           Unchecked="ShowInTaskbarCheckBox_Changed"/>
                             </Grid>
                             
-                            <Separator Margin="0,8" Background="#E0E0E0"/>
+                            <Separator Margin="0,8">
+                                <Separator.Style>
+                                    <Style TargetType="Separator">
+                                        <Setter Property="Background" Value="#E0E0E0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                <Setter Property="Background" Value="#404040"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Separator.Style>
+                            </Separator>
                             
                             <Grid Margin="0,10">
                                 <Grid.ColumnDefinitions>
@@ -208,8 +322,30 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="夜间模式" FontWeight="Medium" Foreground="Black"/>
-                                    <TextBlock Text="启用深色主题界面" FontSize="11" Foreground="Gray" Margin="0,2,0,0" x:Name="DarkModeDescription"/>
+                                    <TextBlock Text="夜间模式" FontWeight="Medium">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="Black"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="启用深色主题界面" FontSize="11" Margin="0,2,0,0" x:Name="DarkModeDescription">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="Gray"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                        <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </StackPanel>
                                 <CheckBox x:Name="DarkThemeCheckBox"
                                           Grid.Column="1"
@@ -219,12 +355,33 @@
                                           Unchecked="DarkThemeCheckBox_Changed"/>
                             </Grid>
                             
-                            <Separator Margin="0,15" Background="#E0E0E0"/>
+                            <Separator Margin="0,15">
+                                <Separator.Style>
+                                    <Style TargetType="Separator">
+                                        <Setter Property="Background" Value="#E0E0E0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                <Setter Property="Background" Value="#404040"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Separator.Style>
+                            </Separator>
                             <TextBlock Text="其他设置"
                                        FontWeight="Bold"
                                        Margin="0,0,0,10"
-                                       Foreground="Black"
-                                       FontSize="14"/>
+                                       FontSize="14">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="Black"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                <Setter Property="Foreground" Value="White"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                             <Button Content="重置所有设置"
                                     Background="#FF6B6B"
                                     Foreground="White"

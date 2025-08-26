@@ -115,6 +115,7 @@ namespace Buddie
             };
             
             // 初始化对话控件
+            DialogControl.DataContext = appSettings;
             DialogControl.MessageSent += async (s, message) => {
                 if (currentCardIndex < cards.Count && cards[currentCardIndex].ApiConfiguration != null)
                 {
@@ -437,7 +438,6 @@ namespace Buddie
             }
             
             // 应用主题到子控件
-            DialogControl.ApplyTheme(isDarkTheme);
             SettingsControl.ApplyTheme(isDarkTheme);
         }
 

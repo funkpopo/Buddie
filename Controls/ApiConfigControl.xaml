@@ -21,8 +21,18 @@
                        FontWeight="Bold"
                        FontSize="16"
                        Margin="0,0,0,15"
-                       Foreground="Black"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="Black"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
             <Button Grid.Column="1"
                     Content="+ 添加配置"
                     Background="#28A745"
@@ -50,13 +60,23 @@
         <ItemsControl x:Name="ApiConfigList">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border Background="White"
-                            CornerRadius="12"
+                    <Border CornerRadius="12"
                             Margin="0,8"
                             Padding="20"
-                            BorderBrush="#E0E6ED"
                             BorderThickness="1"
                             Effect="{StaticResource CardShadow}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="White"/>
+                                <Setter Property="BorderBrush" Value="#E0E6ED"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                        <Setter Property="Background" Value="#2D2D30"/>
+                                        <Setter Property="BorderBrush" Value="#3F3F46"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <!-- 编辑模式和显示模式 -->
                         <Grid>
                             <!-- 编辑模式 -->
@@ -81,15 +101,22 @@
                                                Text="配置名称:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
-                                               VerticalAlignment="Center"
-                                               Foreground="#495057"/>
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#495057"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                        <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <TextBox Grid.Row="0" Grid.Column="1"
                                              Text="{Binding Name, Mode=TwoWay}"
                                              Margin="0,0,10,8"
                                              Style="{StaticResource RoundedTextBoxStyle}"
-                                             Background="#F8F9FA"
-                                             BorderBrush="#DEE2E6"
-                                             BorderThickness="1"
                                              Padding="10,8"
                                              GotFocus="TextBox_GotFocus"/>
                                     
@@ -98,15 +125,22 @@
                                                Text="API URL:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
-                                               VerticalAlignment="Center"
-                                               Foreground="#495057"/>
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#495057"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                        <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <TextBox Grid.Row="1" Grid.Column="1"
                                              Text="{Binding ApiUrl, Mode=TwoWay}"
                                              Margin="0,0,10,8"
                                              Style="{StaticResource RoundedTextBoxStyle}"
-                                             Background="#F8F9FA"
-                                             BorderBrush="#DEE2E6"
-                                             BorderThickness="1"
                                              Padding="10,8"
                                              GotFocus="TextBox_GotFocus"/>
                                     
@@ -115,15 +149,22 @@
                                                Text="API Key:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
-                                               VerticalAlignment="Center"
-                                               Foreground="#495057"/>
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#495057"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                        <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <PasswordBox Grid.Row="2" Grid.Column="1"
                                                  x:Name="ApiKeyBox"
                                                  Margin="0,0,10,8"
                                                  Style="{StaticResource RoundedPasswordBoxStyle}"
-                                                 Background="#F8F9FA"
-                                                 BorderBrush="#DEE2E6"
-                                                 BorderThickness="1"
                                                  Padding="10,8"
                                                  PasswordChanged="ApiKeyBox_PasswordChanged"/>
                                     
@@ -132,15 +173,22 @@
                                                Text="模型名称:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
-                                               VerticalAlignment="Center"
-                                               Foreground="#495057"/>
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#495057"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                        <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <TextBox Grid.Row="3" Grid.Column="1"
                                              Text="{Binding ModelName, Mode=TwoWay}"
                                              Margin="0,0,10,8"
                                              Style="{StaticResource RoundedTextBoxStyle}"
-                                             Background="#F8F9FA"
-                                             BorderBrush="#DEE2E6"
-                                             BorderThickness="1"
                                              Padding="10,8"
                                              GotFocus="TextBox_GotFocus"/>
                                     
@@ -151,12 +199,32 @@
                                         <CheckBox Content="启用流式输出"
                                                   IsChecked="{Binding IsStreamingEnabled, Mode=TwoWay}"
                                                   Margin="0,0,25,0"
-                                                  Foreground="#495057"
-                                                  FontWeight="Medium"/>
+                                                  FontWeight="Medium">
+                                            <CheckBox.Style>
+                                                <Style TargetType="CheckBox">
+                                                    <Setter Property="Foreground" Value="#495057"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="White"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </CheckBox.Style>
+                                        </CheckBox>
                                         <CheckBox Content="启用多模态"
                                                   IsChecked="{Binding IsMultimodalEnabled, Mode=TwoWay}"
-                                                  Foreground="#495057"
-                                                  FontWeight="Medium"/>
+                                                  FontWeight="Medium">
+                                            <CheckBox.Style>
+                                                <Style TargetType="CheckBox">
+                                                    <Setter Property="Foreground" Value="#495057"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="White"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </CheckBox.Style>
+                                        </CheckBox>
                                     </StackPanel>
                                     
                                     <!-- 操作按钮 -->
@@ -207,18 +275,48 @@
                                                Text="{Binding Name}"
                                                FontWeight="Bold"
                                                FontSize="18"
-                                               Foreground="#212529"
-                                               Margin="0,0,0,8"/>
+                                               Margin="0,0,0,8">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#212529"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     
                                     <!-- API URL -->
                                     <StackPanel Grid.Row="1" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,8">
                                         <TextBlock Text="API URL: "
-                                                   FontWeight="Bold"
-                                                   Foreground="#6C757D"/>
-                                        <TextBlock Text="{Binding ApiUrl}"
-                                                   Foreground="#495057"/>
+                                                   FontWeight="Bold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#6C757D"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding ApiUrl}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#495057"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                     </StackPanel>
                                     
                                     <!-- 模型名称 -->
@@ -226,10 +324,30 @@
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,8">
                                         <TextBlock Text="模型: "
-                                                   FontWeight="Bold"
-                                                   Foreground="#6C757D"/>
-                                        <TextBlock Text="{Binding ModelName}"
-                                                   Foreground="#495057"/>
+                                                   FontWeight="Bold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#6C757D"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding ModelName}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#495057"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                     </StackPanel>
                                     
                                     <!-- 多模态状态 -->
@@ -237,8 +355,18 @@
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,15">
                                         <TextBlock Text="多模态: "
-                                                   FontWeight="Bold"
-                                                   Foreground="#6C757D"/>
+                                                   FontWeight="Bold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#6C757D"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <TextBlock Text="{Binding IsMultimodalEnabled, Converter={StaticResource BooleanToYesNoConverter}}"
                                                    Foreground="{Binding IsMultimodalEnabled, Converter={StaticResource BooleanToColorConverter}}"/>
                                     </StackPanel>
@@ -248,8 +376,18 @@
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,15">
                                         <TextBlock Text="测试状态: "
-                                                   FontWeight="Bold"
-                                                   Foreground="#6C757D"/>
+                                                   FontWeight="Bold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#6C757D"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <Border CornerRadius="3"
                                                 Padding="6,2"
                                                 Margin="5,0,0,0">
@@ -298,8 +436,18 @@
                                                 </TextBlock>
                                                 <TextBlock Text="{Binding TestMessage}"
                                                            Margin="5,0,0,0"
-                                                           FontSize="11"
-                                                           Foreground="#495057"/>
+                                                           FontSize="11">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#495057"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -355,13 +503,23 @@
         
         <!-- 当没有配置时显示的提示 -->
         <Border x:Name="NoConfigMessage"
-                Background="#F8F9FA"
                 CornerRadius="8"
                 Padding="30,20"
                 Margin="0,10"
-                BorderBrush="#DEE2E6"
                 BorderThickness="1"
                 Visibility="Visible">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Background" Value="#F8F9FA"/>
+                    <Setter Property="BorderBrush" Value="#DEE2E6"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                            <Setter Property="Background" Value="#2D2D30"/>
+                            <Setter Property="BorderBrush" Value="#3F3F46"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <StackPanel HorizontalAlignment="Center">
                 <TextBlock Text="🔧"
                            FontSize="32"
@@ -370,13 +528,33 @@
                 <TextBlock Text="暂无API配置"
                            FontWeight="Bold"
                            FontSize="16"
-                           Foreground="#6C757D"
                            HorizontalAlignment="Center"
-                           Margin="0,0,0,5"/>
+                           Margin="0,0,0,5">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#6C757D"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                    <Setter Property="Foreground" Value="#AAAAAA"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
                 <TextBlock Text="点击右上角【添加配置】按钮来添加第一个配置"
-                           Foreground="#6C757D"
                            HorizontalAlignment="Center"
-                           TextWrapping="Wrap"/>
+                           TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#6C757D"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                    <Setter Property="Foreground" Value="#AAAAAA"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
             </StackPanel>
         </Border>
     </StackPanel>

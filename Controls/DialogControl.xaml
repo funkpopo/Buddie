@@ -15,13 +15,22 @@
     <Border x:Name="DialogInterface"
             Width="460"
             Height="700"
-            Background="White"
             CornerRadius="10"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
             Margin="0,0,38,160"
             Effect="{StaticResource CardShadow}"
             Visibility="Collapsed">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="Background" Value="White"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                        <Setter Property="Background" Value="#1E1E1E"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="40"/>
@@ -30,10 +39,19 @@
             </Grid.RowDefinitions>
             <!-- 对话界面标题栏 -->
             <Border Grid.Row="0"
-                    Background="#F0F0F0"
                     CornerRadius="10,10,0,0"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
                     Cursor="Hand">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#F0F0F0"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                <Setter Property="Background" Value="#333333"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Grid>
                     <StackPanel Orientation="Horizontal"
                                 HorizontalAlignment="Left"
@@ -46,14 +64,34 @@
                                 Background="Transparent"
                                 BorderThickness="0"
                                 FontSize="12"
-                                Foreground="#666666"
                                 Cursor="Hand"
                                 Click="SidebarButton_Click"
-                                Margin="0,0,10,0"/>
+                                Margin="0,0,10,0">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Foreground" Value="#666666"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                         <TextBlock Text="对话"
-                                   Foreground="Black"
                                    VerticalAlignment="Center"
-                                   FontWeight="Bold"/>
+                                   FontWeight="Bold">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="Black"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                     <Button Content="×"
                             HorizontalAlignment="Right"
@@ -62,12 +100,22 @@
                             Height="20"
                             Margin="0,0,10,0"
                             Background="Transparent"
-                            Foreground="Black"
                             BorderThickness="0"
                             FontSize="14"
                             FontWeight="Bold"
                             Click="CloseDialog_Click"
-                            Cursor="Hand"/>
+                            Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Foreground" Value="Black"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </Grid>
             </Border>
             <!-- 对话内容区域 -->
@@ -80,10 +128,20 @@
                 <!-- 侧边栏 -->
                 <Border x:Name="SidebarPanel" 
                         Grid.Column="0" 
-                        Background="#FAFBFC" 
-                        BorderBrush="#E1E4E8" 
                         BorderThickness="0,0,1,0"
                         Visibility="Collapsed">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#FAFBFC"/>
+                            <Setter Property="BorderBrush" Value="#E1E4E8"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                    <Setter Property="Background" Value="#252526"/>
+                                    <Setter Property="BorderBrush" Value="#3F3F46"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="40"/>
@@ -92,24 +150,64 @@
                         
                         <!-- 标题区域 -->
                         <Border Grid.Row="0" 
-                                Background="#F6F8FA"
-                                BorderBrush="#E1E4E8"
                                 BorderThickness="0,0,0,1">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#F6F8FA"/>
+                                    <Setter Property="BorderBrush" Value="#E1E4E8"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                            <Setter Property="Background" Value="#1E1E1E"/>
+                                            <Setter Property="BorderBrush" Value="#3F3F46"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
                             <StackPanel Orientation="Horizontal" 
                                         VerticalAlignment="Center" 
                                         Margin="12,8">
                                 <Ellipse Width="8" Height="8" 
-                                         Fill="#28A745" 
-                                         Margin="0,0,8,0"/>
+                                         Margin="0,0,8,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#28A745"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                    <Setter Property="Fill" Value="#4CAF50"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
                                 <TextBlock Text="对话历史" 
                                            FontWeight="SemiBold" 
-                                           FontSize="13"
-                                           Foreground="#24292E"/>
+                                           FontSize="13">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#24292E"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                                 <TextBlock x:Name="HistoryCountLabel"
                                            Text="(0)" 
                                            FontSize="11"
-                                           Foreground="#6A737D"
-                                           Margin="4,0,0,0"/>
+                                           Margin="4,0,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#6A737D"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                    <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </StackPanel>
                         </Border>
                         
@@ -144,11 +242,21 @@
                     <ColumnDefinition Width="80"/>
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0"
-                        Background="#F8F8F8"
-                        BorderBrush="#CCCCCC"
                         BorderThickness="1"
                         CornerRadius="10"
                         Margin="0,0,10,0">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#F8F8F8"/>
+                            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                    <Setter Property="Background" Value="#1E1E1E"/>
+                                    <Setter Property="BorderBrush" Value="#3F3F46"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <TextBox x:Name="DialogInput"
                              Background="Transparent"
                              BorderThickness="0"
@@ -160,13 +268,22 @@
                              MinHeight="36"
                              MaxHeight="100"
                              VerticalAlignment="Center"
-                             FontSize="14"/>
+                             FontSize="14">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Setter Property="Foreground" Value="Black"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
                 </Border>
                 <Button x:Name="SendButton"
                         Grid.Column="1"
                         Content="发送"
-                        Background="#007ACC"
-                        Foreground="White"
                         BorderThickness="0"
                         Click="SendMessage_Click"
                         Cursor="Hand"
@@ -175,6 +292,8 @@
                         Height="40">
                     <Button.Style>
                         <Style TargetType="Button">
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="Background" Value="#007ACC"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
@@ -188,6 +307,9 @@
                                 </Setter.Value>
                             </Setter>
                             <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                    <Setter Property="Background" Value="#0078D4"/>
+                                </DataTrigger>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Background" Value="#005A9B"/>
                                 </Trigger>
