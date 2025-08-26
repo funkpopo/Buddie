@@ -11,15 +11,15 @@
         </ResourceDictionary>
     </UserControl.Resources>
     
-    <!-- 对话界面 - 位于左上角 -->
+    <!-- 对话界面 - 位于右下角CardContainer附近 -->
     <Border x:Name="DialogInterface"
             Width="460"
             Height="700"
             Background="White"
             CornerRadius="10"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            Margin="20,20,0,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="0,0,38,160"
             Effect="{StaticResource CardShadow}"
             Visibility="Collapsed">
         <Grid>
@@ -31,7 +31,9 @@
             <!-- 对话界面标题栏 -->
             <Border Grid.Row="0"
                     Background="#F0F0F0"
-                    CornerRadius="10,10,0,0">
+                    CornerRadius="10,10,0,0"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
+                    Cursor="Hand">
                 <Grid>
                     <TextBlock Text="对话"
                                Foreground="Black"

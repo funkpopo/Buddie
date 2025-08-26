@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Collections.ObjectModel;
+using System.Windows.Input;
 
 namespace Buddie.Controls
 {
@@ -16,6 +17,15 @@ namespace Buddie.Controls
         public SettingsControl()
         {
             InitializeComponent();
+        }
+
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var window = Window.GetWindow(this);
+            if (window != null)
+            {
+                window.DragMove();
+            }
         }
 
         public void Initialize(AppSettings appSettings)

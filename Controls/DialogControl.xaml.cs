@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Windows.Input;
 
 namespace Buddie.Controls
 {
@@ -16,6 +17,15 @@ namespace Buddie.Controls
         public DialogControl()
         {
             InitializeComponent();
+        }
+
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var window = Window.GetWindow(this);
+            if (window != null)
+            {
+                window.DragMove();
+            }
         }
 
         private void CloseDialog_Click(object sender, RoutedEventArgs e)

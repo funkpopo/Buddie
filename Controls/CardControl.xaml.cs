@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
+using System.Windows.Input;
 
 namespace Buddie.Controls
 {
@@ -21,6 +22,15 @@ namespace Buddie.Controls
         public CardControl()
         {
             InitializeComponent();
+        }
+
+        private void CardContainer_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var window = Window.GetWindow(this);
+            if (window != null)
+            {
+                window.DragMove();
+            }
         }
 
         private void CardContainer_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
