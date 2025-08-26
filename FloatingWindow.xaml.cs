@@ -129,11 +129,11 @@ namespace Buddie
             
             // 初始化卡片控件
             cardControl.DialogRequested += (s, e) => {
-                ShowDialogForCurrentCard();
+                DialogControl.Toggle();
                 EnableClickThrough(false);
             };
             cardControl.SettingsRequested += (s, e) => {
-                SettingsControl.Show();
+                SettingsControl.Toggle();
                 EnableClickThrough(false);
             };
             cardControl.MouseEntered += (s, e) => EnableClickThrough(false);
@@ -287,7 +287,7 @@ namespace Buddie
         // 为当前卡片显示对话界面
         private void ShowDialogForCurrentCard()
         {
-            DialogControl.Show();
+            DialogControl.Toggle();
             // 更新对话标题以显示当前使用的API配置
             UpdateDialogTitle();
         }
@@ -422,11 +422,35 @@ namespace Buddie
             ApplyTheme();
         }
 
-        // 应用主题（简化版）
+        // 应用主题
         private void ApplyTheme()
         {
-            // 这里可以根据需要添加主题应用逻辑
-            // 主要的主题逻辑现在在各个Control中处理
+            bool isDarkTheme = appSettings.IsDarkTheme;
+            
+            if (isDarkTheme)
+            {
+                ApplyDarkTheme();
+            }
+            else
+            {
+                ApplyLightTheme();
+            }
+            
+            // 应用主题到子控件
+            DialogControl.ApplyTheme(isDarkTheme);
+            SettingsControl.ApplyTheme(isDarkTheme);
+        }
+
+        private void ApplyDarkTheme()
+        {
+            // 主窗口背景始终保持透明
+            this.Background = System.Windows.Media.Brushes.Transparent;
+        }
+
+        private void ApplyLightTheme()
+        {
+            // 主窗口背景始终保持透明
+            this.Background = System.Windows.Media.Brushes.Transparent;
         }
 
         protected override void OnClosed(EventArgs e)

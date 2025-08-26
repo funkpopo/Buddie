@@ -35,12 +35,26 @@
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
                     Cursor="Hand">
                 <Grid>
-                    <TextBlock Text="对话"
-                               Foreground="Black"
-                               VerticalAlignment="Center"
-                               HorizontalAlignment="Left"
-                               Margin="15,0,0,0"
-                               FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Margin="10,0,0,0">
+                        <Button x:Name="SidebarButton"
+                                Content="☰"
+                                Width="20"
+                                Height="20"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                FontSize="12"
+                                Foreground="#666666"
+                                Cursor="Hand"
+                                Click="SidebarButton_Click"
+                                Margin="0,0,10,0"/>
+                        <TextBlock Text="对话"
+                                   Foreground="Black"
+                                   VerticalAlignment="Center"
+                                   FontWeight="Bold"/>
+                    </StackPanel>
                     <Button Content="×"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
@@ -57,44 +71,115 @@
                 </Grid>
             </Border>
             <!-- 对话内容区域 -->
-            <ScrollViewer x:Name="DialogScrollViewer"
-                          Grid.Row="1"
-                          Margin="10"
-                          VerticalScrollBarVisibility="Auto"
-                          Background="Transparent">
-                <StackPanel x:Name="DialogMessagesPanel"
-                            Orientation="Vertical"
-                            Margin="5"/>
-            </ScrollViewer>
+            <Grid Grid.Row="1" Margin="5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="SidebarColumn" Width="0"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 侧边栏 -->
+                <Border x:Name="SidebarPanel" 
+                        Grid.Column="0" 
+                        Background="#FAFBFC" 
+                        BorderBrush="#E1E4E8" 
+                        BorderThickness="0,0,1,0"
+                        Visibility="Collapsed">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="40"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- 标题区域 -->
+                        <Border Grid.Row="0" 
+                                Background="#F6F8FA"
+                                BorderBrush="#E1E4E8"
+                                BorderThickness="0,0,0,1">
+                            <StackPanel Orientation="Horizontal" 
+                                        VerticalAlignment="Center" 
+                                        Margin="12,8">
+                                <Ellipse Width="8" Height="8" 
+                                         Fill="#28A745" 
+                                         Margin="0,0,8,0"/>
+                                <TextBlock Text="对话历史" 
+                                           FontWeight="SemiBold" 
+                                           FontSize="13"
+                                           Foreground="#24292E"/>
+                                <TextBlock x:Name="HistoryCountLabel"
+                                           Text="(0)" 
+                                           FontSize="11"
+                                           Foreground="#6A737D"
+                                           Margin="4,0,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <ScrollViewer x:Name="HistoryScrollViewer" 
+                                      Grid.Row="1" 
+                                      VerticalScrollBarVisibility="Auto"
+                                      Margin="0"
+                                      Background="Transparent">
+                            <StackPanel x:Name="HistoryPanel" 
+                                        Orientation="Vertical"
+                                        Margin="0,8,0,8"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+                
+                <!-- 主对话区域 -->
+                <ScrollViewer x:Name="DialogScrollViewer"
+                              Grid.Column="1"
+                              Margin="10"
+                              VerticalScrollBarVisibility="Auto"
+                              Background="Transparent">
+                    <StackPanel x:Name="DialogMessagesPanel"
+                                Orientation="Vertical"
+                                Margin="5"/>
+                </ScrollViewer>
+            </Grid>
             <!-- 输入区域 -->
             <Grid Grid.Row="2"
                   Margin="10,5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="80"/>
                 </Grid.ColumnDefinitions>
-                <TextBox x:Name="DialogInput"
-                         Grid.Column="0"
-                         Margin="0,0,10,0"
-                         VerticalAlignment="Center"
-                         Background="#F8F8F8"
-                         BorderThickness="1"
-                         BorderBrush="#CCCCCC"
-                         Padding="8,5"/>
-                <Button Grid.Column="1"
+                <Border Grid.Column="0"
+                        Background="#F8F8F8"
+                        BorderBrush="#CCCCCC"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Margin="0,0,10,0">
+                    <TextBox x:Name="DialogInput"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Padding="12,8"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             MaxLines="4"
+                             MinHeight="36"
+                             MaxHeight="100"
+                             VerticalAlignment="Center"
+                             FontSize="14"/>
+                </Border>
+                <Button x:Name="SendButton"
+                        Grid.Column="1"
                         Content="发送"
                         Background="#007ACC"
                         Foreground="White"
                         BorderThickness="0"
                         Click="SendMessage_Click"
-                        Cursor="Hand">
+                        Cursor="Hand"
+                        FontSize="14"
+                        FontWeight="Bold"
+                        Height="40">
                     <Button.Style>
                         <Style TargetType="Button">
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
                                         <Border Background="{TemplateBinding Background}"
-                                                CornerRadius="3"
+                                                CornerRadius="10"
                                                 BorderThickness="{TemplateBinding BorderThickness}">
                                             <ContentPresenter HorizontalAlignment="Center"
                                                               VerticalAlignment="Center"/>
@@ -102,6 +187,14 @@
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#005A9B"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter Property="Background" Value="#004578"/>
+                                </Trigger>
+                            </Style.Triggers>
                         </Style>
                     </Button.Style>
                 </Button>
