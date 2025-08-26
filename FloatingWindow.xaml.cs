@@ -13,6 +13,7 @@ using System.Windows.Media.Effects;
 using SystemDrawing = System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
+using System.Threading.Tasks;
 
 namespace Buddie
 {
@@ -104,12 +105,31 @@ namespace Buddie
             SettingsControl.SettingsClosed += (s, e) => EnableClickThrough(false);
             SettingsControl.TopMostChanged += (s, value) => this.Topmost = value;
             SettingsControl.ShowInTaskbarChanged += (s, value) => this.ShowInTaskbar = value;
-            SettingsControl.DarkThemeChanged += (s, value) => {
+            SettingsControl.DarkThemeChanged += async (s, value) => {
                 appSettings.IsDarkTheme = value;
                 ApplyTheme();
+                // 自动保存主题设置到数据库
+                try
+                {
+                    await appSettings.SaveToDatabaseAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to save theme setting: {ex.Message}");
+                }
             };
             SettingsControl.ResetSettingsRequested += (s, e) => ResetSettings();
-            SettingsControl.ApiConfigurationChanged += (s, e) => {
+            SettingsControl.ApiConfigurationChanged += async (s, e) => {
+                // 自动保存配置更改到数据库
+                try
+                {
+                    await appSettings.SaveToDatabaseAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to save API configurations: {ex.Message}");
+                }
+                
                 UpdateCardsFromApiConfigurations();
                 UpdateCardDisplay();
             };
@@ -217,11 +237,21 @@ namespace Buddie
             this.Hide();
         }
 
-        protected override void OnClosing(CancelEventArgs e)
+        protected override async void OnClosing(CancelEventArgs e)
         {
             // 阻止窗口关闭，改为隐藏到托盘
             e.Cancel = true;
             HideWindow();
+            
+            // 保存设置到数据库
+            try
+            {
+                await appSettings.SaveToDatabaseAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save settings on closing: {ex.Message}");
+            }
         }
 
         private bool isFlipped = false;
@@ -454,6 +484,58 @@ namespace Buddie
             // 主窗口背景始终保持透明
             this.Background = System.Windows.Media.Brushes.Transparent;
         }
+
+        /// <summary>
+        /// 从数据库加载设置
+        /// </summary>
+        public async Task LoadSettingsFromDatabaseAsync()
+        {
+            try
+            {
+                await appSettings.LoadFromDatabaseAsync();
+                
+                // 应用加载的设置
+                this.Topmost = appSettings.IsTopmost;
+                this.ShowInTaskbar = appSettings.ShowInTaskbar;
+                ApplyTheme();
+                
+                // 更新卡片显示
+                UpdateCardsFromApiConfigurations();
+                UpdateCardDisplay();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load settings from database: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 保存当前对话记录
+        /// </summary>
+        private async Task SaveCurrentConversation()
+        {
+            try
+            {
+                // TODO: 实现对话记录保存逻辑
+                // 这里需要从DialogControl获取当前对话内容并保存到数据库
+                System.Diagnostics.Debug.WriteLine("Saving current conversation...");
+                await Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save conversation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 刷新卡片显示
+        /// </summary>
+        private void RefreshCards()
+        {
+            UpdateCardsFromApiConfigurations();
+            UpdateCardDisplay();
+        }
+
 
         protected override void OnClosed(EventArgs e)
         {

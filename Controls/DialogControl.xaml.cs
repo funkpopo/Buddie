@@ -14,6 +14,7 @@ using System.Linq;
 using System.IO;
 using Markdig;
 using System.Windows.Documents;
+using Buddie.Database;
 
 namespace Buddie.Controls
 {
@@ -27,6 +28,9 @@ namespace Buddie.Controls
         private bool isSidebarVisible = false;
         private List<string> conversationHistory = new List<string>();
         private MarkdownPipeline markdownPipeline;
+        private DatabaseService databaseService = new DatabaseService();
+        private DbConversation? currentConversation;
+        private List<DbMessage> currentMessages = new List<DbMessage>();
 
         public DialogControl()
         {
@@ -35,6 +39,9 @@ namespace Buddie.Controls
             markdownPipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
                 .Build();
+            
+            // 加载对话历史
+            LoadConversationHistory();
         }
 
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -46,224 +53,13 @@ namespace Buddie.Controls
             }
         }
 
-        private void SidebarButton_Click(object sender, RoutedEventArgs e)
+        private async void SidebarButton_Click(object sender, RoutedEventArgs e)
         {
-            ToggleSidebar();
+            await ToggleSidebar();
         }
 
-        private void ToggleSidebar()
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            isSidebarVisible = !isSidebarVisible;
-            
-            // 创建宽度动画
-            var animation = new DoubleAnimation
-            {
-                Duration = TimeSpan.FromMilliseconds(350),
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-            };
-            
-            if (isSidebarVisible)
-            {
-                animation.From = 0;
-                animation.To = 200;
-                SidebarPanel.Visibility = Visibility.Visible;
-                
-                // 添加淡入效果
-                var fadeAnimation = new DoubleAnimation
-                {
-                    From = 0,
-                    To = 1,
-                    Duration = TimeSpan.FromMilliseconds(300),
-                    BeginTime = TimeSpan.FromMilliseconds(50)
-                };
-                SidebarPanel.BeginAnimation(UIElement.OpacityProperty, fadeAnimation);
-                
-                LoadConversationHistory();
-            }
-            else
-            {
-                animation.From = 200;
-                animation.To = 0;
-                
-                // 添加淡出效果
-                var fadeAnimation = new DoubleAnimation
-                {
-                    From = 1,
-                    To = 0,
-                    Duration = TimeSpan.FromMilliseconds(200)
-                };
-                SidebarPanel.BeginAnimation(UIElement.OpacityProperty, fadeAnimation);
-                
-                animation.Completed += (s, e) => SidebarPanel.Visibility = Visibility.Collapsed;
-            }
-            
-            // 使用Transform来实现宽度动画效果
-            animation.Completed += (s, e) => {
-                if (isSidebarVisible)
-                {
-                    SidebarColumn.Width = new GridLength(200);
-                }
-                else
-                {
-                    SidebarColumn.Width = new GridLength(0);
-                }
-            };
-            
-            // 直接设置目标宽度，动画会平滑过渡
-            SidebarColumn.Width = isSidebarVisible ? new GridLength(200) : new GridLength(0);
-        }
-
-        private void LoadConversationHistory()
-        {
-            HistoryPanel.Children.Clear();
-            
-            for (int i = 0; i < conversationHistory.Count; i++)
-            {
-                var conversation = conversationHistory[i];
-                var historyCard = CreateHistoryCard(conversation, i + 1);
-                HistoryPanel.Children.Add(historyCard);
-            }
-            
-            // 更新计数显示
-            HistoryCountLabel.Text = $"({conversationHistory.Count})";
-        }
-
-        private Border CreateHistoryCard(string conversation, int index)
-        {
-            var historyCard = new Border
-            {
-                Background = new System.Windows.Media.LinearGradientBrush(
-                    System.Windows.Media.Colors.White, 
-                    System.Windows.Media.Color.FromRgb(248, 249, 250), 
-                    new System.Windows.Point(0, 0), 
-                    new System.Windows.Point(0, 1)
-                ),
-                Margin = new Thickness(8, 4, 8, 4),
-                Padding = new Thickness(12, 8, 12, 8),
-                CornerRadius = new CornerRadius(8),
-                BorderBrush = System.Windows.Media.Brushes.LightGray,
-                BorderThickness = new Thickness(1),
-                Cursor = Cursors.Hand,
-                Effect = new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color = System.Windows.Media.Colors.Black,
-                    Direction = 315,
-                    ShadowDepth = 2,
-                    Opacity = 0.1,
-                    BlurRadius = 4
-                }
-            };
-
-            var cardContent = new StackPanel();
-
-            // 添加序号和时间标签
-            var headerPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 0, 0, 4)
-            };
-
-            var indexLabel = new TextBlock
-            {
-                Text = $"#{index}",
-                FontSize = 10,
-                FontWeight = FontWeights.Bold,
-                Foreground = System.Windows.Media.Brushes.Gray,
-                Background = System.Windows.Media.Brushes.LightBlue,
-                Padding = new Thickness(4, 1, 4, 1),
-                Margin = new Thickness(0, 0, 6, 0)
-            };
-
-            var timeLabel = new TextBlock
-            {
-                Text = DateTime.Now.ToString("HH:mm"),
-                FontSize = 9,
-                Foreground = System.Windows.Media.Brushes.Gray,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            headerPanel.Children.Add(indexLabel);
-            headerPanel.Children.Add(timeLabel);
-
-            // 添加对话内容
-            var contentText = new TextBlock
-            {
-                Text = conversation.Length > 60 ? conversation.Substring(0, 60) + "..." : conversation,
-                TextWrapping = TextWrapping.Wrap,
-                FontSize = 12,
-                Foreground = System.Windows.Media.Brushes.Black,
-                LineHeight = 16
-            };
-
-            cardContent.Children.Add(headerPanel);
-            cardContent.Children.Add(contentText);
-            historyCard.Child = cardContent;
-
-            // 添加悬停效果
-            historyCard.MouseEnter += (s, e) => {
-                var hoverAnimation = new DoubleAnimation
-                {
-                    To = 0.8,
-                    Duration = TimeSpan.FromMilliseconds(200),
-                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-                };
-                historyCard.BeginAnimation(UIElement.OpacityProperty, hoverAnimation);
-                
-                // 轻微放大效果
-                var scaleTransform = new System.Windows.Media.ScaleTransform(1.0, 1.0);
-                historyCard.RenderTransform = scaleTransform;
-                historyCard.RenderTransformOrigin = new System.Windows.Point(0.5, 0.5);
-                
-                var scaleAnimation = new DoubleAnimation
-                {
-                    To = 1.02,
-                    Duration = TimeSpan.FromMilliseconds(200),
-                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-                };
-                scaleTransform.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, scaleAnimation);
-                scaleTransform.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, scaleAnimation);
-            };
-
-            historyCard.MouseLeave += (s, e) => {
-                var normalAnimation = new DoubleAnimation
-                {
-                    To = 1.0,
-                    Duration = TimeSpan.FromMilliseconds(200),
-                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-                };
-                historyCard.BeginAnimation(UIElement.OpacityProperty, normalAnimation);
-                
-                if (historyCard.RenderTransform is System.Windows.Media.ScaleTransform transform)
-                {
-                    var scaleBackAnimation = new DoubleAnimation
-                    {
-                        To = 1.0,
-                        Duration = TimeSpan.FromMilliseconds(200),
-                        EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-                    };
-                    transform.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, scaleBackAnimation);
-                    transform.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, scaleBackAnimation);
-                }
-            };
-
-            // 添加点击事件以加载历史对话
-            historyCard.MouseLeftButtonDown += (s, e) => {
-                // 这里可以实现加载特定对话历史的功能
-                DialogInput.Text = conversation;
-                DialogInput.Focus();
-                DialogInput.CaretIndex = DialogInput.Text.Length;
-            };
-
-            return historyCard;
-        }
-
-        private void CloseDialog_Click(object sender, RoutedEventArgs e)
-        {
-            // 如果正在发送消息，先取消请求
-            if (isSending && currentRequest != null)
-            {
-                currentRequest.Cancel();
-            }
             Hide();
             DialogClosed?.Invoke(this, EventArgs.Empty);
         }
@@ -367,11 +163,14 @@ namespace Buddie.Controls
             DialogScrollViewer.ScrollToEnd();
         }
 
-        public void AddMessageBubble(string message, bool isUser = true)
+        public async void AddMessageBubble(string message, bool isUser = true)
         {
             var messageBubble = CreateMessageBubble(message, isUser);
             DialogMessagesPanel.Children.Add(messageBubble);
             DialogScrollViewer.ScrollToEnd();
+            
+            // 自动保存消息到数据库
+            await SaveMessage(message, isUser);
         }
 
         private Border CreateMessageBubble(string message, bool isUser)
@@ -400,6 +199,7 @@ namespace Buddie.Controls
             // 创建气泡样式
             var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
             
+            // 设置内容颜色
             if (isDarkTheme)
             {
                 if (contentElement is TextBlock textBlock)
@@ -431,10 +231,126 @@ namespace Buddie.Controls
                 }
             }
 
+            // 检查是否有TTS配置和是否为AI回复
+            var hasButtons = false;
+            var appSettings = DataContext as AppSettings;
+            if (!isUser && appSettings?.TtsConfigurations.Count > 0)
+            {
+                hasButtons = true;
+            }
+
+            FrameworkElement bubbleContent;
+            if (hasButtons)
+            {
+                // 创建包含内容和按钮的Grid
+                var grid = new Grid();
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                // 内容区域
+                contentElement.Margin = new Thickness(0, 0, 0, 5);
+                Grid.SetRow(contentElement, 0);
+                grid.Children.Add(contentElement);
+
+                // 按钮区域
+                var buttonPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Margin = new Thickness(0, 0, 8, 5)
+                };
+
+                // 创建TTS按钮（喇叭图标）
+                var ttsButton = new Button
+                {
+                    Content = "🔊",
+                    Width = 24,
+                    Height = 24,
+                    Background = Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    FontSize = 12,
+                    Margin = new Thickness(5, 0, 0, 0),
+                    Cursor = Cursors.Hand,
+                    ToolTip = "朗读",
+                    Tag = message // 存储消息内容供TTS使用
+                };
+                ttsButton.Click += TtsButton_Click;
+
+                // 创建复制按钮
+                var copyButton = new Button
+                {
+                    Content = "📋",
+                    Width = 24,
+                    Height = 24,
+                    Background = Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    FontSize = 12,
+                    Margin = new Thickness(5, 0, 0, 0),
+                    Cursor = Cursors.Hand,
+                    ToolTip = "复制",
+                    Tag = message // 存储消息内容供复制使用
+                };
+                copyButton.Click += CopyButton_Click;
+
+                buttonPanel.Children.Add(copyButton);
+                buttonPanel.Children.Add(ttsButton);
+
+                Grid.SetRow(buttonPanel, 1);
+                grid.Children.Add(buttonPanel);
+
+                bubbleContent = grid;
+            }
+            else if (isUser)
+            {
+                // 用户消息，在左下角添加复制按钮
+                var grid = new Grid();
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                // 内容区域
+                contentElement.Margin = new Thickness(0, 0, 0, 5);
+                Grid.SetRow(contentElement, 0);
+                grid.Children.Add(contentElement);
+
+                // 按钮区域（左对齐）
+                var buttonPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Margin = new Thickness(8, 0, 0, 5)
+                };
+
+                // 创建复制按钮
+                var copyButton = new Button
+                {
+                    Content = "📋",
+                    Width = 24,
+                    Height = 24,
+                    Background = Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    FontSize = 12,
+                    Cursor = Cursors.Hand,
+                    ToolTip = "复制",
+                    Tag = message // 存储消息内容供复制使用
+                };
+                copyButton.Click += CopyButton_Click;
+
+                buttonPanel.Children.Add(copyButton);
+
+                Grid.SetRow(buttonPanel, 1);
+                grid.Children.Add(buttonPanel);
+
+                bubbleContent = grid;
+            }
+            else
+            {
+                bubbleContent = contentElement;
+            }
+
             // 设置圆角和阴影
             var border = new Border
             {
-                Child = contentElement,
+                Child = bubbleContent,
                 CornerRadius = new CornerRadius(18),
                 HorizontalAlignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
                 Margin = isUser ? new Thickness(50, 5, 10, 5) : new Thickness(10, 5, 50, 5),
@@ -448,7 +364,7 @@ namespace Buddie.Controls
                 }
             };
 
-            // 设置背景颜色到Border而不是内容元素
+            // 设置背景颜色到Border
             if (contentElement is TextBlock tb)
             {
                 border.Background = tb.Background;
@@ -754,11 +670,11 @@ namespace Buddie.Controls
             }
             
             // 侧边栏
-            SidebarPanel.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(35, 39, 47));
-            SidebarPanel.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(60, 64, 72));
+            HistorySidebar.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(35, 39, 47));
+            HistorySidebar.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(60, 64, 72));
             
             // 侧边栏标题文字
-            UpdateTextElementsColor(SidebarPanel, System.Windows.Media.Brushes.White);
+            UpdateTextElementsColor(HistorySidebar, System.Windows.Media.Brushes.White);
             
             // 输入框文字颜色
             DialogInput.Foreground = System.Windows.Media.Brushes.White;
@@ -794,11 +710,11 @@ namespace Buddie.Controls
             }
             
             // 侧边栏
-            SidebarPanel.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(250, 251, 252));
-            SidebarPanel.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(225, 228, 232));
+            HistorySidebar.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(250, 251, 252));
+            HistorySidebar.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(225, 228, 232));
             
             // 侧边栏标题文字
-            UpdateTextElementsColor(SidebarPanel, System.Windows.Media.Brushes.Black);
+            UpdateTextElementsColor(HistorySidebar, System.Windows.Media.Brushes.Black);
             
             // 输入框文字颜色
             DialogInput.Foreground = System.Windows.Media.Brushes.Black;
@@ -878,6 +794,9 @@ namespace Buddie.Controls
         private StringBuilder streamingContent = new StringBuilder();
         private StringBuilder streamingReasoning = new StringBuilder();
         private bool isReasoningPhase = true;
+        private StringBuilder streamingTtsBuffer = new StringBuilder();
+        private bool isStreamingTts = false;
+        private int streamingTtsThreshold = 50; // 每累积50个字符发送一次TTS
 
         public async Task SendMessageToApi(string message, OpenApiConfiguration apiConfig)
         {
@@ -1060,7 +979,13 @@ namespace Buddie.Controls
         {
             streamingContent.Clear();
             streamingReasoning.Clear();
+            streamingTtsBuffer.Clear();
             isReasoningPhase = true;
+            
+            // 检查是否启用流式TTS
+            var appSettings = DataContext as AppSettings;
+            var ttsConfig = appSettings?.TtsConfigurations.FirstOrDefault();
+            isStreamingTts = ttsConfig?.IsStreamingEnabled == true;
             
             // 创建消息容器
             currentStreamingContainer = new StackPanel
@@ -1085,7 +1010,7 @@ namespace Buddie.Controls
             DialogScrollViewer.ScrollToEnd();
         }
 
-        private void UpdateStreamingMessage()
+        private async void UpdateStreamingMessage()
         {
             bool updated = false;
             
@@ -1123,12 +1048,100 @@ namespace Buddie.Controls
                 
                 currentStreamingTextBlock.Text = streamingContent.ToString();
                 updated = true;
+                
+                // 处理流式TTS
+                await ProcessStreamingTts();
             }
             
             // 只有在内容更新时才滚动，避免不必要的滚动
             if (updated)
             {
                 DialogScrollViewer.ScrollToEnd();
+            }
+        }
+
+        private async Task ProcessStreamingTts()
+        {
+            if (!isStreamingTts) return;
+            
+            var appSettings = DataContext as AppSettings;
+            var ttsConfig = appSettings?.TtsConfigurations.FirstOrDefault();
+            
+            if (ttsConfig == null) return;
+            
+            // 获取新增的内容
+            var currentText = streamingContent.ToString();
+            var bufferText = streamingTtsBuffer.ToString();
+            
+            if (currentText.Length > bufferText.Length)
+            {
+                var newText = currentText.Substring(bufferText.Length);
+                streamingTtsBuffer.Append(newText);
+                
+                // 检查是否达到发送阈值或包含句号等分句符号
+                var bufferString = streamingTtsBuffer.ToString();
+                if (bufferString.Length >= streamingTtsThreshold || 
+                    bufferString.Contains("。") || 
+                    bufferString.Contains("！") || 
+                    bufferString.Contains("？") ||
+                    bufferString.Contains(".") ||
+                    bufferString.Contains("!") ||
+                    bufferString.Contains("?"))
+                {
+                    // 发送TTS请求
+                    try
+                    {
+                        await CallStreamingTtsApi(bufferString, ttsConfig);
+                        streamingTtsBuffer.Clear();
+                    }
+                    catch
+                    {
+                        // 忽略流式TTS错误，不影响主要功能
+                    }
+                }
+            }
+        }
+
+        private async Task CallStreamingTtsApi(string text, OpenAiTtsConfiguration ttsConfig)
+        {
+            try
+            {
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(30);
+                
+                if (!string.IsNullOrEmpty(ttsConfig.ApiKey))
+                {
+                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {ttsConfig.ApiKey}");
+                }
+
+                var requestBody = new
+                {
+                    model = ttsConfig.Model,
+                    input = text.Trim(),
+                    voice = ttsConfig.Voice,
+                    speed = ttsConfig.Speed
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await httpClient.PostAsync(ttsConfig.ApiUrl, content);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var audioBytes = await response.Content.ReadAsByteArrayAsync();
+                    
+                    // 保存到临时文件并播放
+                    var tempFile = Path.GetTempFileName() + ".mp3";
+                    await File.WriteAllBytesAsync(tempFile, audioBytes);
+                    
+                    // 播放音频文件
+                    PlayAudioFile(tempFile);
+                }
+            }
+            catch
+            {
+                // 忽略流式TTS的错误
             }
         }
 
@@ -1189,18 +1202,45 @@ namespace Buddie.Controls
             currentStreamingContainer.Children.Insert(0, currentReasoningExpander);
         }
 
-        private void FinalizeStreamingMessage()
+        private async void FinalizeStreamingMessage()
         {
+            // 处理剩余的TTS内容
+            if (isStreamingTts && streamingTtsBuffer.Length > 0)
+            {
+                var appSettings = DataContext as AppSettings;
+                var ttsConfig = appSettings?.TtsConfigurations.FirstOrDefault();
+                
+                if (ttsConfig != null)
+                {
+                    try
+                    {
+                        await CallStreamingTtsApi(streamingTtsBuffer.ToString(), ttsConfig);
+                    }
+                    catch
+                    {
+                        // 忽略最终TTS错误
+                    }
+                }
+                
+                streamingTtsBuffer.Clear();
+            }
+            
             if (currentStreamingContainer != null)
             {
                 var finalContent = streamingContent.ToString().Trim();
                 var finalReasoning = streamingReasoning.ToString().Trim();
                 
+                // 自动保存AI回复消息到数据库
+                if (!string.IsNullOrEmpty(finalContent))
+                {
+                    await SaveMessage(finalContent, false, string.IsNullOrEmpty(finalReasoning) ? null : finalReasoning);
+                }
+                
                 // 如果没有实际内容和思维内容，显示一个提示
                 if (string.IsNullOrEmpty(finalContent) && string.IsNullOrEmpty(finalReasoning))
                 {
                     DialogMessagesPanel.Children.Remove(currentStreamingContainer);
-                    AddMessageBubble("AI没有返回有效内容", false);
+                    AddMessageBubbleWithoutSave("AI没有返回有效内容", false);
                 }
                 else if (string.IsNullOrEmpty(finalContent) && !string.IsNullOrEmpty(finalReasoning))
                 {
@@ -1248,10 +1288,517 @@ namespace Buddie.Controls
                 currentReasoningExpander = null;
                 currentReasoningTextBlock = null;
                 isReasoningPhase = true;
+                isStreamingTts = false;
                 
                 // 滚动到底部显示完整内容
                 DialogScrollViewer.ScrollToEnd();
             }
         }
+
+        /// <summary>
+        /// 添加消息气泡但不保存到数据库（用于内部提示消息）
+        /// </summary>
+        private void AddMessageBubbleWithoutSave(string message, bool isUser = false)
+        {
+            var messageBubble = CreateMessageBubble(message, isUser);
+            DialogMessagesPanel.Children.Add(messageBubble);
+            DialogScrollViewer.ScrollToEnd();
+        }
+
+        private async void TtsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            var messageText = button?.Tag as string;
+            
+            if (string.IsNullOrEmpty(messageText))
+                return;
+
+            var appSettings = DataContext as AppSettings;
+            var ttsConfig = appSettings?.TtsConfigurations.FirstOrDefault();
+            
+            if (ttsConfig == null)
+                return;
+
+            // 改变按钮状态表示正在处理
+            var originalContent = button.Content;
+            button.Content = "⏳";
+            button.IsEnabled = false;
+
+            try
+            {
+                await CallTtsApi(messageText, ttsConfig);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"TTS调用失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                // 恢复按钮状态
+                button.Content = originalContent;
+                button.IsEnabled = true;
+            }
+        }
+
+        private void CopyButton_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            var messageText = button?.Tag as string;
+            
+            if (string.IsNullOrEmpty(messageText))
+                return;
+
+            try
+            {
+                Clipboard.SetText(messageText);
+                
+                // 临时改变按钮显示表示复制成功
+                var originalContent = button.Content;
+                button.Content = "✅";
+                
+                // 1秒后恢复原始图标
+                var timer = new System.Windows.Threading.DispatcherTimer();
+                timer.Interval = TimeSpan.FromSeconds(1);
+                timer.Tick += (s, args) =>
+                {
+                    button.Content = originalContent;
+                    timer.Stop();
+                };
+                timer.Start();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"复制失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task CallTtsApi(string text, OpenAiTtsConfiguration ttsConfig)
+        {
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromMinutes(2);
+            
+            if (!string.IsNullOrEmpty(ttsConfig.ApiKey))
+            {
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {ttsConfig.ApiKey}");
+            }
+
+            var requestBody = new
+            {
+                model = ttsConfig.Model,
+                input = text,
+                voice = ttsConfig.Voice,
+                speed = ttsConfig.Speed
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await httpClient.PostAsync(ttsConfig.ApiUrl, content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var audioBytes = await response.Content.ReadAsByteArrayAsync();
+                
+                // 保存到临时文件并播放
+                var tempFile = Path.GetTempFileName() + ".mp3";
+                await File.WriteAllBytesAsync(tempFile, audioBytes);
+                
+                // 播放音频文件
+                PlayAudioFile(tempFile);
+            }
+            else
+            {
+                throw new Exception($"TTS API请求失败: {response.StatusCode}");
+            }
+        }
+
+        private void PlayAudioFile(string filePath)
+        {
+            try
+            {
+                // 使用系统默认播放器播放音频文件
+                var startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = filePath,
+                    UseShellExecute = true,
+                    CreateNoWindow = true,
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+                };
+                
+                System.Diagnostics.Process.Start(startInfo);
+                
+                // 异步删除临时文件
+                Task.Run(async () =>
+                {
+                    await Task.Delay(10000); // 等待10秒确保播放完成
+                    try
+                    {
+                        if (File.Exists(filePath))
+                            File.Delete(filePath);
+                    }
+                    catch
+                    {
+                        // 忽略删除文件的错误
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"音频播放失败: {ex.Message}");
+            }
+        }
+
+        #region 对话历史功能
+
+        /// <summary>
+        /// 加载对话历史
+        /// </summary>
+        private async void LoadConversationHistory()
+        {
+            try
+            {
+                // 创建新的对话
+                await StartNewConversation();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load conversation history: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 开始新的对话
+        /// </summary>
+        public async Task StartNewConversation()
+        {
+            try
+            {
+                // 保存当前对话（如果有的话）
+                if (currentConversation != null)
+                {
+                    await SaveCurrentConversation();
+                }
+
+                // 创建新对话
+                currentConversation = new DbConversation
+                {
+                    Title = $"对话 {DateTime.Now:MM-dd HH:mm}",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                var conversationId = await databaseService.SaveConversationAsync(currentConversation);
+                currentConversation.Id = conversationId;
+
+                // 清空当前消息和界面
+                currentMessages.Clear();
+                ClearDialog();
+                
+                System.Diagnostics.Debug.WriteLine($"Started new conversation: {currentConversation.Id}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to start new conversation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 加载指定对话
+        /// </summary>
+        public async Task LoadConversation(int conversationId)
+        {
+            try
+            {
+                // 保存当前对话
+                if (currentConversation != null)
+                {
+                    await SaveCurrentConversation();
+                }
+
+                // 加载指定对话
+                var conversations = await databaseService.GetConversationsAsync();
+                currentConversation = conversations.FirstOrDefault(c => c.Id == conversationId);
+
+                if (currentConversation != null)
+                {
+                    // 加载对话消息
+                    currentMessages = await databaseService.GetMessagesAsync(conversationId);
+                    
+                    // 重建对话界面
+                    await RebuildConversationUI();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load conversation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 保存当前对话
+        /// </summary>
+        public async Task SaveCurrentConversation()
+        {
+            try
+            {
+                if (currentConversation == null) return;
+
+                // 更新对话标题（使用第一条用户消息的前20个字符）
+                if (currentMessages.Count > 0)
+                {
+                    var firstUserMessage = currentMessages.FirstOrDefault(m => m.IsUser);
+                    if (firstUserMessage != null && firstUserMessage.Content.Length > 0)
+                    {
+                        var title = firstUserMessage.Content.Length > 20 
+                            ? firstUserMessage.Content.Substring(0, 20) + "..."
+                            : firstUserMessage.Content;
+                        currentConversation.Title = title;
+                    }
+                }
+
+                currentConversation.UpdatedAt = DateTime.UtcNow;
+                await databaseService.SaveConversationAsync(currentConversation);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save current conversation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 保存消息到数据库
+        /// </summary>
+        public async Task SaveMessage(string content, bool isUser, string? reasoningContent = null)
+        {
+            try
+            {
+                if (currentConversation == null)
+                {
+                    await StartNewConversation();
+                }
+
+                if (currentConversation != null)
+                {
+                    var message = new DbMessage
+                    {
+                        ConversationId = currentConversation.Id,
+                        Content = content,
+                        IsUser = isUser,
+                        ReasoningContent = reasoningContent,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    var messageId = await databaseService.SaveMessageAsync(message);
+                    message.Id = messageId;
+                    currentMessages.Add(message);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save message: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 重建对话界面
+        /// </summary>
+        private async Task RebuildConversationUI()
+        {
+            try
+            {
+                ClearDialog();
+
+                foreach (var message in currentMessages.OrderBy(m => m.CreatedAt))
+                {
+                    if (message.IsUser)
+                    {
+                        AddMessageBubbleWithoutSave(message.Content, true);
+                    }
+                    else
+                    {
+                        // 对于AI消息，如果有思维内容，需要特殊处理
+                        if (!string.IsNullOrEmpty(message.ReasoningContent))
+                        {
+                            // TODO: 重建带思维内容的消息气泡
+                            AddMessageBubbleWithoutSave(message.Content, false);
+                        }
+                        else
+                        {
+                            AddMessageBubbleWithoutSave(message.Content, false);
+                        }
+                    }
+                }
+
+                DialogScrollViewer.ScrollToEnd();
+                await Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to rebuild conversation UI: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清空对话界面
+        /// </summary>
+        private void ClearDialog()
+        {
+            DialogMessagesPanel.Children.Clear();
+        }
+
+        /// <summary>
+        /// 删除对话
+        /// </summary>
+        public async Task DeleteConversation(int conversationId)
+        {
+            try
+            {
+                await databaseService.DeleteConversationAsync(conversationId);
+                
+                // 如果删除的是当前对话，开始新对话
+                if (currentConversation?.Id == conversationId)
+                {
+                    await StartNewConversation();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to delete conversation: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 获取所有对话列表
+        /// </summary>
+        public async Task<List<DbConversation>> GetAllConversations()
+        {
+            try
+            {
+                return await databaseService.GetConversationsAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to get conversations: {ex.Message}");
+                return new List<DbConversation>();
+            }
+        }
+
+        #endregion
+        
+        #region 侧边栏事件处理
+
+        /// <summary>
+        /// 切换侧边栏显示状态
+        /// </summary>
+        private async Task ToggleSidebar()
+        {
+            if (isSidebarVisible)
+            {
+                await HideSidebar();
+            }
+            else
+            {
+                await ShowSidebar();
+            }
+        }
+
+        /// <summary>
+        /// 显示侧边栏
+        /// </summary>
+        private async Task ShowSidebar()
+        {
+            try
+            {
+                isSidebarVisible = true;
+                
+                // 设置侧边栏宽度
+                SidebarColumn.Width = new GridLength(150);
+                HistorySidebar.Visibility = Visibility.Visible;
+                
+                // 刷新对话列表
+                await RefreshConversationsList();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to show sidebar: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 隐藏侧边栏
+        /// </summary>
+        private async Task HideSidebar()
+        {
+            try
+            {
+                isSidebarVisible = false;
+                
+                // 隐藏侧边栏
+                SidebarColumn.Width = new GridLength(0);
+                HistorySidebar.Visibility = Visibility.Collapsed;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to hide sidebar: {ex.Message}");
+            }
+            
+            await Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// 刷新对话列表
+        /// </summary>
+        private async Task RefreshConversationsList()
+        {
+            try
+            {
+                var conversations = await GetAllConversations();
+                ConversationsList.ItemsSource = conversations;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to refresh conversations list: {ex.Message}");
+            }
+        }
+
+        private async void NewConversationButton_Click(object sender, RoutedEventArgs e)
+        {
+            await StartNewConversation();
+        }
+
+        private async void ConversationItem_Click(object sender, MouseButtonEventArgs e)
+        {
+            var border = sender as Border;
+            var conversation = border?.DataContext as DbConversation;
+            
+            if (conversation != null)
+            {
+                await LoadConversation(conversation.Id);
+            }
+        }
+
+        private async void DeleteConversationButton_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            if (button?.Tag is int conversationId)
+            {
+                var result = MessageBox.Show("确定要删除这个对话吗？", "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (result == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        await DeleteConversation(conversationId);
+                        await RefreshConversationsList();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"删除对话失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+            }
+        }
+
+        #endregion
     }
 }

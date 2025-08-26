@@ -3,6 +3,8 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Linq;
+using System.Threading.Tasks;
+using Buddie.Database;
 
 namespace Buddie
 {
@@ -40,6 +42,7 @@ namespace Buddie
 
     public class OpenApiConfiguration : INotifyPropertyChanged
     {
+        private int _id;
         private string _name = "";
         private string _apiUrl = "";
         private string _apiKey = "";
@@ -52,6 +55,12 @@ namespace Buddie
         private string _testMessage = "";
         private ChannelType _channelType = ChannelType.Custom;
         private bool _supportsThinking = false;
+
+        public int Id
+        {
+            get => _id;
+            set => SetProperty(ref _id, value);
+        }
 
         public string Name
         {
@@ -141,10 +150,47 @@ namespace Buddie
             OnPropertyChanged(propertyName);
             return true;
         }
+
+        // Convert to database model
+        public DbApiConfiguration ToDbModel()
+        {
+            return new DbApiConfiguration
+            {
+                Id = this.Id,
+                Name = this.Name,
+                ApiUrl = this.ApiUrl,
+                ApiKey = this.ApiKey,
+                ModelName = this.ModelName,
+                IsStreamingEnabled = this.IsStreamingEnabled,
+                IsMultimodalEnabled = this.IsMultimodalEnabled,
+                ChannelType = (int)this.ChannelType,
+                SupportsThinking = this.SupportsThinking
+            };
+        }
+
+        // Create from database model
+        public static OpenApiConfiguration FromDbModel(DbApiConfiguration dbModel)
+        {
+            return new OpenApiConfiguration
+            {
+                Id = dbModel.Id,
+                Name = dbModel.Name,
+                ApiUrl = dbModel.ApiUrl,
+                ApiKey = dbModel.ApiKey,
+                ModelName = dbModel.ModelName,
+                IsStreamingEnabled = dbModel.IsStreamingEnabled,
+                IsMultimodalEnabled = dbModel.IsMultimodalEnabled,
+                ChannelType = (ChannelType)dbModel.ChannelType,
+                SupportsThinking = dbModel.SupportsThinking,
+                IsSaved = true,
+                IsEditMode = false
+            };
+        }
     }
 
     public class OpenAiTtsConfiguration : INotifyPropertyChanged
     {
+        private int _id;
         private string _name = "";
         private string _apiUrl = "http://localhost:5050/v1/audio/speech";
         private string _apiKey = "";
@@ -153,6 +199,13 @@ namespace Buddie
         private double _speed = 1.0;
         private bool _isEditMode = true;
         private bool _isSaved = false;
+        private bool _isStreamingEnabled = false;
+
+        public int Id
+        {
+            get => _id;
+            set => SetProperty(ref _id, value);
+        }
 
         public string Name
         {
@@ -202,6 +255,12 @@ namespace Buddie
             set => SetProperty(ref _isSaved, value);
         }
 
+        public bool IsStreamingEnabled
+        {
+            get => _isStreamingEnabled;
+            set => SetProperty(ref _isStreamingEnabled, value);
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -218,6 +277,40 @@ namespace Buddie
             OnPropertyChanged(propertyName);
             return true;
         }
+
+        // Convert to database model
+        public DbTtsConfiguration ToDbModel()
+        {
+            return new DbTtsConfiguration
+            {
+                Id = this.Id,
+                Name = this.Name,
+                ApiUrl = this.ApiUrl,
+                ApiKey = this.ApiKey,
+                Model = this.Model,
+                Voice = this.Voice,
+                Speed = this.Speed,
+                IsStreamingEnabled = this.IsStreamingEnabled
+            };
+        }
+
+        // Create from database model
+        public static OpenAiTtsConfiguration FromDbModel(DbTtsConfiguration dbModel)
+        {
+            return new OpenAiTtsConfiguration
+            {
+                Id = dbModel.Id,
+                Name = dbModel.Name,
+                ApiUrl = dbModel.ApiUrl,
+                ApiKey = dbModel.ApiKey,
+                Model = dbModel.Model,
+                Voice = dbModel.Voice,
+                Speed = dbModel.Speed,
+                IsStreamingEnabled = dbModel.IsStreamingEnabled,
+                IsSaved = true,
+                IsEditMode = false
+            };
+        }
     }
 
     public class AppSettings : INotifyPropertyChanged
@@ -228,6 +321,7 @@ namespace Buddie
         private bool _isDarkTheme = false;
         private ObservableCollection<OpenApiConfiguration> _apiConfigurations = new ObservableCollection<OpenApiConfiguration>();
         private ObservableCollection<OpenAiTtsConfiguration> _ttsConfigurations = new ObservableCollection<OpenAiTtsConfiguration>();
+        private DatabaseService _databaseService = new DatabaseService();
 
         public bool IsTopmost
         {
@@ -280,6 +374,155 @@ namespace Buddie
             backingStore = value;
             OnPropertyChanged(propertyName);
             return true;
+        }
+
+        // Load settings from database
+        public async Task LoadFromDatabaseAsync()
+        {
+            try
+            {
+                // Load app settings
+                var dbAppSettings = await _databaseService.GetAppSettingsAsync();
+                if (dbAppSettings != null)
+                {
+                    IsTopmost = dbAppSettings.IsTopmost;
+                    ShowInTaskbar = dbAppSettings.ShowInTaskbar;
+                    EnableAnimation = dbAppSettings.EnableAnimation;
+                    IsDarkTheme = dbAppSettings.IsDarkTheme;
+                }
+
+                // Load API configurations
+                var dbApiConfigs = await _databaseService.GetApiConfigurationsAsync();
+                ApiConfigurations.Clear();
+                foreach (var dbConfig in dbApiConfigs)
+                {
+                    ApiConfigurations.Add(OpenApiConfiguration.FromDbModel(dbConfig));
+                }
+
+                // Load TTS configurations
+                var dbTtsConfigs = await _databaseService.GetTtsConfigurationsAsync();
+                TtsConfigurations.Clear();
+                foreach (var dbConfig in dbTtsConfigs)
+                {
+                    TtsConfigurations.Add(OpenAiTtsConfiguration.FromDbModel(dbConfig));
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load settings from database: {ex.Message}");
+            }
+        }
+
+        // Save settings to database
+        public async Task SaveToDatabaseAsync()
+        {
+            try
+            {
+                // Save app settings
+                var dbAppSettings = new DbAppSettings
+                {
+                    Id = 1, // Single settings record
+                    IsTopmost = IsTopmost,
+                    ShowInTaskbar = ShowInTaskbar,
+                    EnableAnimation = EnableAnimation,
+                    IsDarkTheme = IsDarkTheme
+                };
+                await _databaseService.SaveAppSettingsAsync(dbAppSettings);
+
+                // Save API configurations
+                foreach (var config in ApiConfigurations)
+                {
+                    if (config.IsSaved && config.Id > 0)
+                    {
+                        var dbConfig = config.ToDbModel();
+                        await _databaseService.SaveApiConfigurationAsync(dbConfig);
+                    }
+                }
+
+                // Save TTS configurations
+                foreach (var config in TtsConfigurations)
+                {
+                    if (config.IsSaved && config.Id > 0)
+                    {
+                        var dbConfig = config.ToDbModel();
+                        await _databaseService.SaveTtsConfigurationAsync(dbConfig);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save settings to database: {ex.Message}");
+            }
+        }
+
+        // Save individual API configuration
+        public async Task SaveApiConfigurationAsync(OpenApiConfiguration config)
+        {
+            try
+            {
+                var dbConfig = config.ToDbModel();
+                var id = await _databaseService.SaveApiConfigurationAsync(dbConfig);
+                config.Id = id;
+                config.IsSaved = true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save API configuration: {ex.Message}");
+                throw;
+            }
+        }
+
+        // Save individual TTS configuration
+        public async Task SaveTtsConfigurationAsync(OpenAiTtsConfiguration config)
+        {
+            try
+            {
+                var dbConfig = config.ToDbModel();
+                var id = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
+                config.Id = id;
+                config.IsSaved = true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save TTS configuration: {ex.Message}");
+                throw;
+            }
+        }
+
+        // Delete API configuration
+        public async Task DeleteApiConfigurationAsync(OpenApiConfiguration config)
+        {
+            try
+            {
+                if (config.Id > 0)
+                {
+                    await _databaseService.DeleteApiConfigurationAsync(config.Id);
+                }
+                ApiConfigurations.Remove(config);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to delete API configuration: {ex.Message}");
+                throw;
+            }
+        }
+
+        // Delete TTS configuration
+        public async Task DeleteTtsConfigurationAsync(OpenAiTtsConfiguration config)
+        {
+            try
+            {
+                if (config.Id > 0)
+                {
+                    await _databaseService.DeleteTtsConfigurationAsync(config.Id);
+                }
+                TtsConfigurations.Remove(config);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to delete TTS configuration: {ex.Message}");
+                throw;
+            }
         }
     }
 

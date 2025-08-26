@@ -43,4 +43,12 @@ local.settings.json
 # Secrets management
 Secrets.toml
 
+# Database files
+*.db
+*.db-journal
+
+# CLAUDE.md
 CLAUDE.md
+
+# .env
+.env
