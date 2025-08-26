@@ -123,7 +123,9 @@ namespace Buddie
                 }
                 else
                 {
-                    DialogControl.AddMessage("请先配置API才能进行对话。", false);
+                    DialogControl.AddMessageBubble("请先配置API才能进行对话。", false);
+                    // 重置发送状态，确保按钮恢复为"发送"
+                    DialogControl.ResetSendingState();
                 }
             };
             DialogControl.DialogClosed += (s, e) => EnableClickThrough(false);

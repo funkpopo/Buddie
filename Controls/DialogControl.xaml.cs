@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Windows.Media.Animation;
 using System.Windows.Media;
 using System.Linq;
+using System.IO;
 
 namespace Buddie.Controls
 {
@@ -268,8 +269,10 @@ namespace Buddie.Controls
                 if (currentRequest != null)
                 {
                     currentRequest.Cancel();
-                    AddMessage("对话已中断", false);
+                    AddMessageBubble("对话已中断", false);
                 }
+                // 重置发送状态
+                SetSendingState(false);
                 return;
             }
 
@@ -302,6 +305,11 @@ namespace Buddie.Controls
                 currentRequest?.Dispose();
                 currentRequest = null;
             }
+        }
+
+        public void ResetSendingState()
+        {
+            SetSendingState(false);
         }
 
         public void Show()
@@ -347,33 +355,141 @@ namespace Buddie.Controls
 
         public void AddMessage(string message, bool isUser = true)
         {
+            var messageBubble = CreateMessageBubble(message, isUser);
+            DialogMessagesPanel.Children.Add(messageBubble);
+            DialogScrollViewer.ScrollToEnd();
+        }
+
+        public void AddMessageBubble(string message, bool isUser = true)
+        {
+            var messageBubble = CreateMessageBubble(message, isUser);
+            DialogMessagesPanel.Children.Add(messageBubble);
+            DialogScrollViewer.ScrollToEnd();
+        }
+
+        private Border CreateMessageBubble(string message, bool isUser)
+        {
             var messageBlock = new TextBlock
             {
                 Text = message,
-                Margin = new Thickness(5),
-                Padding = new Thickness(8),
+                Padding = new Thickness(12, 8, 12, 8),
                 TextWrapping = TextWrapping.Wrap,
-                HorizontalAlignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                MaxWidth = 350
+                MaxWidth = 300,
+                FontSize = 13,
+                LineHeight = 18
             };
 
-            // 根据当前主题设置颜色
-            var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(40, 44, 52);
+            // 创建气泡样式
+            var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
             
             if (isDarkTheme)
             {
                 messageBlock.Foreground = Brushes.White;
                 messageBlock.Background = isUser ? 
-                    new SolidColorBrush(Color.FromRgb(70, 130, 180)) : 
-                    new SolidColorBrush(Color.FromRgb(80, 80, 80));
+                    new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
+                    new SolidColorBrush(Color.FromRgb(58, 58, 60));
             }
             else
             {
-                messageBlock.Foreground = Brushes.Black;
-                messageBlock.Background = isUser ? Brushes.LightBlue : Brushes.LightGray;
+                messageBlock.Foreground = isUser ? Brushes.White : Brushes.Black;
+                messageBlock.Background = isUser ? 
+                    new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
+                    new SolidColorBrush(Color.FromRgb(240, 240, 240));
             }
 
-            DialogMessagesPanel.Children.Add(messageBlock);
+            // 设置圆角和阴影
+            var border = new Border
+            {
+                Child = messageBlock,
+                CornerRadius = new CornerRadius(18),
+                HorizontalAlignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                Margin = isUser ? new Thickness(50, 5, 10, 5) : new Thickness(10, 5, 50, 5),
+                Background = messageBlock.Background,
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Colors.Black,
+                    Direction = 270,
+                    ShadowDepth = 1,
+                    Opacity = 0.1,
+                    BlurRadius = 3
+                }
+            };
+
+            messageBlock.Background = Brushes.Transparent;
+
+            return border;
+        }
+
+        public void AddMessageBubbleWithReasoning(string? content, string? reasoningContent = null)
+        {
+            var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
+            
+            var messageContainer = new StackPanel
+            {
+                Margin = new Thickness(10, 5, 50, 5),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                MaxWidth = 350
+            };
+
+            // 如果有思维内容，添加可折叠的思维过程
+            if (!string.IsNullOrEmpty(reasoningContent))
+            {
+                var expander = new Expander
+                {
+                    Header = "💭 思维过程",
+                    IsExpanded = false,
+                    Margin = new Thickness(0, 0, 0, 5)
+                };
+
+                var reasoningBorder = new Border
+                {
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(8),
+                    Effect = new System.Windows.Media.Effects.DropShadowEffect
+                    {
+                        Color = Colors.Black,
+                        Direction = 270,
+                        ShadowDepth = 1,
+                        Opacity = 0.05,
+                        BlurRadius = 2
+                    }
+                };
+
+                var reasoningBlock = new TextBlock
+                {
+                    Text = reasoningContent,
+                    TextWrapping = TextWrapping.Wrap,
+                    FontSize = 11,
+                    LineHeight = 16
+                };
+
+                if (isDarkTheme)
+                {
+                    expander.Foreground = Brushes.LightGray;
+                    reasoningBorder.Background = new SolidColorBrush(Color.FromRgb(45, 45, 48));
+                    reasoningBlock.Foreground = new SolidColorBrush(Color.FromRgb(204, 204, 204));
+                }
+                else
+                {
+                    expander.Foreground = Brushes.DarkGray;
+                    reasoningBorder.Background = new SolidColorBrush(Color.FromRgb(255, 253, 235));
+                    reasoningBlock.Foreground = new SolidColorBrush(Color.FromRgb(101, 103, 107));
+                }
+
+                reasoningBorder.Child = reasoningBlock;
+                expander.Content = reasoningBorder;
+                messageContainer.Children.Add(expander);
+            }
+
+            // 添加实际回复内容
+            if (!string.IsNullOrEmpty(content))
+            {
+                var contentBubble = CreateMessageBubble(content, false);
+                contentBubble.Margin = new Thickness(0);
+                messageContainer.Children.Add(contentBubble);
+            }
+
+            DialogMessagesPanel.Children.Add(messageContainer);
             DialogScrollViewer.ScrollToEnd();
         }
 
@@ -533,9 +649,14 @@ namespace Buddie.Controls
             }
         }
 
+        private Border? currentStreamingBubble;
+        private TextBlock? currentStreamingTextBlock;
+        private StringBuilder streamingContent = new StringBuilder();
+        private StringBuilder streamingReasoning = new StringBuilder();
+
         public async Task SendMessageToApi(string message, OpenApiConfiguration apiConfig)
         {
-            AddMessage(message, true);
+            AddMessageBubble(message, true);
 
             try
             {
@@ -543,6 +664,7 @@ namespace Buddie.Controls
                 currentRequest = new CancellationTokenSource();
                 
                 using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromMinutes(5);
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiConfig.ApiKey}");
 
                 var requestBody = new
@@ -558,29 +680,42 @@ namespace Buddie.Controls
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                var response = await httpClient.PostAsync(apiConfig.ApiUrl, content, currentRequest.Token);
-                var responseText = await response.Content.ReadAsStringAsync();
-
-                // 检查是否被取消
-                currentRequest.Token.ThrowIfCancellationRequested();
-
-                if (response.IsSuccessStatusCode)
+                if (apiConfig.IsStreamingEnabled)
                 {
-                    var jsonDoc = JsonDocument.Parse(responseText);
-                    var choices = jsonDoc.RootElement.GetProperty("choices");
-                    if (choices.GetArrayLength() > 0)
-                    {
-                        var messageContent = choices[0].GetProperty("message").GetProperty("content").GetString();
-                        AddMessage(messageContent ?? "无响应内容", false);
-                    }
-                    else
-                    {
-                        AddMessage("API响应格式错误", false);
-                    }
+                    await ProcessStreamingResponse(httpClient, apiConfig.ApiUrl, content);
                 }
                 else
                 {
-                    AddMessage($"API请求失败: {response.StatusCode}", false);
+                    var response = await httpClient.PostAsync(apiConfig.ApiUrl, content, currentRequest?.Token ?? CancellationToken.None);
+                    var responseText = await response.Content.ReadAsStringAsync();
+                    
+                    currentRequest?.Token.ThrowIfCancellationRequested();
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        try
+                        {
+                            var jsonDoc = JsonDocument.Parse(responseText);
+                            var choices = jsonDoc.RootElement.GetProperty("choices");
+                            if (choices.GetArrayLength() > 0)
+                            {
+                                var messageContent = choices[0].GetProperty("message").GetProperty("content").GetString();
+                                AddMessageBubble(messageContent ?? "无响应内容", false);
+                            }
+                            else
+                            {
+                                AddMessageBubble("API响应格式错误", false);
+                            }
+                        }
+                        catch (JsonException)
+                        {
+                            AddMessageBubble($"API返回了无效的JSON格式: {responseText}", false);
+                        }
+                    }
+                    else
+                    {
+                        AddMessageBubble($"API请求失败: {response.StatusCode}", false);
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -589,12 +724,154 @@ namespace Buddie.Controls
             }
             catch (Exception ex)
             {
-                AddMessage($"请求错误: {ex.Message}", false);
+                AddMessageBubble($"请求错误: {ex.Message}", false);
             }
             finally
             {
                 // 恢复发送状态
                 SetSendingState(false);
+            }
+        }
+
+        private async Task ProcessStreamingResponse(HttpClient httpClient, string apiUrl, StringContent requestContent)
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+                {
+                    Content = requestContent
+                };
+
+                var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, currentRequest?.Token ?? CancellationToken.None);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    AddMessageBubble($"API请求失败: {response.StatusCode}", false);
+                    return;
+                }
+
+                // 初始化流式消息显示
+                InitializeStreamingMessage();
+
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var reader = new System.IO.StreamReader(stream);
+                
+                string? line;
+                while ((line = await reader.ReadLineAsync()) != null)
+                {
+                    currentRequest?.Token.ThrowIfCancellationRequested();
+                    
+                    if (line.StartsWith("data:"))
+                    {
+                        var jsonData = line.Substring(5).Trim();
+                        
+                        if (jsonData == "[DONE]")
+                        {
+                            break;
+                        }
+                        
+                        if (!string.IsNullOrEmpty(jsonData))
+                        {
+                            try
+                            {
+                                var jsonDoc = JsonDocument.Parse(jsonData);
+                                var choices = jsonDoc.RootElement.GetProperty("choices");
+                                
+                                if (choices.GetArrayLength() > 0)
+                                {
+                                    var choice = choices[0];
+                                    if (choice.TryGetProperty("delta", out var delta))
+                                    {
+                                        // 处理思维内容
+                                        if (delta.TryGetProperty("reasoning_content", out var reasoningProp))
+                                        {
+                                            var reasoning = reasoningProp.GetString();
+                                            if (!string.IsNullOrEmpty(reasoning))
+                                            {
+                                                streamingReasoning.Append(reasoning);
+                                            }
+                                        }
+                                        
+                                        // 处理实际内容
+                                        if (delta.TryGetProperty("content", out var contentProp))
+                                        {
+                                            var messageText = contentProp.GetString();
+                                            if (!string.IsNullOrEmpty(messageText))
+                                            {
+                                                streamingContent.Append(messageText);
+                                                // 实时更新UI
+                                                await Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch (JsonException)
+                            {
+                                // 忽略无效的JSON行
+                                continue;
+                            }
+                        }
+                    }
+                }
+                
+                // 完成流式输出
+                await Dispatcher.InvokeAsync(() => FinalizeStreamingMessage());
+            }
+            catch (OperationCanceledException)
+            {
+                // 被取消，清理当前流式消息
+                await Dispatcher.InvokeAsync(() => FinalizeStreamingMessage());
+            }
+            catch (Exception ex)
+            {
+                AddMessageBubble($"流式处理错误: {ex.Message}", false);
+            }
+        }
+
+        private void InitializeStreamingMessage()
+        {
+            streamingContent.Clear();
+            streamingReasoning.Clear();
+            
+            // 创建空的消息气泡，准备接收流式内容
+            currentStreamingBubble = CreateMessageBubble("", false);
+            currentStreamingTextBlock = (currentStreamingBubble.Child as TextBlock);
+            DialogMessagesPanel.Children.Add(currentStreamingBubble);
+            DialogScrollViewer.ScrollToEnd();
+        }
+
+        private void UpdateStreamingMessage()
+        {
+            if (currentStreamingTextBlock != null)
+            {
+                currentStreamingTextBlock.Text = streamingContent.ToString();
+                DialogScrollViewer.ScrollToEnd();
+            }
+        }
+
+        private void FinalizeStreamingMessage()
+        {
+            if (currentStreamingBubble != null)
+            {
+                var finalContent = streamingContent.ToString().Trim();
+                var finalReasoning = streamingReasoning.ToString().Trim();
+                
+                // 移除临时的流式消息
+                DialogMessagesPanel.Children.Remove(currentStreamingBubble);
+                
+                // 添加最终格式化的消息
+                if (!string.IsNullOrEmpty(finalContent) || !string.IsNullOrEmpty(finalReasoning))
+                {
+                    AddMessageBubbleWithReasoning(finalContent, finalReasoning);
+                }
+                else
+                {
+                    AddMessageBubble("AI没有返回有效内容", false);
+                }
+                
+                currentStreamingBubble = null;
+                currentStreamingTextBlock = null;
             }
         }
     }

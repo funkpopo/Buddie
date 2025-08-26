@@ -231,18 +231,26 @@ namespace Buddie.Controls
                 if (response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
-                    var responseObj = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                    
-                    if (responseObj.TryGetProperty("choices", out var choices) && 
-                        choices.GetArrayLength() > 0)
+                    try
                     {
-                        config.TestStatus = TestStatus.Success;
-                        config.TestMessage = $"连接成功 ({delayMs}ms)";
+                        var responseObj = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                        
+                        if (responseObj.TryGetProperty("choices", out var choices) && 
+                            choices.GetArrayLength() > 0)
+                        {
+                            config.TestStatus = TestStatus.Success;
+                            config.TestMessage = $"连接成功 ({delayMs}ms)";
+                        }
+                        else
+                        {
+                            config.TestStatus = TestStatus.Failed;
+                            config.TestMessage = $"响应格式异常 ({delayMs}ms)";
+                        }
                     }
-                    else
+                    catch (JsonException)
                     {
                         config.TestStatus = TestStatus.Failed;
-                        config.TestMessage = $"响应格式异常 ({delayMs}ms)";
+                        config.TestMessage = $"JSON格式错误 ({delayMs}ms)";
                     }
                 }
                 else
