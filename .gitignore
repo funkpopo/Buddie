@@ -42,3 +42,5 @@ local.settings.json
 
 # Secrets management
 Secrets.toml
+
+CLAUDE.md
