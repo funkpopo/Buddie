@@ -651,8 +651,12 @@ namespace Buddie.Controls
 
         private Border? currentStreamingBubble;
         private TextBlock? currentStreamingTextBlock;
+        private StackPanel? currentStreamingContainer;
+        private Expander? currentReasoningExpander;
+        private TextBlock? currentReasoningTextBlock;
         private StringBuilder streamingContent = new StringBuilder();
         private StringBuilder streamingReasoning = new StringBuilder();
+        private bool isReasoningPhase = true;
 
         public async Task SendMessageToApi(string message, OpenApiConfiguration apiConfig)
         {
@@ -789,6 +793,8 @@ namespace Buddie.Controls
                                             if (!string.IsNullOrEmpty(reasoning))
                                             {
                                                 streamingReasoning.Append(reasoning);
+                                                // 实时更新思维过程UI
+                                                await Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
                                             }
                                         }
                                         
@@ -833,45 +839,157 @@ namespace Buddie.Controls
         {
             streamingContent.Clear();
             streamingReasoning.Clear();
+            isReasoningPhase = true;
             
-            // 创建空的消息气泡，准备接收流式内容
+            var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
+            
+            // 创建消息容器
+            currentStreamingContainer = new StackPanel
+            {
+                Margin = new Thickness(10, 5, 50, 5),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                MaxWidth = 350
+            };
+            
+            // 创建思维过程展开器（初始展开状态）
+            currentReasoningExpander = new Expander
+            {
+                Header = "💭 思维过程",
+                IsExpanded = true,
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+            
+            var reasoningBorder = new Border
+            {
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(8),
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Colors.Black,
+                    Direction = 270,
+                    ShadowDepth = 1,
+                    Opacity = 0.05,
+                    BlurRadius = 2
+                }
+            };
+            
+            currentReasoningTextBlock = new TextBlock
+            {
+                Text = "",
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 11,
+                LineHeight = 16
+            };
+            
+            if (isDarkTheme)
+            {
+                currentReasoningExpander.Foreground = Brushes.LightGray;
+                reasoningBorder.Background = new SolidColorBrush(Color.FromRgb(45, 45, 48));
+                currentReasoningTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(204, 204, 204));
+            }
+            else
+            {
+                currentReasoningExpander.Foreground = Brushes.DarkGray;
+                reasoningBorder.Background = new SolidColorBrush(Color.FromRgb(255, 253, 235));
+                currentReasoningTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(101, 103, 107));
+            }
+            
+            reasoningBorder.Child = currentReasoningTextBlock;
+            currentReasoningExpander.Content = reasoningBorder;
+            currentStreamingContainer.Children.Add(currentReasoningExpander);
+            
+            // 创建内容消息气泡（暂时隐藏）
             currentStreamingBubble = CreateMessageBubble("", false);
+            currentStreamingBubble.Margin = new Thickness(0);
+            currentStreamingBubble.Visibility = Visibility.Collapsed;
             currentStreamingTextBlock = (currentStreamingBubble.Child as TextBlock);
-            DialogMessagesPanel.Children.Add(currentStreamingBubble);
+            currentStreamingContainer.Children.Add(currentStreamingBubble);
+            
+            DialogMessagesPanel.Children.Add(currentStreamingContainer);
             DialogScrollViewer.ScrollToEnd();
         }
 
         private void UpdateStreamingMessage()
         {
-            if (currentStreamingTextBlock != null)
+            bool updated = false;
+            
+            // 更新思维过程（如果有新内容）
+            if (currentReasoningTextBlock != null && streamingReasoning.Length > 0)
             {
+                currentReasoningTextBlock.Text = streamingReasoning.ToString();
+                updated = true;
+            }
+            
+            // 更新实际内容
+            if (currentStreamingTextBlock != null && streamingContent.Length > 0)
+            {
+                // 如果开始收到实际内容，切换到内容阶段
+                if (isReasoningPhase)
+                {
+                    isReasoningPhase = false;
+                    // 显示内容气泡
+                    if (currentStreamingBubble != null)
+                    {
+                        currentStreamingBubble.Visibility = Visibility.Visible;
+                    }
+                    // 自动折叠思维过程
+                    if (currentReasoningExpander != null)
+                    {
+                        currentReasoningExpander.IsExpanded = false;
+                    }
+                }
+                
                 currentStreamingTextBlock.Text = streamingContent.ToString();
+                updated = true;
+            }
+            
+            // 只有在内容更新时才滚动，避免不必要的滚动
+            if (updated)
+            {
                 DialogScrollViewer.ScrollToEnd();
             }
         }
 
         private void FinalizeStreamingMessage()
         {
-            if (currentStreamingBubble != null)
+            if (currentStreamingContainer != null)
             {
                 var finalContent = streamingContent.ToString().Trim();
                 var finalReasoning = streamingReasoning.ToString().Trim();
                 
-                // 移除临时的流式消息
-                DialogMessagesPanel.Children.Remove(currentStreamingBubble);
-                
-                // 添加最终格式化的消息
-                if (!string.IsNullOrEmpty(finalContent) || !string.IsNullOrEmpty(finalReasoning))
+                // 如果没有实际内容，显示一个提示
+                if (string.IsNullOrEmpty(finalContent) && string.IsNullOrEmpty(finalReasoning))
                 {
-                    AddMessageBubbleWithReasoning(finalContent, finalReasoning);
-                }
-                else
-                {
+                    DialogMessagesPanel.Children.Remove(currentStreamingContainer);
                     AddMessageBubble("AI没有返回有效内容", false);
                 }
+                else if (string.IsNullOrEmpty(finalContent) && !string.IsNullOrEmpty(finalReasoning))
+                {
+                    // 只有思维内容，没有实际回复
+                    if (currentStreamingBubble != null)
+                    {
+                        currentStreamingBubble.Visibility = Visibility.Collapsed;
+                    }
+                }
+                else if (currentStreamingBubble != null)
+                {
+                    // 确保内容气泡是可见的
+                    currentStreamingBubble.Visibility = Visibility.Visible;
+                }
                 
+                // 确保思维过程在最终完成时是折叠的
+                if (currentReasoningExpander != null && !string.IsNullOrEmpty(finalReasoning))
+                {
+                    currentReasoningExpander.IsExpanded = false;
+                }
+                
+                // 清理引用
                 currentStreamingBubble = null;
                 currentStreamingTextBlock = null;
+                currentStreamingContainer = null;
+                currentReasoningExpander = null;
+                currentReasoningTextBlock = null;
+                isReasoningPhase = true;
             }
         }
     }
