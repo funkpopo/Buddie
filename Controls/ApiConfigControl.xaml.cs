@@ -60,7 +60,7 @@ namespace Buddie.Controls
                 ApiUrl = "https://api.openai.com/v1/chat/completions",
                 ModelName = "", // 空的模型名称，让用户手动填写
                 IsStreamingEnabled = true,
-                IsMultimodalEnabled = false,
+                IsMultimodalEnabled = false, // 默认关闭多模态
                 SupportsThinking = false,
                 ChannelType = ChannelType.OpenAI,
                 IsEditMode = true,
@@ -285,15 +285,11 @@ namespace Buddie.Controls
             }
         }
 
-        private void TextBox_GotFocus(object sender, RoutedEventArgs e)
+        private void TextBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (sender is TextBox textBox)
             {
-                // 延迟选择所有文本，确保用户体验更好
-                textBox.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    textBox.SelectAll();
-                }), System.Windows.Threading.DispatcherPriority.Input);
+                textBox.SelectAll();
             }
         }
 
@@ -326,7 +322,7 @@ namespace Buddie.Controls
             {
                 config.ApiUrl = selectedChannel.DefaultApiUrl;
                 config.IsStreamingEnabled = selectedChannel.SupportsStreaming;
-                config.IsMultimodalEnabled = selectedChannel.SupportsMultimodal;
+                // 不自动设置多模态状态，保持用户当前选择
                 config.SupportsThinking = selectedChannel.SupportsThinking;
                 
                 // 不填充模型名称，让用户手动输入

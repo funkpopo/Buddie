@@ -223,93 +223,83 @@
                 <ControlTemplate TargetType="CheckBox">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="10"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         
-                        <!-- Toggle Switch -->
-                        <Border x:Name="SwitchTrack"
-                                Grid.Column="0"
-                                Width="48"
-                                Height="24"
-                                Background="#E0E0E0"
-                                CornerRadius="12"
-                                BorderThickness="1"
-                                BorderBrush="#CCCCCC">
-                            <Canvas>
-                                <Ellipse x:Name="SwitchThumb"
-                                         Width="20"
-                                         Height="20"
-                                         Canvas.Left="2"
-                                         Canvas.Top="2"
-                                         Fill="White"
-                                         Stroke="#CCCCCC"
-                                         StrokeThickness="1">
-                                    <Ellipse.RenderTransform>
-                                        <TranslateTransform x:Name="ThumbTransform" X="0"/>
-                                    </Ellipse.RenderTransform>
-                                </Ellipse>
-                            </Canvas>
-                        </Border>
-                        
-                        <!-- Content -->
-                        <ContentPresenter Grid.Column="2"
+                        <ContentPresenter Grid.Column="0" 
                                           VerticalAlignment="Center"
-                                          Content="{TemplateBinding Content}"/>
+                                          Margin="0,0,10,0"/>
+                        
+                        <Border Grid.Column="1"
+                                x:Name="ToggleBackground"
+                                Width="44"
+                                Height="24"
+                                CornerRadius="12"
+                                Background="#E4E4E7"
+                                BorderThickness="0"
+                                Cursor="Hand">
+                            <Ellipse x:Name="ToggleButton"
+                                     Width="18"
+                                     Height="18"
+                                     Fill="White"
+                                     HorizontalAlignment="Left"
+                                     Margin="3,0,0,0">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="Black" 
+                                                      Direction="270" 
+                                                      ShadowDepth="1" 
+                                                      Opacity="0.3" 
+                                                      BlurRadius="3"/>
+                                </Ellipse.Effect>
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform x:Name="ToggleTransform"/>
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Border>
                     </Grid>
-                    
                     <ControlTemplate.Triggers>
-                        <!-- Checked State -->
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="SwitchTrack" Property="Background" Value="#4CAF50"/>
-                            <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#4CAF50"/>
-                            <Setter TargetName="SwitchThumb" Property="Stroke" Value="#4CAF50"/>
                             <Trigger.EnterActions>
                                 <BeginStoryboard>
                                     <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="ThumbTransform"
+                                        <ColorAnimation Storyboard.TargetName="ToggleBackground"
+                                                        Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                        To="#10B981"
+                                                        Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetName="ToggleTransform"
                                                          Storyboard.TargetProperty="X"
-                                                         To="24"
-                                                         Duration="0:0:0.2"/>
+                                                         To="20"
+                                                         Duration="0:0:0.2">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
                             <Trigger.ExitActions>
                                 <BeginStoryboard>
                                     <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="ThumbTransform"
+                                        <ColorAnimation Storyboard.TargetName="ToggleBackground"
+                                                        Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                        To="#E4E4E7"
+                                                        Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetName="ToggleTransform"
                                                          Storyboard.TargetProperty="X"
                                                          To="0"
-                                                         Duration="0:0:0.2"/>
+                                                         Duration="0:0:0.2">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.ExitActions>
                         </Trigger>
-                        
-                        <!-- Mouse Over -->
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="SwitchThumb" Property="Fill" Value="#F5F5F5"/>
+                            <Setter TargetName="ToggleBackground" Property="Opacity" Value="0.8"/>
                         </Trigger>
-                        
-                        <!-- Dark Theme -->
-                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                            <Setter TargetName="SwitchTrack" Property="Background" Value="#555555"/>
-                            <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#777777"/>
-                            <Setter TargetName="SwitchThumb" Property="Fill" Value="#DDDDDD"/>
-                            <Setter TargetName="SwitchThumb" Property="Stroke" Value="#777777"/>
-                        </DataTrigger>
-                        
-                        <!-- Dark Theme + Checked -->
-                        <MultiDataTrigger>
-                            <MultiDataTrigger.Conditions>
-                                <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
-                                <Condition Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True"/>
-                            </MultiDataTrigger.Conditions>
-                            <Setter TargetName="SwitchTrack" Property="Background" Value="#66BB6A"/>
-                            <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#66BB6A"/>
-                            <Setter TargetName="SwitchThumb" Property="Stroke" Value="#66BB6A"/>
-                        </MultiDataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>

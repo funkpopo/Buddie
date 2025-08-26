@@ -107,7 +107,7 @@
                                              Margin="0,0,10,8"
                                              Style="{StaticResource RoundedTextBoxStyle}"
                                              Padding="10,8"
-                                             GotFocus="TextBox_GotFocus"/>
+                                             MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- API URL -->
                                     <TextBlock Grid.Row="1" Grid.Column="0"
@@ -136,7 +136,7 @@
                                              MinHeight="60"
                                              MaxHeight="120"
                                              VerticalScrollBarVisibility="Auto"
-                                             GotFocus="TextBox_GotFocus"/>
+                                             MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- API Key -->
                                     <TextBlock Grid.Row="2" Grid.Column="0"
@@ -165,7 +165,7 @@
                                              MinHeight="60"
                                              MaxHeight="120"
                                              VerticalScrollBarVisibility="Auto"
-                                             GotFocus="TextBox_GotFocus"/>
+                                             MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- Model -->
                                     <TextBlock Grid.Row="3" Grid.Column="0"
@@ -190,7 +190,7 @@
                                              Style="{StaticResource RoundedTextBoxStyle}"
                                              Padding="10,8"
                                              ToolTip="例如: tts-1, tts-1-hd 或其他支持的模型"
-                                             GotFocus="TextBox_GotFocus"/>
+                                             MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- Voice -->
                                     <TextBlock Grid.Row="4" Grid.Column="0"
@@ -215,7 +215,7 @@
                                              Style="{StaticResource RoundedTextBoxStyle}"
                                              Padding="10,8"
                                              ToolTip="例如: alloy, echo, fable, onyx, nova, shimmer 或其他支持的语音"
-                                             GotFocus="TextBox_GotFocus"/>
+                                             MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- Speed -->
                                     <TextBlock Grid.Row="5" Grid.Column="0"

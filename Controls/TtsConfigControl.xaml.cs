@@ -139,6 +139,14 @@ namespace Buddie.Controls
             // 这个方法主要用于实时更新显示的速度值，数据绑定会自动处理实际值的更新
         }
 
+        private void TextBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+                textBox.SelectAll();
+            }
+        }
+
         private void TestTts_Click(object sender, RoutedEventArgs e)
         {
             var testTextBox = TestTextBox;
@@ -149,18 +157,6 @@ namespace Buddie.Controls
                 
                 // TTS测试功能的实现可以在这里添加
                 // 目前仅作为占位符
-            }
-        }
-
-        private void TextBox_GotFocus(object sender, RoutedEventArgs e)
-        {
-            if (sender is TextBox textBox)
-            {
-                // 延迟选择所有文本，确保用户体验更好
-                textBox.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    textBox.SelectAll();
-                }), System.Windows.Threading.DispatcherPriority.Input);
             }
         }
     }
