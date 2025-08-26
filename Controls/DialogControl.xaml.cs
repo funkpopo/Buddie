@@ -1062,8 +1062,6 @@ namespace Buddie.Controls
             streamingReasoning.Clear();
             isReasoningPhase = true;
             
-            var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
-            
             // 创建消息容器
             currentStreamingContainer = new StackPanel
             {
@@ -1071,6 +1069,75 @@ namespace Buddie.Controls
                 HorizontalAlignment = HorizontalAlignment.Left,
                 MaxWidth = 350
             };
+            
+            // 不在初始化时创建思维过程UI，而是在真正收到reasoning内容时创建
+            currentReasoningExpander = null;
+            currentReasoningTextBlock = null;
+            
+            // 创建内容消息气泡（暂时隐藏）
+            currentStreamingBubble = CreateMessageBubble("", false);
+            currentStreamingBubble.Margin = new Thickness(0);
+            currentStreamingBubble.Visibility = Visibility.Collapsed;
+            currentStreamingTextBlock = (currentStreamingBubble.Child as TextBlock);
+            currentStreamingContainer.Children.Add(currentStreamingBubble);
+            
+            DialogMessagesPanel.Children.Add(currentStreamingContainer);
+            DialogScrollViewer.ScrollToEnd();
+        }
+
+        private void UpdateStreamingMessage()
+        {
+            bool updated = false;
+            
+            // 如果有思维内容且还没有创建思维过程UI，则创建它
+            if (streamingReasoning.Length > 0 && currentReasoningExpander == null)
+            {
+                CreateReasoningUI();
+            }
+            
+            // 更新思维过程（如果有新内容）
+            if (currentReasoningTextBlock != null && streamingReasoning.Length > 0)
+            {
+                currentReasoningTextBlock.Text = streamingReasoning.ToString();
+                updated = true;
+            }
+            
+            // 更新实际内容
+            if (currentStreamingTextBlock != null && streamingContent.Length > 0)
+            {
+                // 如果开始收到实际内容，切换到内容阶段
+                if (isReasoningPhase)
+                {
+                    isReasoningPhase = false;
+                    // 显示内容气泡
+                    if (currentStreamingBubble != null)
+                    {
+                        currentStreamingBubble.Visibility = Visibility.Visible;
+                    }
+                    // 自动折叠思维过程
+                    if (currentReasoningExpander != null)
+                    {
+                        currentReasoningExpander.IsExpanded = false;
+                    }
+                }
+                
+                currentStreamingTextBlock.Text = streamingContent.ToString();
+                updated = true;
+            }
+            
+            // 只有在内容更新时才滚动，避免不必要的滚动
+            if (updated)
+            {
+                DialogScrollViewer.ScrollToEnd();
+            }
+        }
+
+        private void CreateReasoningUI()
+        {
+            if (currentStreamingContainer == null || currentReasoningExpander != null)
+                return;
+                
+            var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
             
             // 创建思维过程展开器（初始展开状态）
             currentReasoningExpander = new Expander
@@ -1117,58 +1184,9 @@ namespace Buddie.Controls
             
             reasoningBorder.Child = currentReasoningTextBlock;
             currentReasoningExpander.Content = reasoningBorder;
-            currentStreamingContainer.Children.Add(currentReasoningExpander);
             
-            // 创建内容消息气泡（暂时隐藏）
-            currentStreamingBubble = CreateMessageBubble("", false);
-            currentStreamingBubble.Margin = new Thickness(0);
-            currentStreamingBubble.Visibility = Visibility.Collapsed;
-            currentStreamingTextBlock = (currentStreamingBubble.Child as TextBlock);
-            currentStreamingContainer.Children.Add(currentStreamingBubble);
-            
-            DialogMessagesPanel.Children.Add(currentStreamingContainer);
-            DialogScrollViewer.ScrollToEnd();
-        }
-
-        private void UpdateStreamingMessage()
-        {
-            bool updated = false;
-            
-            // 更新思维过程（如果有新内容）
-            if (currentReasoningTextBlock != null && streamingReasoning.Length > 0)
-            {
-                currentReasoningTextBlock.Text = streamingReasoning.ToString();
-                updated = true;
-            }
-            
-            // 更新实际内容
-            if (currentStreamingTextBlock != null && streamingContent.Length > 0)
-            {
-                // 如果开始收到实际内容，切换到内容阶段
-                if (isReasoningPhase)
-                {
-                    isReasoningPhase = false;
-                    // 显示内容气泡
-                    if (currentStreamingBubble != null)
-                    {
-                        currentStreamingBubble.Visibility = Visibility.Visible;
-                    }
-                    // 自动折叠思维过程
-                    if (currentReasoningExpander != null)
-                    {
-                        currentReasoningExpander.IsExpanded = false;
-                    }
-                }
-                
-                currentStreamingTextBlock.Text = streamingContent.ToString();
-                updated = true;
-            }
-            
-            // 只有在内容更新时才滚动，避免不必要的滚动
-            if (updated)
-            {
-                DialogScrollViewer.ScrollToEnd();
-            }
+            // 在内容气泡之前插入思维过程UI
+            currentStreamingContainer.Children.Insert(0, currentReasoningExpander);
         }
 
         private void FinalizeStreamingMessage()
@@ -1178,7 +1196,7 @@ namespace Buddie.Controls
                 var finalContent = streamingContent.ToString().Trim();
                 var finalReasoning = streamingReasoning.ToString().Trim();
                 
-                // 如果没有实际内容，显示一个提示
+                // 如果没有实际内容和思维内容，显示一个提示
                 if (string.IsNullOrEmpty(finalContent) && string.IsNullOrEmpty(finalReasoning))
                 {
                     DialogMessagesPanel.Children.Remove(currentStreamingContainer);
@@ -1186,7 +1204,7 @@ namespace Buddie.Controls
                 }
                 else if (string.IsNullOrEmpty(finalContent) && !string.IsNullOrEmpty(finalReasoning))
                 {
-                    // 只有思维内容，没有实际回复
+                    // 只有思维内容，没有实际回复，隐藏内容气泡
                     if (currentStreamingBubble != null)
                     {
                         currentStreamingBubble.Visibility = Visibility.Collapsed;
@@ -1212,8 +1230,13 @@ namespace Buddie.Controls
                     }
                 }
                 
+                // 如果没有思维内容但创建了思维UI，则移除它
+                if (string.IsNullOrEmpty(finalReasoning) && currentReasoningExpander != null)
+                {
+                    currentStreamingContainer.Children.Remove(currentReasoningExpander);
+                }
                 // 确保思维过程在最终完成时是折叠的
-                if (currentReasoningExpander != null && !string.IsNullOrEmpty(finalReasoning))
+                else if (currentReasoningExpander != null && !string.IsNullOrEmpty(finalReasoning))
                 {
                     currentReasoningExpander.IsExpanded = false;
                 }
