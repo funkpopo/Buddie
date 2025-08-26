@@ -234,7 +234,7 @@ namespace Buddie.Controls
             // 检查是否有TTS配置和是否为AI回复
             var hasButtons = false;
             var appSettings = DataContext as AppSettings;
-            if (!isUser && appSettings?.TtsConfigurations.Count > 0)
+            if (!isUser && appSettings?.GetActiveTtsConfiguration() != null)
             {
                 hasButtons = true;
             }
@@ -984,7 +984,7 @@ namespace Buddie.Controls
             
             // 检查是否启用流式TTS
             var appSettings = DataContext as AppSettings;
-            var ttsConfig = appSettings?.TtsConfigurations.FirstOrDefault();
+            var ttsConfig = appSettings?.GetActiveTtsConfiguration();
             isStreamingTts = ttsConfig?.IsStreamingEnabled == true;
             
             // 创建消息容器
@@ -1065,7 +1065,7 @@ namespace Buddie.Controls
             if (!isStreamingTts) return;
             
             var appSettings = DataContext as AppSettings;
-            var ttsConfig = appSettings?.TtsConfigurations.FirstOrDefault();
+            var ttsConfig = appSettings?.GetActiveTtsConfiguration();
             
             if (ttsConfig == null) return;
             
@@ -1208,7 +1208,7 @@ namespace Buddie.Controls
             if (isStreamingTts && streamingTtsBuffer.Length > 0)
             {
                 var appSettings = DataContext as AppSettings;
-                var ttsConfig = appSettings?.TtsConfigurations.FirstOrDefault();
+                var ttsConfig = appSettings?.GetActiveTtsConfiguration();
                 
                 if (ttsConfig != null)
                 {
@@ -1314,7 +1314,7 @@ namespace Buddie.Controls
                 return;
 
             var appSettings = DataContext as AppSettings;
-            var ttsConfig = appSettings?.TtsConfigurations.FirstOrDefault();
+            var ttsConfig = appSettings?.GetActiveTtsConfiguration();
             
             if (ttsConfig == null)
                 return;

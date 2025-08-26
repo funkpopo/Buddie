@@ -14,6 +14,10 @@ namespace Buddie.Controls
         public event EventHandler<bool>? TopMostChanged;
         public event EventHandler<bool>? ShowInTaskbarChanged;
         public event EventHandler<bool>? DarkThemeChanged;
+        public event EventHandler<OpenAiTtsConfiguration>? TtsConfigurationActivated;
+        public event EventHandler<OpenAiTtsConfiguration>? TtsConfigurationAdded;
+        public event EventHandler<OpenAiTtsConfiguration>? TtsConfigurationUpdated;
+        public event EventHandler<OpenAiTtsConfiguration>? TtsConfigurationRemoved;
 
         public SettingsControl()
         {
@@ -53,14 +57,22 @@ namespace Buddie.Controls
             
             TtsConfigControl.ConfigurationAdded += (s, config) => {
                 // TTS配置添加
+                TtsConfigurationAdded?.Invoke(this, config);
             };
             
             TtsConfigControl.ConfigurationRemoved += (s, config) => {
                 // TTS配置移除
+                TtsConfigurationRemoved?.Invoke(this, config);
             };
             
             TtsConfigControl.ConfigurationUpdated += (s, config) => {
                 // TTS配置更新
+                TtsConfigurationUpdated?.Invoke(this, config);
+            };
+            
+            TtsConfigControl.ConfigurationActivated += (s, config) => {
+                // TTS配置激活
+                TtsConfigurationActivated?.Invoke(this, config);
             };
         }
 

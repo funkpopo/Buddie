@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using System.Windows.Threading;
 using Buddie.Database;
 
 namespace Buddie
@@ -11,6 +12,10 @@ namespace Buddie
             try
             {
                 System.Diagnostics.Debug.WriteLine("Application starting up...");
+                
+                // Set up global exception handlers
+                AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+                DispatcherUnhandledException += App_DispatcherUnhandledException;
                 
                 // Initialize database
                 System.Diagnostics.Debug.WriteLine("Initializing database...");
@@ -38,6 +43,37 @@ namespace Buddie
             }
 
             base.OnStartup(e);
+        }
+        
+        private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine($"Unhandled exception in dispatcher: {e.Exception.Message}");
+            System.Diagnostics.Debug.WriteLine($"Stack trace: {e.Exception.StackTrace}");
+            
+            MessageBox.Show(
+                $"发生未处理的异常:\n\n{e.Exception.Message}\n\n详细信息已记录到调试输出。", 
+                "应用程序错误", 
+                MessageBoxButton.OK, 
+                MessageBoxImage.Error);
+            
+            // Mark the exception as handled to prevent app crash
+            e.Handled = true;
+        }
+        
+        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            var exception = e.ExceptionObject as Exception;
+            if (exception != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"Unhandled domain exception: {exception.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {exception.StackTrace}");
+                
+                MessageBox.Show(
+                    $"发生严重错误:\n\n{exception.Message}\n\n应用程序将退出。", 
+                    "严重错误", 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Error);
+            }
         }
     }
 }

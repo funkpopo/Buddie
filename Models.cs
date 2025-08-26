@@ -200,6 +200,12 @@ namespace Buddie
         private bool _isEditMode = true;
         private bool _isSaved = false;
         private bool _isStreamingEnabled = false;
+        private bool _isActive = false;
+
+        public OpenAiTtsConfiguration()
+        {
+            // 无参构造函数，确保默认值正确初始化
+        }
 
         public int Id
         {
@@ -261,6 +267,12 @@ namespace Buddie
             set => SetProperty(ref _isStreamingEnabled, value);
         }
 
+        public bool IsActive
+        {
+            get => _isActive;
+            set => SetProperty(ref _isActive, value);
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -290,7 +302,8 @@ namespace Buddie
                 Model = this.Model,
                 Voice = this.Voice,
                 Speed = this.Speed,
-                IsStreamingEnabled = this.IsStreamingEnabled
+                IsStreamingEnabled = this.IsStreamingEnabled,
+                IsActive = this.IsActive
             };
         }
 
@@ -307,6 +320,7 @@ namespace Buddie
                 Voice = dbModel.Voice,
                 Speed = dbModel.Speed,
                 IsStreamingEnabled = dbModel.IsStreamingEnabled,
+                IsActive = dbModel.IsActive,
                 IsSaved = true,
                 IsEditMode = false
             };
@@ -563,6 +577,70 @@ namespace Buddie
                 System.Diagnostics.Debug.WriteLine($"Failed to delete TTS configuration: {ex.Message}");
                 throw;
             }
+        }
+
+        // Activate TTS configuration (deactivate others)
+        public async Task ActivateTtsConfigurationAsync(OpenAiTtsConfiguration configToActivate)
+        {
+            try
+            {
+                // Deactivate all TTS configurations first
+                foreach (var config in TtsConfigurations)
+                {
+                    if (config != configToActivate && config.IsActive)
+                    {
+                        config.IsActive = false;
+                        if (config.IsSaved)
+                        {
+                            await SaveTtsConfigurationAsync(config);
+                        }
+                    }
+                }
+
+                // Activate the specified configuration
+                if (!configToActivate.IsActive)
+                {
+                    configToActivate.IsActive = true;
+                    if (configToActivate.IsSaved)
+                    {
+                        await SaveTtsConfigurationAsync(configToActivate);
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"Activated TTS configuration: {configToActivate.Name}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to activate TTS configuration: {ex.Message}");
+                throw;
+            }
+        }
+
+        // Remove TTS configuration
+        public async Task RemoveTtsConfigurationAsync(OpenAiTtsConfiguration configToRemove)
+        {
+            try
+            {
+                if (configToRemove.Id > 0)
+                {
+                    var service = new DatabaseService();
+                    await service.DeleteTtsConfigurationAsync(configToRemove.Id);
+                }
+                
+                TtsConfigurations.Remove(configToRemove);
+                System.Diagnostics.Debug.WriteLine($"Removed TTS configuration: {configToRemove.Name}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to remove TTS configuration: {ex.Message}");
+                throw;
+            }
+        }
+
+        // Get the currently active TTS configuration
+        public OpenAiTtsConfiguration? GetActiveTtsConfiguration()
+        {
+            return TtsConfigurations.FirstOrDefault(config => config.IsActive);
         }
     }
 

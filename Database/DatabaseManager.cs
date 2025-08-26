@@ -130,6 +130,7 @@ namespace Buddie.Database
                         Voice TEXT NOT NULL DEFAULT 'alloy',
                         Speed REAL NOT NULL DEFAULT 1.0,
                         IsStreamingEnabled INTEGER NOT NULL DEFAULT 0,
+                        IsActive INTEGER NOT NULL DEFAULT 0,
                         CreatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         UpdatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )";
@@ -184,6 +185,9 @@ namespace Buddie.Database
                 command.CommandText = createIndexes;
                 command.ExecuteNonQuery();
 
+                // 执行数据库迁移
+                MigrateDatabaseSchema(connection);
+
                 // 初始化默认应用设置
                 InitializeDefaultSettings(connection);
 
@@ -193,6 +197,42 @@ namespace Buddie.Database
             {
                 Debug.WriteLine($"Database initialization failed: {ex.Message}");
                 throw;
+            }
+        }
+
+        private static void MigrateDatabaseSchema(SqliteConnection connection)
+        {
+            try
+            {
+                // 检查TtsConfigurations表是否有IsActive列
+                using var command = connection.CreateCommand();
+                command.CommandText = "PRAGMA table_info(TtsConfigurations)";
+                using var reader = command.ExecuteReader();
+                
+                bool hasIsActiveColumn = false;
+                while (reader.Read())
+                {
+                    string columnName = reader.GetString(1);
+                    if (columnName == "IsActive")
+                    {
+                        hasIsActiveColumn = true;
+                        break;
+                    }
+                }
+                reader.Close();
+                
+                // 如果没有IsActive列，则添加它
+                if (!hasIsActiveColumn)
+                {
+                    command.CommandText = "ALTER TABLE TtsConfigurations ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 0";
+                    command.ExecuteNonQuery();
+                    Debug.WriteLine("Added IsActive column to TtsConfigurations table");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Database migration failed: {ex.Message}");
+                // 不抛出异常，允许应用程序继续运行
             }
         }
 

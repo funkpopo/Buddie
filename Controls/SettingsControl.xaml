@@ -9,96 +9,6 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Resources/SharedResources.xaml"/>
             </ResourceDictionary.MergedDictionaries>
-            
-            <!-- 现代化Toggle开关样式 -->
-            <Style x:Key="ModernToggleStyle" TargetType="CheckBox">
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="CheckBox">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <ContentPresenter Grid.Column="0" 
-                                                  VerticalAlignment="Center"
-                                                  Margin="0,0,10,0"/>
-                                
-                                <Border Grid.Column="1"
-                                        x:Name="ToggleBackground"
-                                        Width="44"
-                                        Height="24"
-                                        CornerRadius="12"
-                                        Background="#E4E4E7"
-                                        BorderThickness="0"
-                                        Cursor="Hand">
-                                    <Ellipse x:Name="ToggleButton"
-                                             Width="18"
-                                             Height="18"
-                                             Fill="White"
-                                             HorizontalAlignment="Left"
-                                             Margin="3,0,0,0">
-                                        <Ellipse.Effect>
-                                            <DropShadowEffect Color="Black" 
-                                                              Direction="270" 
-                                                              ShadowDepth="1" 
-                                                              Opacity="0.3" 
-                                                              BlurRadius="3"/>
-                                        </Ellipse.Effect>
-                                        <Ellipse.RenderTransform>
-                                            <TranslateTransform x:Name="ToggleTransform"/>
-                                        </Ellipse.RenderTransform>
-                                    </Ellipse>
-                                </Border>
-                            </Grid>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Trigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <ColorAnimation Storyboard.TargetName="ToggleBackground"
-                                                                Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                                                To="#10B981"
-                                                                Duration="0:0:0.2"/>
-                                                <DoubleAnimation Storyboard.TargetName="ToggleTransform"
-                                                                 Storyboard.TargetProperty="X"
-                                                                 To="20"
-                                                                 Duration="0:0:0.2">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut"/>
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.EnterActions>
-                                    <Trigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <ColorAnimation Storyboard.TargetName="ToggleBackground"
-                                                                Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                                                To="#E4E4E7"
-                                                                Duration="0:0:0.2"/>
-                                                <DoubleAnimation Storyboard.TargetName="ToggleTransform"
-                                                                 Storyboard.TargetProperty="X"
-                                                                 To="0"
-                                                                 Duration="0:0:0.2">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut"/>
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.ExitActions>
-                                </Trigger>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="ToggleBackground" Property="Opacity" Value="0.8"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
     
@@ -246,7 +156,7 @@
                                 <CheckBox x:Name="TopMostCheckBox"
                                           Grid.Column="1"
                                           IsChecked="True"
-                                          Style="{StaticResource ModernToggleStyle}"
+                                          Style="{StaticResource ToggleSwitchStyle}"
                                           Checked="TopMostCheckBox_Changed"
                                           Unchecked="TopMostCheckBox_Changed"/>
                             </Grid>
@@ -298,7 +208,7 @@
                                 <CheckBox x:Name="ShowInTaskbarCheckBox"
                                           Grid.Column="1"
                                           IsChecked="True"
-                                          Style="{StaticResource ModernToggleStyle}"
+                                          Style="{StaticResource ToggleSwitchStyle}"
                                           Checked="ShowInTaskbarCheckBox_Changed"
                                           Unchecked="ShowInTaskbarCheckBox_Changed"/>
                             </Grid>
@@ -350,7 +260,7 @@
                                 <CheckBox x:Name="DarkThemeCheckBox"
                                           Grid.Column="1"
                                           IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
-                                          Style="{StaticResource ModernToggleStyle}"
+                                          Style="{StaticResource ToggleSwitchStyle}"
                                           Checked="DarkThemeCheckBox_Changed"
                                           Unchecked="DarkThemeCheckBox_Changed"/>
                             </Grid>

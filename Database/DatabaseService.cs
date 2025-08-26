@@ -194,8 +194,9 @@ namespace Buddie.Database
                     Voice = reader.GetString(5),
                     Speed = reader.GetDouble(6),
                     IsStreamingEnabled = reader.GetBoolean(7),
-                    CreatedAt = DateTime.Parse(reader.GetString(8)),
-                    UpdatedAt = DateTime.Parse(reader.GetString(9))
+                    IsActive = reader.GetBoolean(8),
+                    CreatedAt = DateTime.Parse(reader.GetString(9)),
+                    UpdatedAt = DateTime.Parse(reader.GetString(10))
                 });
             }
 
@@ -215,8 +216,8 @@ namespace Buddie.Database
                 // Insert new configuration
                 config.CreatedAt = DateTime.UtcNow;
                 command.CommandText = @"
-                    INSERT INTO TtsConfigurations (Name, ApiUrl, ApiKey, Model, Voice, Speed, IsStreamingEnabled, CreatedAt, UpdatedAt)
-                    VALUES (@Name, @ApiUrl, @ApiKey, @Model, @Voice, @Speed, @IsStreamingEnabled, @CreatedAt, @UpdatedAt);
+                    INSERT INTO TtsConfigurations (Name, ApiUrl, ApiKey, Model, Voice, Speed, IsStreamingEnabled, IsActive, CreatedAt, UpdatedAt)
+                    VALUES (@Name, @ApiUrl, @ApiKey, @Model, @Voice, @Speed, @IsStreamingEnabled, @IsActive, @CreatedAt, @UpdatedAt);
                     SELECT last_insert_rowid();";
             }
             else
@@ -225,7 +226,7 @@ namespace Buddie.Database
                 command.CommandText = @"
                     UPDATE TtsConfigurations 
                     SET Name = @Name, ApiUrl = @ApiUrl, ApiKey = @ApiKey, Model = @Model,
-                        Voice = @Voice, Speed = @Speed, IsStreamingEnabled = @IsStreamingEnabled, UpdatedAt = @UpdatedAt
+                        Voice = @Voice, Speed = @Speed, IsStreamingEnabled = @IsStreamingEnabled, IsActive = @IsActive, UpdatedAt = @UpdatedAt
                     WHERE Id = @Id;
                     SELECT @Id;";
                 command.Parameters.AddWithValue("@Id", config.Id);
@@ -238,6 +239,7 @@ namespace Buddie.Database
             command.Parameters.AddWithValue("@Voice", config.Voice);
             command.Parameters.AddWithValue("@Speed", config.Speed);
             command.Parameters.AddWithValue("@IsStreamingEnabled", config.IsStreamingEnabled);
+            command.Parameters.AddWithValue("@IsActive", config.IsActive);
             command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
             command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
 

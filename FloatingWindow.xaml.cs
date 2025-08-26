@@ -134,6 +134,56 @@ namespace Buddie
                 UpdateCardDisplay();
             };
             
+            // 订阅TTS配置事件
+            SettingsControl.TtsConfigurationActivated += async (s, config) => {
+                try
+                {
+                    await appSettings.ActivateTtsConfigurationAsync(config);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to activate TTS configuration: {ex.Message}");
+                }
+            };
+            
+            SettingsControl.TtsConfigurationAdded += async (s, config) => {
+                try
+                {
+                    // 新配置不需要立即保存到数据库，等用户点击保存按钮后再保存
+                    // 配置已经通过TtsConfigControl.Initialize绑定到appSettings.TtsConfigurations
+                    System.Diagnostics.Debug.WriteLine($"TTS configuration added: {config.Name}");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to add TTS configuration: {ex.Message}");
+                }
+            };
+            
+            SettingsControl.TtsConfigurationUpdated += async (s, config) => {
+                try
+                {
+                    await appSettings.SaveTtsConfigurationAsync(config);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to update TTS configuration: {ex.Message}");
+                }
+            };
+            
+            SettingsControl.TtsConfigurationRemoved += async (s, config) => {
+                try
+                {
+                    if (config.IsSaved && config.Id > 0)
+                    {
+                        await appSettings.RemoveTtsConfigurationAsync(config);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to remove TTS configuration: {ex.Message}");
+                }
+            };
+            
             // 初始化对话控件
             DialogControl.DataContext = appSettings;
             DialogControl.MessageSent += async (s, message) => {

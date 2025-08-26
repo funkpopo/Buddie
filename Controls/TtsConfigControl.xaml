@@ -79,6 +79,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="100"/>
@@ -286,12 +287,21 @@
                                     </TextBlock>
                                     <CheckBox Grid.Row="6" Grid.Column="1"
                                               IsChecked="{Binding IsStreamingEnabled, Mode=TwoWay}"
-                                              Content="启用流式朗读"
                                               Margin="0,0,10,15"
                                               VerticalAlignment="Center"
-                                              ToolTip="开启后，AI回复过程中会实时朗读内容">
-                                        <CheckBox.Style>
-                                            <Style TargetType="CheckBox">
+                                              ToolTip="开启后，AI回复过程中会实时朗读内容"
+                                              Style="{StaticResource ToggleSwitchStyle}"
+                                              Checked="StreamingTts_Changed"
+                                              Unchecked="StreamingTts_Changed"/>
+                                    
+                                    <!-- Activate TTS -->
+                                    <TextBlock Grid.Row="7" Grid.Column="0"
+                                               Text="激活TTS:"
+                                               FontWeight="Bold"
+                                               Margin="0,0,10,15"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="#495057"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
@@ -299,11 +309,19 @@
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </CheckBox.Style>
-                                    </CheckBox>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <CheckBox Grid.Row="7" Grid.Column="1"
+                                              IsChecked="{Binding IsActive, Mode=TwoWay}"
+                                              Margin="0,0,10,15"
+                                              VerticalAlignment="Center"
+                                              ToolTip="激活后，该配置将用于对话界面的语音合成"
+                                              Style="{StaticResource ToggleSwitchStyle}"
+                                              Checked="ActivateTts_Checked"
+                                              Unchecked="ActivateTts_Unchecked"/>
                                     
                                     <!-- 操作按钮 -->
-                                    <StackPanel Grid.Row="7" Grid.Column="1"
+                                    <StackPanel Grid.Row="8" Grid.Column="1"
                                                 Orientation="Horizontal"
                                                 HorizontalAlignment="Right"
                                                 Margin="0,10,10,0">
@@ -334,6 +352,7 @@
                             <StackPanel Visibility="{Binding IsEditMode, Converter={StaticResource InvertedBooleanToVisibilityConverter}}">
                                 <Grid>
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -493,9 +512,67 @@
                                         </TextBlock>
                                     </StackPanel>
                                     
+                                    <!-- 激活状态 -->
+                                    <StackPanel Grid.Row="5" Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                Margin="0,0,0,15">
+                                        <TextBlock Text="激活状态: "
+                                                   FontWeight="Bold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#6C757D"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#6C757D"/>
+                                                    <Setter Property="Text" Value="未激活"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                            <Setter Property="Text" Value="已激活"/>
+                                                            <Setter Property="Foreground" Value="#28A745"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <Button Margin="10,0,0,0"
+                                                Content="激活"
+                                                Foreground="White"
+                                                BorderThickness="0"
+                                                Padding="8,4"
+                                                FontSize="12"
+                                                FontWeight="Bold"
+                                                Click="ActivateTtsConfig_Click"
+                                                Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource RoundedButtonStyle}">
+                                                    <Setter Property="Background" Value="#28A745"/>
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </StackPanel>
+                                    
                                     <!-- 操作按钮 -->
                                     <StackPanel Grid.Row="0" Grid.Column="1"
-                                                Grid.RowSpan="5"
+                                                Grid.RowSpan="6"
                                                 Orientation="Horizontal"
                                                 VerticalAlignment="Center">
                                         <Button Content="编辑"

@@ -10,6 +10,7 @@ namespace Buddie.Controls
         public event EventHandler<OpenAiTtsConfiguration>? ConfigurationAdded;
         public event EventHandler<OpenAiTtsConfiguration>? ConfigurationRemoved;
         public event EventHandler<OpenAiTtsConfiguration>? ConfigurationUpdated;
+        public event EventHandler<OpenAiTtsConfiguration>? ConfigurationActivated;
 
         public TtsConfigControl()
         {
@@ -34,23 +35,46 @@ namespace Buddie.Controls
 
         private void AddTtsConfig_Click(object sender, RoutedEventArgs e)
         {
-            var configurations = TtsConfigList.ItemsSource as ObservableCollection<OpenAiTtsConfiguration>;
-            if (configurations == null) return;
-
-            var newConfig = new OpenAiTtsConfiguration
+            try
             {
-                Name = $"TTS配置 {configurations.Count + 1}",
-                ApiUrl = "http://localhost:5050/v1/audio/speech",
-                Model = "tts-1",
-                Voice = "alloy",
-                Speed = 1.0,
-                IsEditMode = true,
-                IsSaved = false
-            };
-            
-            configurations.Add(newConfig);
-            UpdateNoTtsConfigMessageVisibility(configurations);
-            ConfigurationAdded?.Invoke(this, newConfig);
+                var configurations = TtsConfigList.ItemsSource as ObservableCollection<OpenAiTtsConfiguration>;
+                if (configurations == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("TtsConfigList.ItemsSource is null");
+                    return;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"Creating new TTS configuration, current count: {configurations.Count}");
+                
+                var newConfig = new OpenAiTtsConfiguration
+                {
+                    Name = $"TTS配置 {configurations.Count + 1}",
+                    ApiUrl = "http://localhost:5050/v1/audio/speech",
+                    Model = "tts-1",
+                    Voice = "alloy",
+                    Speed = 1.0,
+                    IsEditMode = true,
+                    IsSaved = false,
+                    IsActive = false
+                };
+                
+                System.Diagnostics.Debug.WriteLine($"Adding new config: {newConfig.Name}");
+                configurations.Add(newConfig);
+                
+                System.Diagnostics.Debug.WriteLine("Updating visibility");
+                UpdateNoTtsConfigMessageVisibility(configurations);
+                
+                System.Diagnostics.Debug.WriteLine("Invoking ConfigurationAdded event");
+                ConfigurationAdded?.Invoke(this, newConfig);
+                
+                System.Diagnostics.Debug.WriteLine("AddTtsConfig_Click completed successfully");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in AddTtsConfig_Click: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                MessageBox.Show($"添加TTS配置时出错：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void SaveTtsConfig_Click(object sender, RoutedEventArgs e)
@@ -158,6 +182,39 @@ namespace Buddie.Controls
                 // TTS测试功能的实现可以在这里添加
                 // 目前仅作为占位符
             }
+        }
+
+        private void ActivateTts_Checked(object sender, RoutedEventArgs e)
+        {
+            var checkBox = sender as CheckBox;
+            if (checkBox?.DataContext is OpenAiTtsConfiguration config)
+            {
+                ConfigurationActivated?.Invoke(this, config);
+            }
+        }
+
+        private void ActivateTts_Unchecked(object sender, RoutedEventArgs e)
+        {
+            var checkBox = sender as CheckBox;
+            if (checkBox?.DataContext is OpenAiTtsConfiguration config)
+            {
+                // When unchecked, we don't need to do anything special
+                // since the activation logic in AppSettings will handle deactivation
+            }
+        }
+
+        private void ActivateTtsConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            if (button?.DataContext is OpenAiTtsConfiguration config)
+            {
+                ConfigurationActivated?.Invoke(this, config);
+            }
+        }
+
+        private void StreamingTts_Changed(object sender, RoutedEventArgs e)
+        {
+            // Toggle开关的变化会自动通过数据绑定更新，这里可以添加额外的逻辑（如果需要）
         }
     }
 }

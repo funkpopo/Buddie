@@ -112,6 +112,7 @@ namespace Buddie.Database
         private string _voice = "alloy";
         private double _speed = 1.0;
         private bool _isStreamingEnabled = false;
+        private bool _isActive = false;
         private DateTime _createdAt = DateTime.UtcNow;
         private DateTime _updatedAt = DateTime.UtcNow;
 
@@ -161,6 +162,12 @@ namespace Buddie.Database
         {
             get => _isStreamingEnabled;
             set => SetProperty(ref _isStreamingEnabled, value);
+        }
+
+        public bool IsActive
+        {
+            get => _isActive;
+            set => SetProperty(ref _isActive, value);
         }
 
         public DateTime CreatedAt
