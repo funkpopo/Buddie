@@ -268,34 +268,8 @@
                                         </TextBlock>
                                     </Grid>
                                     
-                                    <!-- Streaming Enable -->
-                                    <TextBlock Grid.Row="6" Grid.Column="0"
-                                               Text="流式朗读:"
-                                               FontWeight="Bold"
-                                               Margin="0,0,10,15"
-                                               VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="#495057"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                        <Setter Property="Foreground" Value="#CCCCCC"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                    <CheckBox Grid.Row="6" Grid.Column="1"
-                                              IsChecked="{Binding IsStreamingEnabled, Mode=TwoWay}"
-                                              Margin="0,0,10,15"
-                                              VerticalAlignment="Center"
-                                              ToolTip="开启后，AI回复过程中会实时朗读内容"
-                                              Style="{StaticResource ToggleSwitchStyle}"
-                                              Checked="StreamingTts_Changed"
-                                              Unchecked="StreamingTts_Changed"/>
-                                    
                                     <!-- Activate TTS -->
-                                    <TextBlock Grid.Row="7" Grid.Column="0"
+                                    <TextBlock Grid.Row="6" Grid.Column="0"
                                                Text="激活TTS:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,15"
@@ -311,7 +285,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <CheckBox Grid.Row="7" Grid.Column="1"
+                                    <CheckBox Grid.Row="6" Grid.Column="1"
                                               IsChecked="{Binding IsActive, Mode=TwoWay}"
                                               Margin="0,0,10,15"
                                               VerticalAlignment="Center"
@@ -476,44 +450,8 @@
                                         </TextBlock>
                                     </StackPanel>
                                     
-                                    <!-- 流式朗读状态 -->
-                                    <StackPanel Grid.Row="4" Grid.Column="0"
-                                                Orientation="Horizontal"
-                                                Margin="0,0,0,15">
-                                        <TextBlock Text="流式朗读: "
-                                                   FontWeight="Bold">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="#6C757D"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                            <Setter Property="Foreground" Value="#AAAAAA"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                        <TextBlock>
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="#495057"/>
-                                                    <Setter Property="Text" Value="已禁用"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                            <Setter Property="Foreground" Value="#CCCCCC"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsStreamingEnabled}" Value="True">
-                                                            <Setter Property="Text" Value="已启用"/>
-                                                            <Setter Property="Foreground" Value="#28A745"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
-                                    
                                     <!-- 激活状态 -->
-                                    <StackPanel Grid.Row="5" Grid.Column="0"
+                                    <StackPanel Grid.Row="4" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,15">
                                         <TextBlock Text="激活状态: "

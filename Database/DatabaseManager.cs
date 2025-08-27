@@ -220,19 +220,23 @@ namespace Buddie.Database
         {
             try
             {
-                // 检查TtsConfigurations表是否有IsActive列
+                // 检查TtsConfigurations表是否有IsActive列和ChannelType列
                 using var command = connection.CreateCommand();
                 command.CommandText = "PRAGMA table_info(TtsConfigurations)";
                 using var reader = command.ExecuteReader();
                 
                 bool hasIsActiveColumn = false;
+                bool hasChannelTypeColumn = false;
                 while (reader.Read())
                 {
                     string columnName = reader.GetString(1);
                     if (columnName == "IsActive")
                     {
                         hasIsActiveColumn = true;
-                        break;
+                    }
+                    else if (columnName == "ChannelType")
+                    {
+                        hasChannelTypeColumn = true;
                     }
                 }
                 reader.Close();
@@ -243,6 +247,14 @@ namespace Buddie.Database
                     command.CommandText = "ALTER TABLE TtsConfigurations ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 0";
                     command.ExecuteNonQuery();
                     Debug.WriteLine("Added IsActive column to TtsConfigurations table");
+                }
+                
+                // 如果没有ChannelType列，则添加它
+                if (!hasChannelTypeColumn)
+                {
+                    command.CommandText = "ALTER TABLE TtsConfigurations ADD COLUMN ChannelType INTEGER DEFAULT 0"; // 0对应TtsChannelType.OpenAI
+                    command.ExecuteNonQuery();
+                    Debug.WriteLine("Added ChannelType column to TtsConfigurations table");
                 }
             }
             catch (Exception ex)

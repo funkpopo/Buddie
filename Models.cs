@@ -27,6 +27,30 @@ namespace Buddie
         AnthropicClaude
     }
 
+    public enum TtsChannelType
+    {
+        OpenAI,
+        ElevenLabs,
+        MiniMax,
+        Azure,
+        GeminiAPI
+    }
+
+    public class TtsPresetChannel
+    {
+        public string Name { get; set; } = "";
+        public TtsChannelType ChannelType { get; set; }
+        public string DefaultApiUrl { get; set; } = "";
+        public string[] SupportedModels { get; set; } = Array.Empty<string>();
+        public string[] SupportedVoices { get; set; } = Array.Empty<string>();
+        public double DefaultSpeed { get; set; } = 1.0;
+        public double MinSpeed { get; set; } = 0.25;
+        public double MaxSpeed { get; set; } = 4.0;
+        public string AuthHeaderFormat { get; set; } = "Bearer {0}";
+        public string RequestFormat { get; set; } = "openai";
+        public bool SupportsStreaming { get; set; } = false;
+    }
+
     public class PresetChannel
     {
         public string Name { get; set; } = "";
@@ -188,23 +212,24 @@ namespace Buddie
         }
     }
 
-    public class OpenAiTtsConfiguration : INotifyPropertyChanged
+    public class TtsConfiguration : INotifyPropertyChanged
     {
         private int _id;
         private string _name = "";
-        private string _apiUrl = "http://localhost:5050/v1/audio/speech";
+        private TtsChannelType _channelType = TtsChannelType.OpenAI;
+        private string _apiUrl = "";
         private string _apiKey = "";
-        private string _model = "tts-1";
-        private string _voice = "alloy";
+        private string _model = "";
+        private string _voice = "";
         private double _speed = 1.0;
         private bool _isEditMode = true;
         private bool _isSaved = false;
-        private bool _isStreamingEnabled = false;
         private bool _isActive = false;
 
-        public OpenAiTtsConfiguration()
+        public TtsConfiguration()
         {
-            // 无参构造函数，确保默认值正确初始化
+            // 设置默认值基于渠道类型
+            UpdateDefaultsForChannel();
         }
 
         public int Id
@@ -217,6 +242,18 @@ namespace Buddie
         {
             get => _name;
             set => SetProperty(ref _name, value);
+        }
+
+        public TtsChannelType ChannelType
+        {
+            get => _channelType;
+            set 
+            { 
+                if (SetProperty(ref _channelType, value))
+                {
+                    UpdateDefaultsForChannel();
+                }
+            }
         }
 
         public string ApiUrl
@@ -261,16 +298,22 @@ namespace Buddie
             set => SetProperty(ref _isSaved, value);
         }
 
-        public bool IsStreamingEnabled
-        {
-            get => _isStreamingEnabled;
-            set => SetProperty(ref _isStreamingEnabled, value);
-        }
-
         public bool IsActive
         {
             get => _isActive;
             set => SetProperty(ref _isActive, value);
+        }
+
+        private void UpdateDefaultsForChannel()
+        {
+            var preset = TtsPresetChannels.GetPresetChannel(ChannelType);
+            if (!string.IsNullOrEmpty(preset.DefaultApiUrl))
+                ApiUrl = preset.DefaultApiUrl;
+            if (preset.SupportedModels.Length > 0 && string.IsNullOrEmpty(Model))
+                Model = preset.SupportedModels[0];
+            if (preset.SupportedVoices.Length > 0 && string.IsNullOrEmpty(Voice))
+                Voice = preset.SupportedVoices[0];
+            Speed = preset.DefaultSpeed;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -297,29 +340,49 @@ namespace Buddie
             {
                 Id = this.Id,
                 Name = this.Name ?? "",
-                ApiUrl = this.ApiUrl ?? "http://localhost:5050/v1/audio/speech",
-                ApiKey = this.ApiKey ?? "",  // 确保ApiKey不为null
-                Model = this.Model ?? "tts-1",
-                Voice = this.Voice ?? "alloy",
+                ApiUrl = this.ApiUrl ?? "",
+                ApiKey = this.ApiKey ?? "",
+                Model = this.Model ?? "",
+                Voice = this.Voice ?? "",
                 Speed = this.Speed,
-                IsStreamingEnabled = this.IsStreamingEnabled,
-                IsActive = this.IsActive
+                IsStreamingEnabled = false, // 移除流式支持
+                IsActive = this.IsActive,
+                ChannelType = (int)this.ChannelType
             };
         }
 
         // Create from database model
-        public static OpenAiTtsConfiguration FromDbModel(DbTtsConfiguration dbModel)
+        public static TtsConfiguration FromDbModel(DbTtsConfiguration dbModel)
         {
-            return new OpenAiTtsConfiguration
+            return new TtsConfiguration
             {
                 Id = dbModel.Id,
                 Name = dbModel.Name,
+                ChannelType = dbModel.ChannelType.HasValue ? (TtsChannelType)dbModel.ChannelType.Value : TtsChannelType.OpenAI,
                 ApiUrl = dbModel.ApiUrl,
                 ApiKey = dbModel.ApiKey,
                 Model = dbModel.Model,
                 Voice = dbModel.Voice,
                 Speed = dbModel.Speed,
-                IsStreamingEnabled = dbModel.IsStreamingEnabled,
+                IsActive = dbModel.IsActive,
+                IsSaved = true,
+                IsEditMode = false
+            };
+        }
+
+        // 兼容旧版本的FromDbModel，用于数据迁移
+        public static TtsConfiguration FromLegacyDbModel(DbTtsConfiguration dbModel)
+        {
+            return new TtsConfiguration
+            {
+                Id = dbModel.Id,
+                Name = dbModel.Name,
+                ChannelType = TtsChannelType.OpenAI, // 旧版本默认为OpenAI
+                ApiUrl = dbModel.ApiUrl,
+                ApiKey = dbModel.ApiKey,
+                Model = dbModel.Model,
+                Voice = dbModel.Voice,
+                Speed = dbModel.Speed,
                 IsActive = dbModel.IsActive,
                 IsSaved = true,
                 IsEditMode = false
@@ -334,7 +397,7 @@ namespace Buddie
         private bool _enableAnimation = true;
         private bool _isDarkTheme = false;
         private ObservableCollection<OpenApiConfiguration> _apiConfigurations = new ObservableCollection<OpenApiConfiguration>();
-        private ObservableCollection<OpenAiTtsConfiguration> _ttsConfigurations = new ObservableCollection<OpenAiTtsConfiguration>();
+        private ObservableCollection<TtsConfiguration> _ttsConfigurations = new ObservableCollection<TtsConfiguration>();
         private DatabaseService _databaseService = new DatabaseService();
 
         public bool IsTopmost
@@ -367,7 +430,7 @@ namespace Buddie
             set => SetProperty(ref _apiConfigurations, value);
         }
 
-        public ObservableCollection<OpenAiTtsConfiguration> TtsConfigurations
+        public ObservableCollection<TtsConfiguration> TtsConfigurations
         {
             get => _ttsConfigurations;
             set => SetProperty(ref _ttsConfigurations, value);
@@ -428,7 +491,7 @@ namespace Buddie
                 TtsConfigurations.Clear();
                 foreach (var dbConfig in dbTtsConfigs)
                 {
-                    TtsConfigurations.Add(OpenAiTtsConfiguration.FromDbModel(dbConfig));
+                    TtsConfigurations.Add(TtsConfiguration.FromDbModel(dbConfig));
                     System.Diagnostics.Debug.WriteLine($"Loaded TTS config: {dbConfig.Name}");
                 }
                 
@@ -534,7 +597,7 @@ namespace Buddie
         }
 
         // Save individual TTS configuration
-        public async Task SaveTtsConfigurationAsync(OpenAiTtsConfiguration config)
+        public async Task SaveTtsConfigurationAsync(TtsConfiguration config)
         {
             try
             {
@@ -572,7 +635,7 @@ namespace Buddie
         }
 
         // Delete TTS configuration
-        public async Task DeleteTtsConfigurationAsync(OpenAiTtsConfiguration config)
+        public async Task DeleteTtsConfigurationAsync(TtsConfiguration config)
         {
             try
             {
@@ -590,7 +653,7 @@ namespace Buddie
         }
 
         // Activate TTS configuration (deactivate others)
-        public async Task ActivateTtsConfigurationAsync(OpenAiTtsConfiguration configToActivate)
+        public async Task ActivateTtsConfigurationAsync(TtsConfiguration configToActivate)
         {
             try
             {
@@ -629,7 +692,7 @@ namespace Buddie
         }
 
         // Remove TTS configuration
-        public async Task RemoveTtsConfigurationAsync(OpenAiTtsConfiguration configToRemove)
+        public async Task RemoveTtsConfigurationAsync(TtsConfiguration configToRemove)
         {
             try
             {
@@ -650,9 +713,95 @@ namespace Buddie
         }
 
         // Get the currently active TTS configuration
-        public OpenAiTtsConfiguration? GetActiveTtsConfiguration()
+        public TtsConfiguration? GetActiveTtsConfiguration()
         {
             return TtsConfigurations.FirstOrDefault(config => config.IsActive);
+        }
+    }
+
+    public static class TtsPresetChannels
+    {
+        public static TtsPresetChannel[] GetPresetChannels()
+        {
+            return new TtsPresetChannel[]
+            {
+                new TtsPresetChannel
+                {
+                    Name = "OpenAI TTS",
+                    ChannelType = TtsChannelType.OpenAI,
+                    DefaultApiUrl = "https://api.openai.com/v1/audio/speech",
+                    SupportedModels = new[] { "tts-1", "tts-1-hd" },
+                    SupportedVoices = new[] { "alloy", "echo", "fable", "onyx", "nova", "shimmer" },
+                    DefaultSpeed = 1.0,
+                    MinSpeed = 0.25,
+                    MaxSpeed = 4.0,
+                    AuthHeaderFormat = "Bearer {0}",
+                    RequestFormat = "openai",
+                    SupportsStreaming = false
+                },
+                new TtsPresetChannel
+                {
+                    Name = "ElevenLabs",
+                    ChannelType = TtsChannelType.ElevenLabs,
+                    DefaultApiUrl = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                    SupportedModels = new[] { "eleven_monolingual_v1", "eleven_multilingual_v1", "eleven_multilingual_v2" },
+                    SupportedVoices = new[] { "21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "ErXwobaYiN019PkySvjV", "MF3mGyEYCl7XYWbV9V6O", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG", "pNInz6obpgDQGcFmaJgB", "yoZ06aMxZJJ28mfd3POQ" },
+                    DefaultSpeed = 1.0,
+                    MinSpeed = 0.25,
+                    MaxSpeed = 2.0,
+                    AuthHeaderFormat = "xi-api-key",
+                    RequestFormat = "elevenlabs",
+                    SupportsStreaming = true
+                },
+                new TtsPresetChannel
+                {
+                    Name = "MiniMax TTS",
+                    ChannelType = TtsChannelType.MiniMax,
+                    DefaultApiUrl = "https://api.minimax.chat/v1/text_to_speech",
+                    SupportedModels = new[] { "speech-01", "speech-01-240228" },
+                    SupportedVoices = new[] { "male-qn-qingse", "male-qn-jingying", "male-qn-badao", "male-qn-daxuesheng", "female-shaonv", "female-yujie", "female-chengshu", "female-tianmei", "presenter_male", "presenter_female", "audiobook_male_1", "audiobook_male_2", "audiobook_female_1", "audiobook_female_2" },
+                    DefaultSpeed = 1.0,
+                    MinSpeed = 0.5,
+                    MaxSpeed = 2.0,
+                    AuthHeaderFormat = "Bearer {0}",
+                    RequestFormat = "minimax",
+                    SupportsStreaming = false
+                },
+                new TtsPresetChannel
+                {
+                    Name = "Azure Cognitive Services",
+                    ChannelType = TtsChannelType.Azure,
+                    DefaultApiUrl = "https://{region}.tts.speech.microsoft.com/cognitiveservices/v1",
+                    SupportedModels = new[] { "neural", "standard" },
+                    SupportedVoices = new[] { "zh-CN-XiaoxiaoNeural", "zh-CN-YunxiNeural", "zh-CN-YunjianNeural", "zh-CN-XiaoyiNeural", "zh-CN-YunyangNeural", "zh-CN-XiaochenNeural", "zh-CN-XiaohanNeural", "zh-CN-XiaomengNeural", "zh-CN-XiaomoNeural", "zh-CN-XiaoqiuNeural", "zh-CN-XiaoruiNeural", "zh-CN-XiaoshuangNeural", "zh-CN-XiaoxuanNeural", "zh-CN-XiaoyanNeural", "zh-CN-XiaoyouNeural", "en-US-JennyNeural", "en-US-GuyNeural", "en-US-AriaNeural", "en-US-DavisNeural", "en-US-AmberNeural", "en-US-AnaNeural", "en-US-AshleyNeural", "en-US-BrandonNeural", "en-US-ChristopherNeural", "en-US-CoraNeural", "en-US-ElizabethNeural", "en-US-EricNeural", "en-US-JacobNeural", "en-US-JaneNeural", "en-US-JasonNeural", "en-US-MichelleNeural", "en-US-MonicaNeural", "en-US-NancyNeural", "en-US-RogerNeural", "en-US-SaraNeural", "en-US-SteffanNeural", "en-US-TonyNeural" },
+                    DefaultSpeed = 1.0,
+                    MinSpeed = 0.5,
+                    MaxSpeed = 2.0,
+                    AuthHeaderFormat = "Ocp-Apim-Subscription-Key",
+                    RequestFormat = "azure",
+                    SupportsStreaming = false
+                },
+                new TtsPresetChannel
+                {
+                    Name = "Gemini API",
+                    ChannelType = TtsChannelType.GeminiAPI,
+                    DefaultApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+                    SupportedModels = new[] { "gemini-pro" },
+                    SupportedVoices = new[] { "default" },
+                    DefaultSpeed = 1.0,
+                    MinSpeed = 0.5,
+                    MaxSpeed = 2.0,
+                    AuthHeaderFormat = "Bearer {0}",
+                    RequestFormat = "gemini",
+                    SupportsStreaming = false
+                }
+            };
+        }
+
+        public static TtsPresetChannel GetPresetChannel(TtsChannelType channelType)
+        {
+            return GetPresetChannels().FirstOrDefault(c => c.ChannelType == channelType) 
+                ?? GetPresetChannels().First(c => c.ChannelType == TtsChannelType.OpenAI);
         }
     }
 

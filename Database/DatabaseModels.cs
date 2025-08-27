@@ -106,13 +106,14 @@ namespace Buddie.Database
     {
         private int _id;
         private string _name = "";
-        private string _apiUrl = "http://localhost:5050/v1/audio/speech";
+        private string _apiUrl = "";
         private string _apiKey = "";
-        private string _model = "tts-1";
-        private string _voice = "alloy";
+        private string _model = "";
+        private string _voice = "";
         private double _speed = 1.0;
         private bool _isStreamingEnabled = false;
         private bool _isActive = false;
+        private int? _channelType = null; // TtsChannelType enum as nullable int for backward compatibility
         private DateTime _createdAt = DateTime.UtcNow;
         private DateTime _updatedAt = DateTime.UtcNow;
 
@@ -168,6 +169,12 @@ namespace Buddie.Database
         {
             get => _isActive;
             set => SetProperty(ref _isActive, value);
+        }
+
+        public int? ChannelType
+        {
+            get => _channelType;
+            set => SetProperty(ref _channelType, value);
         }
 
         public DateTime CreatedAt

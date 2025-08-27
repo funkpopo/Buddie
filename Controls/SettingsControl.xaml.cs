@@ -14,10 +14,10 @@ namespace Buddie.Controls
         public event EventHandler<bool>? TopMostChanged;
         public event EventHandler<bool>? ShowInTaskbarChanged;
         public event EventHandler<bool>? DarkThemeChanged;
-        public event EventHandler<OpenAiTtsConfiguration>? TtsConfigurationActivated;
-        public event EventHandler<OpenAiTtsConfiguration>? TtsConfigurationAdded;
-        public event EventHandler<OpenAiTtsConfiguration>? TtsConfigurationUpdated;
-        public event EventHandler<OpenAiTtsConfiguration>? TtsConfigurationRemoved;
+        public event EventHandler<TtsConfiguration>? TtsConfigurationActivated;
+        public event EventHandler<TtsConfiguration>? TtsConfigurationAdded;
+        public event EventHandler<TtsConfiguration>? TtsConfigurationUpdated;
+        public event EventHandler<TtsConfiguration>? TtsConfigurationRemoved;
 
         public SettingsControl()
         {
@@ -76,7 +76,7 @@ namespace Buddie.Controls
             };
         }
         
-        public void RefreshTtsConfigurations(ObservableCollection<OpenAiTtsConfiguration> ttsConfigurations)
+        public void RefreshTtsConfigurations(ObservableCollection<TtsConfiguration> ttsConfigurations)
         {
             // 重新初始化TTS配置控件，用于数据库加载后刷新
             TtsConfigControl.Initialize(ttsConfigurations);
