@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Collections.ObjectModel;
@@ -186,6 +187,7 @@ namespace Buddie.Controls
             var checkBox = sender as CheckBox;
             if (checkBox?.DataContext is TtsConfiguration config)
             {
+                System.Diagnostics.Debug.WriteLine($"🖱️ 用户通过复选框激活TTS配置: {config.Name} (ID: {config.Id})");
                 ConfigurationActivated?.Invoke(this, config);
             }
         }
@@ -195,8 +197,33 @@ namespace Buddie.Controls
             var checkBox = sender as CheckBox;
             if (checkBox?.DataContext is TtsConfiguration config)
             {
-                // When unchecked, we don't need to do anything special
-                // since the activation logic in AppSettings will handle deactivation
+                System.Diagnostics.Debug.WriteLine($"🖱️ 用户通过复选框取消激活TTS配置: {config.Name} (ID: {config.Id})");
+                // 取消激活时，直接设置为非激活状态
+                config.IsActive = false;
+                // 如果配置已保存，立即更新到数据库
+                if (config.IsSaved && config.Id > 0)
+                {
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var appSettings = Application.Current.MainWindow?.DataContext as AppSettings;
+                            if (appSettings != null)
+                            {
+                                await appSettings.SaveTtsConfigurationAsync(config);
+                                System.Diagnostics.Debug.WriteLine($"✅ TTS配置 {config.Name} 的非激活状态已保存到数据库");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"❌ 保存TTS配置激活状态失败: {ex.Message}");
+                        }
+                    });
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"ℹ️ TTS配置 {config.Name} 未保存或ID无效，跳过数据库更新");
+                }
             }
         }
 
@@ -205,6 +232,7 @@ namespace Buddie.Controls
             var button = sender as Button;
             if (button?.DataContext is TtsConfiguration config)
             {
+                System.Diagnostics.Debug.WriteLine($"🖱️ 用户通过按钮激活TTS配置: {config.Name} (ID: {config.Id})");
                 ConfigurationActivated?.Invoke(this, config);
             }
         }
@@ -212,10 +240,20 @@ namespace Buddie.Controls
         private void ChannelType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             var comboBox = sender as ComboBox;
-            if (comboBox?.DataContext is TtsConfiguration config)
+            if (comboBox?.DataContext is TtsConfiguration config && comboBox.SelectedItem is ComboBoxItem selectedItem)
             {
-                // 当渠道类型改变时，配置会自动更新默认值
-                // 这个处理在TtsConfiguration的ChannelType setter中完成
+                // 获取选中的渠道类型
+                var channelTypeString = selectedItem.Tag?.ToString();
+                if (Enum.TryParse<TtsChannelType>(channelTypeString, out var channelType))
+                {
+                    // 设置渠道类型，这会触发TtsConfiguration中的UpdateDefaultsForChannel方法
+                    config.ChannelType = channelType;
+                    
+                    System.Diagnostics.Debug.WriteLine($"TTS渠道类型已更改为: {channelType}");
+                    System.Diagnostics.Debug.WriteLine($"API URL已更新为: {config.ApiUrl}");
+                    System.Diagnostics.Debug.WriteLine($"模型已更新为: {config.Model}");
+                    System.Diagnostics.Debug.WriteLine($"语音已更新为: {config.Voice}");
+                }
             }
         }
     }

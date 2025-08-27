@@ -16,7 +16,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="OpenAI TTS 配置"
+            <TextBlock Text="TTS 配置"
                        FontWeight="Bold"
                        FontSize="16"
                        Margin="0,0,0,15"
@@ -80,6 +80,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="100"/>
@@ -87,8 +88,164 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     
-                                    <!-- 配置名称 -->
+                                    <!-- 渠道类型 -->
                                     <TextBlock Grid.Row="0" Grid.Column="0"
+                                               Text="渠道类型:"
+                                               FontWeight="Bold"
+                                               Margin="0,0,10,8"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#495057"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                        <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <ComboBox Grid.Row="0" Grid.Column="1"
+                                              SelectedValue="{Binding ChannelType, Mode=TwoWay}"
+                                              Margin="0,0,10,8"
+                                              Padding="10,8"
+                                              SelectionChanged="ChannelType_SelectionChanged">
+                                        <ComboBox.Style>
+                                            <Style TargetType="ComboBox">
+                                                <Setter Property="Background" Value="White"/>
+                                                <Setter Property="BorderBrush" Value="#CED4DA"/>
+                                                <Setter Property="BorderThickness" Value="1"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ComboBox">
+                                                            <Grid>
+                                                                <Border Name="Border"
+                                                                        CornerRadius="6"
+                                                                        Background="{TemplateBinding Background}"
+                                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                                                    <Grid>
+                                                                        <ToggleButton Name="ToggleButton"
+                                                                                      Grid.Column="2"
+                                                                                      Focusable="False"
+                                                                                      IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                                      ClickMode="Press"
+                                                                                      Background="Transparent"
+                                                                                      BorderThickness="0">
+                                                                            <Path Name="Arrow"
+                                                                                  HorizontalAlignment="Center"
+                                                                                  VerticalAlignment="Center"
+                                                                                  Data="M 0 0 L 4 4 L 8 0 Z"
+                                                                                  Fill="#6C757D"
+                                                                                  Margin="0,0,8,0"/>
+                                                                        </ToggleButton>
+                                                                        <ContentPresenter Name="ContentSite"
+                                                                                          IsHitTestVisible="False"
+                                                                                          Content="{TemplateBinding SelectionBoxItem}"
+                                                                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                                                          Margin="10,8"
+                                                                                          VerticalAlignment="Center"
+                                                                                          HorizontalAlignment="Left"/>
+                                                                        <TextBox x:Name="PART_EditableTextBox"
+                                                                                 Style="{x:Null}"
+                                                                                 HorizontalAlignment="Left"
+                                                                                 VerticalAlignment="Center"
+                                                                                 Margin="10,8"
+                                                                                 Focusable="True"
+                                                                                 Background="Transparent"
+                                                                                 BorderThickness="0"
+                                                                                 Visibility="Hidden"
+                                                                                 IsReadOnly="{TemplateBinding IsReadOnly}"/>
+                                                                    </Grid>
+                                                                </Border>
+                                                                <Popup Name="Popup"
+                                                                       Placement="Bottom"
+                                                                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                                                                       AllowsTransparency="True"
+                                                                       Focusable="False"
+                                                                       PopupAnimation="Slide">
+                                                                    <Grid Name="DropDown"
+                                                                          SnapsToDevicePixels="True"
+                                                                          MinWidth="{TemplateBinding ActualWidth}"
+                                                                          MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                                                        <Border x:Name="DropDownBorder"
+                                                                                Background="White"
+                                                                                BorderThickness="1"
+                                                                                BorderBrush="#CED4DA"
+                                                                                CornerRadius="6"
+                                                                                Effect="{StaticResource CardShadow}"/>
+                                                                        <ScrollViewer Margin="4,6,4,6" SnapsToDevicePixels="True">
+                                                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                                                        </ScrollViewer>
+                                                                    </Grid>
+                                                                </Popup>
+                                                            </Grid>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsEnabled" Value="False">
+                                                                    <Setter TargetName="Border" Property="Background" Value="#F8F9FA"/>
+                                                                    <Setter Property="Foreground" Value="#6C757D"/>
+                                                                </Trigger>
+                                                                <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                    <Setter TargetName="Border" Property="Background" Value="#2D2D30"/>
+                                                                    <Setter TargetName="Border" Property="BorderBrush" Value="#3F3F46"/>
+                                                                    <Setter TargetName="DropDownBorder" Property="Background" Value="#2D2D30"/>
+                                                                    <Setter TargetName="DropDownBorder" Property="BorderBrush" Value="#3F3F46"/>
+                                                                    <Setter TargetName="Arrow" Property="Fill" Value="#CCCCCC"/>
+                                                                    <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                                </DataTrigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Setter Property="ItemContainerStyle">
+                                                    <Setter.Value>
+                                                        <Style TargetType="ComboBoxItem">
+                                                            <Setter Property="Padding" Value="10,8"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="ComboBoxItem">
+                                                                        <Border Name="Border" 
+                                                                                Background="Transparent" 
+                                                                                Padding="{TemplateBinding Padding}">
+                                                                            <ContentPresenter/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsHighlighted" Value="True">
+                                                                                <Setter TargetName="Border" Property="Background" Value="#E9ECEF"/>
+                                                                            </Trigger>
+                                                                            <Trigger Property="IsSelected" Value="True">
+                                                                                <Setter TargetName="Border" Property="Background" Value="#007BFF"/>
+                                                                                <Setter Property="Foreground" Value="White"/>
+                                                                            </Trigger>
+                                                                            <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                                <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                                            </DataTrigger>
+                                                                            <MultiDataTrigger>
+                                                                                <MultiDataTrigger.Conditions>
+                                                                                    <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                                                                    <Condition Binding="{Binding IsHighlighted, RelativeSource={RelativeSource Self}}" Value="True"/>
+                                                                                </MultiDataTrigger.Conditions>
+                                                                                <Setter TargetName="Border" Property="Background" Value="#3F3F46"/>
+                                                                            </MultiDataTrigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ComboBox.Style>
+                                        <ComboBoxItem Content="OpenAI" Tag="OpenAI"/>
+                                        <ComboBoxItem Content="ElevenLabs" Tag="ElevenLabs"/>
+                                        <ComboBoxItem Content="MiniMax" Tag="MiniMax"/>
+                                        <ComboBoxItem Content="Azure" Tag="Azure"/>
+                                        <ComboBoxItem Content="Gemini API" Tag="GeminiAPI"/>
+                                    </ComboBox>
+                                    
+                                    <!-- 配置名称 -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0"
                                                Text="配置名称:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
@@ -104,7 +261,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <TextBox Grid.Row="0" Grid.Column="1"
+                                    <TextBox Grid.Row="1" Grid.Column="1"
                                              Text="{Binding Name, Mode=TwoWay}"
                                              Margin="0,0,10,8"
                                              Style="{StaticResource RoundedTextBoxStyle}"
@@ -112,7 +269,7 @@
                                              MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- API URL -->
-                                    <TextBlock Grid.Row="1" Grid.Column="0"
+                                    <TextBlock Grid.Row="2" Grid.Column="0"
                                                Text="API URL:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
@@ -128,7 +285,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <TextBox Grid.Row="1" Grid.Column="1"
+                                    <TextBox Grid.Row="2" Grid.Column="1"
                                              Text="{Binding ApiUrl, Mode=TwoWay}"
                                              Margin="0,0,10,8"
                                              Style="{StaticResource MultilineTextBoxStyle}"
@@ -141,7 +298,7 @@
                                              MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- API Key -->
-                                    <TextBlock Grid.Row="2" Grid.Column="0"
+                                    <TextBlock Grid.Row="3" Grid.Column="0"
                                                Text="API Key:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
@@ -157,7 +314,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <TextBox Grid.Row="2" Grid.Column="1"
+                                    <TextBox Grid.Row="3" Grid.Column="1"
                                              Text="{Binding ApiKey, Mode=TwoWay}"
                                              Margin="0,0,10,8"
                                              Style="{StaticResource MultilineTextBoxStyle}"
@@ -170,7 +327,7 @@
                                              MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- Model -->
-                                    <TextBlock Grid.Row="3" Grid.Column="0"
+                                    <TextBlock Grid.Row="4" Grid.Column="0"
                                                Text="模型:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
@@ -186,7 +343,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <TextBox Grid.Row="3" Grid.Column="1"
+                                    <TextBox Grid.Row="4" Grid.Column="1"
                                              Text="{Binding Model, Mode=TwoWay}"
                                              Margin="0,0,10,8"
                                              Style="{StaticResource RoundedTextBoxStyle}"
@@ -195,7 +352,7 @@
                                              MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- Voice -->
-                                    <TextBlock Grid.Row="4" Grid.Column="0"
+                                    <TextBlock Grid.Row="5" Grid.Column="0"
                                                Text="语音:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
@@ -211,7 +368,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <TextBox Grid.Row="4" Grid.Column="1"
+                                    <TextBox Grid.Row="5" Grid.Column="1"
                                              Text="{Binding Voice, Mode=TwoWay}"
                                              Margin="0,0,10,8"
                                              Style="{StaticResource RoundedTextBoxStyle}"
@@ -220,7 +377,7 @@
                                              MouseDoubleClick="TextBox_MouseDoubleClick"/>
                                     
                                     <!-- Speed -->
-                                    <TextBlock Grid.Row="5" Grid.Column="0"
+                                    <TextBlock Grid.Row="6" Grid.Column="0"
                                                Text="语速:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,15"
@@ -236,7 +393,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <Grid Grid.Row="5" Grid.Column="1"
+                                    <Grid Grid.Row="6" Grid.Column="1"
                                           Margin="0,0,10,15">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -269,7 +426,7 @@
                                     </Grid>
                                     
                                     <!-- Activate TTS -->
-                                    <TextBlock Grid.Row="6" Grid.Column="0"
+                                    <TextBlock Grid.Row="7" Grid.Column="0"
                                                Text="激活TTS:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,15"
@@ -285,7 +442,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <CheckBox Grid.Row="6" Grid.Column="1"
+                                    <CheckBox Grid.Row="7" Grid.Column="1"
                                               IsChecked="{Binding IsActive, Mode=TwoWay}"
                                               Margin="0,0,10,15"
                                               VerticalAlignment="Center"
@@ -295,7 +452,7 @@
                                               Unchecked="ActivateTts_Unchecked"/>
                                     
                                     <!-- 操作按钮 -->
-                                    <StackPanel Grid.Row="8" Grid.Column="1"
+                                    <StackPanel Grid.Row="9" Grid.Column="1"
                                                 Orientation="Horizontal"
                                                 HorizontalAlignment="Right"
                                                 Margin="0,10,10,0">
@@ -333,6 +490,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -357,8 +515,39 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                     
-                                    <!-- API URL -->
+                                    <!-- 渠道类型 -->
                                     <StackPanel Grid.Row="1" Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                Margin="0,0,0,8">
+                                        <TextBlock Text="渠道类型: "
+                                                   FontWeight="Bold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#6C757D"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding ChannelType}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#495057"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                            <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    
+                                    <!-- API URL -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,8">
                                         <TextBlock Text="API URL: "
@@ -389,7 +578,7 @@
                                     </StackPanel>
                                     
                                     <!-- 模型 -->
-                                    <StackPanel Grid.Row="2" Grid.Column="0"
+                                    <StackPanel Grid.Row="3" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,8">
                                         <TextBlock Text="模型: "
@@ -420,7 +609,7 @@
                                     </StackPanel>
                                     
                                     <!-- 语音 -->
-                                    <StackPanel Grid.Row="3" Grid.Column="0"
+                                    <StackPanel Grid.Row="4" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,8">
                                         <TextBlock Text="语音: "
@@ -451,7 +640,7 @@
                                     </StackPanel>
                                     
                                     <!-- 激活状态 -->
-                                    <StackPanel Grid.Row="4" Grid.Column="0"
+                                    <StackPanel Grid.Row="5" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,15">
                                         <TextBlock Text="激活状态: "
@@ -510,7 +699,7 @@
                                     
                                     <!-- 操作按钮 -->
                                     <StackPanel Grid.Row="0" Grid.Column="1"
-                                                Grid.RowSpan="6"
+                                                Grid.RowSpan="7"
                                                 Orientation="Horizontal"
                                                 VerticalAlignment="Center">
                                         <Button Content="编辑"

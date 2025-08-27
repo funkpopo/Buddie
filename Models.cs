@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -491,8 +492,57 @@ namespace Buddie
                 TtsConfigurations.Clear();
                 foreach (var dbConfig in dbTtsConfigs)
                 {
-                    TtsConfigurations.Add(TtsConfiguration.FromDbModel(dbConfig));
-                    System.Diagnostics.Debug.WriteLine($"Loaded TTS config: {dbConfig.Name}");
+                    var config = TtsConfiguration.FromDbModel(dbConfig);
+                    TtsConfigurations.Add(config);
+                    System.Diagnostics.Debug.WriteLine($"Loaded TTS config: {dbConfig.Name}, IsActive: {dbConfig.IsActive} -> {config.IsActive}");
+                }
+
+                // 验证激活状态，确保最多只有一个配置处于激活状态
+                var activeConfigs = TtsConfigurations.Where(c => c.IsActive).ToList();
+                System.Diagnostics.Debug.WriteLine($"激活状态验证: 发现 {activeConfigs.Count} 个激活的TTS配置");
+                
+                if (activeConfigs.Count > 1)
+                {
+                    System.Diagnostics.Debug.WriteLine($"❌ 冲突检测：发现 {activeConfigs.Count} 个激活的TTS配置，需要修复冲突");
+                    System.Diagnostics.Debug.WriteLine("激活的配置列表:");
+                    for (int i = 0; i < activeConfigs.Count; i++)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  [{i}] {activeConfigs[i].Name} (ID: {activeConfigs[i].Id})");
+                    }
+                    
+                    System.Diagnostics.Debug.WriteLine($"保留第一个配置: {activeConfigs[0].Name}，取消激活其余 {activeConfigs.Count - 1} 个配置");
+                    for (int i = 1; i < activeConfigs.Count; i++)
+                    {
+                        activeConfigs[i].IsActive = false;
+                        System.Diagnostics.Debug.WriteLine($"  取消激活: {activeConfigs[i].Name}");
+                        if (activeConfigs[i].Id > 0)
+                        {
+                            await SaveTtsConfigurationAsync(activeConfigs[i]);
+                            System.Diagnostics.Debug.WriteLine($"  已保存取消激活状态: {activeConfigs[i].Name}");
+                        }
+                    }
+                    System.Diagnostics.Debug.WriteLine($"✅ 冲突已修复，当前激活配置: {activeConfigs[0].Name}");
+                }
+                else if (activeConfigs.Count == 1)
+                {
+                    System.Diagnostics.Debug.WriteLine($"✅ 激活状态正确：唯一激活的TTS配置 - {activeConfigs[0].Name} (ID: {activeConfigs[0].Id})");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("⚠️  当前没有激活的TTS配置");
+                    if (TtsConfigurations.Count > 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine("可用的TTS配置列表:");
+                        foreach (var config in TtsConfigurations)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"  - {config.Name} (ID: {config.Id}, IsActive: {config.IsActive})");
+                        }
+                        System.Diagnostics.Debug.WriteLine("💡 建议：用户需要手动激活一个TTS配置，或检查数据库中的激活状态是否正确保存");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("💡 提示：当前没有任何TTS配置，用户需要创建并激活一个配置");
+                    }
                 }
                 
                 System.Diagnostics.Debug.WriteLine("Successfully loaded settings from database");
@@ -544,16 +594,16 @@ namespace Buddie
                 System.Diagnostics.Debug.WriteLine($"Saving {TtsConfigurations.Count} TTS configurations...");
                 foreach (var config in TtsConfigurations)
                 {
-                    System.Diagnostics.Debug.WriteLine($"TTS Config: {config.Name}, IsSaved: {config.IsSaved}, Id: {config.Id}, ApiKey: '{config.ApiKey}'");
+                    System.Diagnostics.Debug.WriteLine($"TTS Config: {config.Name}, IsSaved: {config.IsSaved}, Id: {config.Id}, IsActive: {config.IsActive}");
                     if (config.IsSaved) // Remove the Id > 0 condition to allow new configurations
                     {
                         try
                         {
                             var dbConfig = config.ToDbModel();
-                            System.Diagnostics.Debug.WriteLine($"Converting to DB model - Name: {dbConfig.Name}, ApiKey: '{dbConfig.ApiKey ?? "null"}'");
+                            System.Diagnostics.Debug.WriteLine($"Converting to DB model - Name: {dbConfig.Name}, IsActive: {dbConfig.IsActive}");
                             var savedId = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
                             config.Id = savedId; // Update the configuration with the new ID
-                            System.Diagnostics.Debug.WriteLine($"Successfully saved TTS config: {config.Name} with ID {savedId}");
+                            System.Diagnostics.Debug.WriteLine($"Successfully saved TTS config: {config.Name} with ID {savedId}, IsActive: {config.IsActive}");
                         }
                         catch (Exception ex)
                         {
@@ -601,17 +651,18 @@ namespace Buddie
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"Saving individual TTS configuration: {config.Name} (ID: {config.Id})");
+                System.Diagnostics.Debug.WriteLine($"💾 开始保存TTS配置: {config.Name} (ID: {config.Id}, IsActive: {config.IsActive})");
                 var dbConfig = config.ToDbModel();
+                System.Diagnostics.Debug.WriteLine($"💾 转换为数据库模型: Name={dbConfig.Name}, IsActive={dbConfig.IsActive}");
                 var id = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
                 config.Id = id;
                 config.IsSaved = true;
-                System.Diagnostics.Debug.WriteLine($"Successfully saved TTS configuration: {config.Name} with new ID: {id}");
+                System.Diagnostics.Debug.WriteLine($"✅ 成功保存TTS配置: {config.Name}, ID={id}, IsActive={config.IsActive}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to save TTS configuration: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine($"❌ 保存TTS配置失败: {config.Name}, 错误: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
                 throw;
             }
         }
@@ -657,36 +708,66 @@ namespace Buddie
         {
             try
             {
-                // Deactivate all TTS configurations first
+                System.Diagnostics.Debug.WriteLine($"🚀 开始激活TTS配置: {configToActivate.Name} (ID: {configToActivate.Id})");
+                
+                // 先取消激活所有其他TTS配置
+                var deactivatedConfigs = new List<TtsConfiguration>();
                 foreach (var config in TtsConfigurations)
                 {
                     if (config != configToActivate && config.IsActive)
                     {
                         config.IsActive = false;
-                        // Save if configuration has been saved before
-                        if (config.IsSaved && config.Id > 0)
-                        {
-                            await SaveTtsConfigurationAsync(config);
-                        }
+                        deactivatedConfigs.Add(config);
+                        System.Diagnostics.Debug.WriteLine($"⏹️ 取消激活TTS配置: {config.Name} (ID: {config.Id})");
                     }
                 }
 
-                // Activate the specified configuration
+                // 激活指定的配置
+                bool wasAlreadyActive = configToActivate.IsActive;
                 if (!configToActivate.IsActive)
                 {
                     configToActivate.IsActive = true;
-                    // Save if configuration has been saved before
-                    if (configToActivate.IsSaved && configToActivate.Id > 0)
+                    System.Diagnostics.Debug.WriteLine($"✅ 激活TTS配置: {configToActivate.Name} (ID: {configToActivate.Id})");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"ℹ️ TTS配置已处于激活状态: {configToActivate.Name} (ID: {configToActivate.Id})");
+                }
+
+                // 立即保存所有状态变更到数据库
+                var configsToSave = new List<TtsConfiguration>(deactivatedConfigs);
+                if (configToActivate.IsSaved && configToActivate.Id > 0)
+                {
+                    configsToSave.Add(configToActivate);
+                }
+
+                System.Diagnostics.Debug.WriteLine($"💾 准备保存 {configsToSave.Count} 个TTS配置的状态变更到数据库");
+                foreach (var config in configsToSave)
+                {
+                    if (config.IsSaved && config.Id > 0)
                     {
-                        await SaveTtsConfigurationAsync(configToActivate);
+                        await SaveTtsConfigurationAsync(config);
+                        System.Diagnostics.Debug.WriteLine($"💾 已保存TTS配置激活状态: {config.Name} (ID: {config.Id}) - IsActive: {config.IsActive}");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"⚠️ 跳过保存TTS配置: {config.Name} (IsSaved: {config.IsSaved}, ID: {config.Id})");
                     }
                 }
 
-                System.Diagnostics.Debug.WriteLine($"Activated TTS configuration: {configToActivate.Name}");
+                if (deactivatedConfigs.Count > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"🎯 成功激活TTS配置: {configToActivate.Name}，已取消激活 {deactivatedConfigs.Count} 个其他配置");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"🎯 成功激活TTS配置: {configToActivate.Name}，无其他配置需要取消激活");
+                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to activate TTS configuration: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"激活TTS配置失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
                 throw;
             }
         }
