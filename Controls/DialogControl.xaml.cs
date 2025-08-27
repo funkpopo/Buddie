@@ -13,15 +13,21 @@ using System.Windows.Media;
 using System.Linq;
 using System.IO;
 using System.Security.Cryptography;
-using System.Media;
+using NAudio.Wave;
+using NAudio.MediaFoundation;
 using Markdig;
 using System.Windows.Documents;
 using Buddie.Database;
+using System.Runtime.InteropServices;
 
 namespace Buddie.Controls
 {
     public partial class DialogControl : UserControl
     {
+        // NAudio-based audio player
+        private WaveOutEvent? currentAudioPlayer;
+        private AudioFileReader? currentAudioReader;
+
         public event EventHandler<string>? MessageSent;
         public event EventHandler? DialogClosed;
         
@@ -45,6 +51,9 @@ namespace Buddie.Controls
                 .UseAdvancedExtensions()
                 .Build();
             
+            // 初始化NAudio MediaFoundation（用于MP3支持）
+            MediaFoundationApi.Startup();
+            
             // 加载对话历史
             LoadConversationHistory();
         }
@@ -65,6 +74,9 @@ namespace Buddie.Controls
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
+            // 释放音频资源
+            ReleaseAudioResources();
+            
             Hide();
             DialogClosed?.Invoke(this, EventArgs.Empty);
         }
@@ -1017,7 +1029,17 @@ namespace Buddie.Controls
             currentStreamingBubble = CreateMessageBubble("", false);
             currentStreamingBubble.Margin = new Thickness(0);
             currentStreamingBubble.Visibility = Visibility.Collapsed;
-            currentStreamingTextBlock = (currentStreamingBubble.Child as TextBlock);
+            
+            // 正确提取TextBlock - 需要处理可能的Grid结构
+            if (currentStreamingBubble.Child is TextBlock directTextBlock)
+            {
+                currentStreamingTextBlock = directTextBlock;
+            }
+            else if (currentStreamingBubble.Child is Grid grid && grid.Children.Count > 0 && grid.Children[0] is TextBlock gridTextBlock)
+            {
+                currentStreamingTextBlock = gridTextBlock;
+            }
+            
             currentStreamingContainer.Children.Add(currentStreamingBubble);
             
             DialogMessagesPanel.Children.Add(currentStreamingContainer);
@@ -1244,21 +1266,16 @@ namespace Buddie.Controls
                 }
                 else if (!string.IsNullOrEmpty(finalContent))
                 {
-                    // 有实际内容，需要重新创建支持Markdown的气泡
-                    if (currentStreamingBubble != null && ContainsMarkdown(finalContent))
+                    // 有实际内容，重新创建气泡以确保TTS按钮的Tag正确设置
+                    if (currentStreamingBubble != null)
                     {
-                        // 移除当前的简单文本气泡
+                        // 移除当前的空内容气泡
                         currentStreamingContainer.Children.Remove(currentStreamingBubble);
                         
-                        // 创建新的Markdown气泡并添加到容器
-                        var markdownBubble = CreateMessageBubble(finalContent, false);
-                        markdownBubble.Margin = new Thickness(0);
-                        currentStreamingContainer.Children.Add(markdownBubble);
-                    }
-                    else if (currentStreamingBubble != null)
-                    {
-                        // 确保普通文本气泡是可见的
-                        currentStreamingBubble.Visibility = Visibility.Visible;
+                        // 创建新的气泡（支持Markdown或普通文本）并添加到容器
+                        var newBubble = CreateMessageBubble(finalContent, false);
+                        newBubble.Margin = new Thickness(0);
+                        currentStreamingContainer.Children.Add(newBubble);
                     }
                 }
                 
@@ -1303,14 +1320,23 @@ namespace Buddie.Controls
             var messageText = button?.Tag as string;
             
             if (string.IsNullOrEmpty(messageText) || button == null)
+            {
+                System.Diagnostics.Debug.WriteLine("TTS: 消息文本为空或按钮为null");
                 return;
+            }
 
             var appSettings = DataContext as AppSettings;
             var ttsConfig = appSettings?.GetActiveTtsConfiguration();
             
             if (ttsConfig == null)
+            {
+                System.Diagnostics.Debug.WriteLine("TTS: 未找到激活的TTS配置");
+                MessageBox.Show("未找到TTS配置，请先在设置中配置并激活TTS服务。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
+            }
 
+            System.Diagnostics.Debug.WriteLine($"TTS: 开始处理消息，长度: {messageText.Length}");
+            
             // 改变按钮状态表示正在处理
             var originalContent = button.Content;
             button.Content = "⏳";
@@ -1319,9 +1345,11 @@ namespace Buddie.Controls
             try
             {
                 await CallTtsApi(messageText, ttsConfig);
+                System.Diagnostics.Debug.WriteLine("TTS: 调用成功");
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"TTS: 调用失败 - {ex.Message}");
                 MessageBox.Show($"TTS调用失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -1366,6 +1394,8 @@ namespace Buddie.Controls
 
         private async Task CallTtsApi(string text, OpenAiTtsConfiguration ttsConfig)
         {
+            System.Diagnostics.Debug.WriteLine($"TTS API: 开始调用，文本长度: {text.Length}, API URL: {ttsConfig.ApiUrl}");
+            
             // 生成文本和配置的哈希值作为缓存键
             var textHash = GenerateHash($"{text}_{ttsConfig.Model}_{ttsConfig.Voice}_{ttsConfig.Speed}");
             var ttsConfigJson = JsonSerializer.Serialize(new 
@@ -1379,11 +1409,14 @@ namespace Buddie.Controls
             var cachedAudio = await databaseService.GetTtsAudioAsync(textHash);
             if (cachedAudio != null)
             {
+                System.Diagnostics.Debug.WriteLine("TTS API: 使用缓存音频");
                 // 使用缓存的音频
                 await PlayAudioFromBytes(cachedAudio.AudioData);
                 return;
             }
 
+            System.Diagnostics.Debug.WriteLine("TTS API: 未找到缓存，调用API生成新音频");
+            
             // 如果没有缓存，调用API生成新的音频
             using var httpClient = new HttpClient();
             httpClient.Timeout = TimeSpan.FromMinutes(2);
@@ -1391,6 +1424,7 @@ namespace Buddie.Controls
             if (!string.IsNullOrEmpty(ttsConfig.ApiKey))
             {
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {ttsConfig.ApiKey}");
+                System.Diagnostics.Debug.WriteLine("TTS API: 已添加API Key到请求头");
             }
 
             var requestBody = new
@@ -1399,27 +1433,33 @@ namespace Buddie.Controls
                 input = text,
                 voice = ttsConfig.Voice,
                 speed = ttsConfig.Speed,
-                response_format = "mp3"  // 明确指定MP3格式
+                response_format = "wav"  // 改回WAV格式，更可靠
             };
 
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
+            System.Diagnostics.Debug.WriteLine($"TTS API: 发送请求到 {ttsConfig.ApiUrl}");
             var response = await httpClient.PostAsync(ttsConfig.ApiUrl, content);
             
             if (response.IsSuccessStatusCode)
             {
                 var audioBytes = await response.Content.ReadAsByteArrayAsync();
+                System.Diagnostics.Debug.WriteLine($"TTS API: 收到音频数据，大小: {audioBytes.Length} bytes");
                 
                 // 保存到数据库缓存
                 await databaseService.SaveTtsAudioAsync(textHash, audioBytes, ttsConfigJson);
+                System.Diagnostics.Debug.WriteLine("TTS API: 音频已保存到缓存");
                 
                 // 播放音频
                 await PlayAudioFromBytes(audioBytes);
+                System.Diagnostics.Debug.WriteLine("TTS API: 音频播放完成");
             }
             else
             {
-                throw new Exception($"TTS API请求失败: {response.StatusCode}");
+                var errorContent = await response.Content.ReadAsStringAsync();
+                System.Diagnostics.Debug.WriteLine($"TTS API: 请求失败，状态码: {response.StatusCode}, 错误内容: {errorContent}");
+                throw new Exception($"TTS API请求失败: {response.StatusCode} - {errorContent}");
             }
         }
 
@@ -1434,40 +1474,205 @@ namespace Buddie.Controls
         {
             try
             {
-                // 保存到临时文件
-                var tempFile = Path.GetTempFileName() + ".mp3";
+                System.Diagnostics.Debug.WriteLine($"播放音频: NAudio处理 {audioBytes.Length} bytes");
+                
+                // 停止之前的播放
+                StopCurrentAudio();
+                
+                // 创建临时文件
+                var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Buddie");
+                Directory.CreateDirectory(appDataPath);
+                
+                // 检查音频格式并使用适当的扩展名
+                string extension = GetAudioExtension(audioBytes);
+                var tempFile = Path.Combine(appDataPath, $"audio_{Guid.NewGuid()}{extension}");
                 await File.WriteAllBytesAsync(tempFile, audioBytes);
                 
-                // 使用系统默认播放器播放音频文件
-                var startInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = tempFile,
-                    UseShellExecute = true,
-                    CreateNoWindow = true,
-                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
-                };
+                System.Diagnostics.Debug.WriteLine($"播放音频: 临时文件创建 {tempFile}");
                 
-                System.Diagnostics.Process.Start(startInfo);
-                
-                // 异步删除临时文件
-                _ = Task.Run(async () =>
+                await Task.Run(() =>
                 {
-                    await Task.Delay(10000); // 等待10秒确保播放完成
                     try
                     {
-                        if (File.Exists(tempFile))
-                            File.Delete(tempFile);
+                        // 使用NAudio播放音频
+                        currentAudioReader = new AudioFileReader(tempFile);
+                        currentAudioPlayer = new WaveOutEvent();
+                        
+                        // 设置播放完成事件
+                        currentAudioPlayer.PlaybackStopped += (sender, e) =>
+                        {
+                            try
+                            {
+                                currentAudioReader?.Dispose();
+                                currentAudioPlayer?.Dispose();
+                                currentAudioReader = null;
+                                currentAudioPlayer = null;
+                                
+                                // 清理临时文件
+                                CleanupTempFile(tempFile);
+                                
+                                if (e.Exception != null)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"NAudio播放异常: {e.Exception.Message}");
+                                }
+                                else
+                                {
+                                    System.Diagnostics.Debug.WriteLine("NAudio播放完成");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"播放完成清理异常: {ex.Message}");
+                            }
+                        };
+                        
+                        currentAudioPlayer.Init(currentAudioReader);
+                        currentAudioPlayer.Play();
+                        
+                        System.Diagnostics.Debug.WriteLine("NAudio开始播放");
+                        
+                        // 等待播放完成
+                        while (currentAudioPlayer?.PlaybackState == PlaybackState.Playing)
+                        {
+                            Thread.Sleep(100);
+                        }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // 忽略删除文件的错误
+                        System.Diagnostics.Debug.WriteLine($"NAudio播放异常: {ex.Message}");
+                        
+                        // 如果NAudio失败，回退到简单的播放方式
+                        try
+                        {
+                            System.Diagnostics.Debug.WriteLine("NAudio失败，尝试回退播放");
+                            FallbackAudioPlayback(tempFile);
+                        }
+                        catch (Exception fallbackEx)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"回退播放也失败: {fallbackEx.Message}");
+                            throw new Exception($"音频播放失败: NAudio: {ex.Message}, 回退: {fallbackEx.Message}");
+                        }
+                        finally
+                        {
+                            CleanupTempFile(tempFile);
+                        }
                     }
                 });
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"播放音频异常: {ex.Message}");
                 throw new Exception($"音频播放失败: {ex.Message}");
             }
+        }
+        /// <summary>
+        /// 停止当前音频播放
+        /// </summary>
+        private void StopCurrentAudio()
+        {
+            try
+            {
+                currentAudioPlayer?.Stop();
+                currentAudioReader?.Dispose();
+                currentAudioPlayer?.Dispose();
+                currentAudioReader = null;
+                currentAudioPlayer = null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"停止音频播放异常: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 根据音频数据确定文件扩展名
+        /// </summary>
+        private string GetAudioExtension(byte[] audioBytes)
+        {
+            if (audioBytes.Length >= 12)
+            {
+                var header = System.Text.Encoding.ASCII.GetString(audioBytes, 0, 4);
+                if (header == "RIFF")
+                {
+                    var format = System.Text.Encoding.ASCII.GetString(audioBytes, 8, 4);
+                    if (format == "WAVE")
+                    {
+                        System.Diagnostics.Debug.WriteLine("检测到WAV格式");
+                        return ".wav";
+                    }
+                }
+            }
+            
+            if (audioBytes.Length >= 3)
+            {
+                var first3Bytes = System.Text.Encoding.ASCII.GetString(audioBytes, 0, 3);
+                if (first3Bytes == "ID3")
+                {
+                    System.Diagnostics.Debug.WriteLine("检测到MP3格式（ID3标签）");
+                    return ".mp3";
+                }
+            }
+            
+            if (audioBytes.Length >= 2)
+            {
+                // 检查MP3同步字节 (0xFF 0xFB/0xFA/0xF3/0xF2)
+                if (audioBytes[0] == 0xFF && (audioBytes[1] & 0xE0) == 0xE0)
+                {
+                    System.Diagnostics.Debug.WriteLine("检测到MP3格式（同步字节）");
+                    return ".mp3";
+                }
+            }
+            
+            // 默认假设为MP3（许多TTS服务返回MP3）
+            System.Diagnostics.Debug.WriteLine("未识别格式，默认为MP3");
+            return ".mp3";
+        }
+        /// <summary>
+        /// 回退音频播放方法（当NAudio失败时使用）
+        /// </summary>
+        private void FallbackAudioPlayback(string audioFile)
+        {
+            try
+            {
+                // 使用系统默认播放器
+                var processInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = audioFile,
+                    UseShellExecute = true,
+                    Verb = "open",
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+                };
+                
+                using var process = System.Diagnostics.Process.Start(processInfo);
+                process?.WaitForExit(30000); // 最多等待30秒
+                System.Diagnostics.Debug.WriteLine("系统播放器播放完成");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"回退播放方法失败: {ex.Message}");
+                throw;
+            }
+        }
+        
+        private void CleanupTempFile(string tempFile)
+        {
+            // 异步清理临时文件
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // 稍微延迟以确保文件没有被占用
+                    await Task.Delay(1000);
+                    if (File.Exists(tempFile))
+                    {
+                        File.Delete(tempFile);
+                        System.Diagnostics.Debug.WriteLine($"播放音频: 临时文件已删除 {tempFile}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"播放音频: 删除临时文件失败 {ex.Message}");
+                }
+            });
         }
 
         #region 流式TTS功能
@@ -2019,5 +2224,35 @@ namespace Buddie.Controls
         }
 
         #endregion
+        
+        /// <summary>
+        /// 释放音频资源
+        /// </summary>
+        private void ReleaseAudioResources()
+        {
+            try
+            {
+                // 停止并释放音频播放资源
+                StopCurrentAudio();
+                
+                // 停止流式TTS
+                streamingTtsTokenSource?.Cancel();
+                streamingTtsTokenSource?.Dispose();
+                
+                // 关闭MediaFoundation
+                try
+                {
+                    MediaFoundationApi.Shutdown();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"MediaFoundation关闭异常: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"音频资源释放异常: {ex.Message}");
+            }
+        }
     }
 }

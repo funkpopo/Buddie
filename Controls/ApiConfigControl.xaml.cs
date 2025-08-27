@@ -17,6 +17,7 @@ namespace Buddie.Controls
     {
         private readonly HttpClient httpClient = new HttpClient();
         private readonly ConcurrentDictionary<string, CancellationTokenSource> testCancellationTokens = new();
+        private bool _isInitializing = false;
 
         public event EventHandler<OpenApiConfiguration>? ConfigurationAdded;
         public event EventHandler<OpenApiConfiguration>? ConfigurationRemoved;
@@ -318,7 +319,8 @@ namespace Buddie.Controls
 
             config.ChannelType = selectedChannel.ChannelType;
             
-            if (selectedChannel.ChannelType != ChannelType.Custom)
+            // Only update API URL and other properties during user interaction, not during initialization
+            if (!_isInitializing && selectedChannel.ChannelType != ChannelType.Custom)
             {
                 config.ApiUrl = selectedChannel.DefaultApiUrl;
                 config.IsStreamingEnabled = selectedChannel.SupportsStreaming;
@@ -334,6 +336,9 @@ namespace Buddie.Controls
             var comboBox = sender as ComboBox;
             if (comboBox != null)
             {
+                // Set initialization flag to prevent API URL overwriting
+                _isInitializing = true;
+                
                 // Initialize ComboBox items
                 comboBox.Items.Clear();
                 var channels = PresetChannels.GetPresetChannels();
@@ -357,6 +362,9 @@ namespace Buddie.Controls
                         comboBox.SelectedItem = item;
                     }
                 }
+                
+                // Clear initialization flag
+                _isInitializing = false;
             }
         }
     }
