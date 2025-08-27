@@ -319,6 +319,69 @@ namespace Buddie.Database
         }
     }
 
+    public class DbTtsAudio : INotifyPropertyChanged
+    {
+        private int _id;
+        private string _textHash = "";
+        private byte[] _audioData = Array.Empty<byte>();
+        private string _ttsConfigJson = "";
+        private DateTime _createdAt = DateTime.UtcNow;
+        private DateTime _lastAccessedAt = DateTime.UtcNow;
+
+        public int Id
+        {
+            get => _id;
+            set => SetProperty(ref _id, value);
+        }
+
+        public string TextHash
+        {
+            get => _textHash;
+            set => SetProperty(ref _textHash, value);
+        }
+
+        public byte[] AudioData
+        {
+            get => _audioData;
+            set => SetProperty(ref _audioData, value);
+        }
+
+        public string TtsConfigJson
+        {
+            get => _ttsConfigJson;
+            set => SetProperty(ref _ttsConfigJson, value);
+        }
+
+        public DateTime CreatedAt
+        {
+            get => _createdAt;
+            set => SetProperty(ref _createdAt, value);
+        }
+
+        public DateTime LastAccessedAt
+        {
+            get => _lastAccessedAt;
+            set => SetProperty(ref _lastAccessedAt, value);
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string? propertyName = null)
+        {
+            if (Equals(backingStore, value))
+                return false;
+
+            backingStore = value;
+            OnPropertyChanged(propertyName);
+            return true;
+        }
+    }
+
     public class DbAppSettings : INotifyPropertyChanged
     {
         private int _id;

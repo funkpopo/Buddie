@@ -157,11 +157,24 @@ namespace Buddie.Database
                         FOREIGN KEY (ConversationId) REFERENCES Conversations (Id) ON DELETE CASCADE
                     )";
 
+                // 创建TTS音频缓存表
+                var createTtsAudioTable = @"
+                    CREATE TABLE IF NOT EXISTS TtsAudio (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        TextHash TEXT NOT NULL UNIQUE,
+                        AudioData BLOB NOT NULL,
+                        TtsConfigJson TEXT NOT NULL,
+                        CreatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        LastAccessedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )";
+
                 // 创建索引
                 var createIndexes = @"
                     CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON Messages(ConversationId);
                     CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON Conversations(UpdatedAt DESC);
                     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON Messages(CreatedAt);
+                    CREATE INDEX IF NOT EXISTS idx_tts_audio_text_hash ON TtsAudio(TextHash);
+                    CREATE INDEX IF NOT EXISTS idx_tts_audio_created_at ON TtsAudio(CreatedAt);
                 ";
 
                 using var command = connection.CreateCommand();
@@ -180,6 +193,9 @@ namespace Buddie.Database
                 command.ExecuteNonQuery();
 
                 command.CommandText = createMessagesTable;
+                command.ExecuteNonQuery();
+
+                command.CommandText = createTtsAudioTable;
                 command.ExecuteNonQuery();
 
                 command.CommandText = createIndexes;
@@ -289,6 +305,25 @@ namespace Buddie.Database
             {
                 Debug.WriteLine($"Database restore failed: {ex.Message}");
                 throw;
+            }
+        }
+
+        public static void CleanupTtsAudioCache()
+        {
+            try
+            {
+                using var connection = new SqliteConnection(ConnectionString);
+                connection.Open();
+
+                using var command = connection.CreateCommand();
+                command.CommandText = "DELETE FROM TtsAudio";
+                var rowsAffected = command.ExecuteNonQuery();
+                
+                Debug.WriteLine($"Cleaned up {rowsAffected} TTS audio cache entries");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"TTS audio cache cleanup failed: {ex.Message}");
             }
         }
     }

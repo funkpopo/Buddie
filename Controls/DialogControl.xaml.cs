@@ -12,6 +12,8 @@ using System.Windows.Media.Animation;
 using System.Windows.Media;
 using System.Linq;
 using System.IO;
+using System.Security.Cryptography;
+using System.Media;
 using Markdig;
 using System.Windows.Documents;
 using Buddie.Database;
@@ -31,6 +33,9 @@ namespace Buddie.Controls
         private DatabaseService databaseService = new DatabaseService();
         private DbConversation? currentConversation;
         private List<DbMessage> currentMessages = new List<DbMessage>();
+        
+        // 流式TTS相关字段
+        private CancellationTokenSource? streamingTtsTokenSource;
 
         public DialogControl()
         {
@@ -234,7 +239,10 @@ namespace Buddie.Controls
             // 检查是否有TTS配置和是否为AI回复
             var hasButtons = false;
             var appSettings = DataContext as AppSettings;
-            if (!isUser && appSettings?.GetActiveTtsConfiguration() != null)
+            var ttsConfig = appSettings?.GetActiveTtsConfiguration();
+            
+            // 只在非流式TTS模式下显示播放按钮
+            if (!isUser && ttsConfig != null && !ttsConfig.IsStreamingEnabled)
             {
                 hasButtons = true;
             }
@@ -987,6 +995,12 @@ namespace Buddie.Controls
             var ttsConfig = appSettings?.GetActiveTtsConfiguration();
             isStreamingTts = ttsConfig?.IsStreamingEnabled == true;
             
+            // 如果启用流式TTS，启动流式音频处理
+            if (isStreamingTts && ttsConfig != null)
+            {
+                StartStreamingTts(ttsConfig);
+            }
+            
             // 创建消息容器
             currentStreamingContainer = new StackPanel
             {
@@ -1131,12 +1145,8 @@ namespace Buddie.Controls
                 {
                     var audioBytes = await response.Content.ReadAsByteArrayAsync();
                     
-                    // 保存到临时文件并播放
-                    var tempFile = Path.GetTempFileName() + ".mp3";
-                    await File.WriteAllBytesAsync(tempFile, audioBytes);
-                    
                     // 播放音频文件
-                    PlayAudioFile(tempFile);
+                    await PlayAudioFromBytes(audioBytes);
                 }
             }
             catch
@@ -1204,26 +1214,8 @@ namespace Buddie.Controls
 
         private async void FinalizeStreamingMessage()
         {
-            // 处理剩余的TTS内容
-            if (isStreamingTts && streamingTtsBuffer.Length > 0)
-            {
-                var appSettings = DataContext as AppSettings;
-                var ttsConfig = appSettings?.GetActiveTtsConfiguration();
-                
-                if (ttsConfig != null)
-                {
-                    try
-                    {
-                        await CallStreamingTtsApi(streamingTtsBuffer.ToString(), ttsConfig);
-                    }
-                    catch
-                    {
-                        // 忽略最终TTS错误
-                    }
-                }
-                
-                streamingTtsBuffer.Clear();
-            }
+            // 停止流式TTS
+            streamingTtsTokenSource?.Cancel();
             
             if (currentStreamingContainer != null)
             {
@@ -1374,6 +1366,25 @@ namespace Buddie.Controls
 
         private async Task CallTtsApi(string text, OpenAiTtsConfiguration ttsConfig)
         {
+            // 生成文本和配置的哈希值作为缓存键
+            var textHash = GenerateHash($"{text}_{ttsConfig.Model}_{ttsConfig.Voice}_{ttsConfig.Speed}");
+            var ttsConfigJson = JsonSerializer.Serialize(new 
+            { 
+                model = ttsConfig.Model, 
+                voice = ttsConfig.Voice, 
+                speed = ttsConfig.Speed 
+            });
+
+            // 先尝试从数据库获取缓存的音频
+            var cachedAudio = await databaseService.GetTtsAudioAsync(textHash);
+            if (cachedAudio != null)
+            {
+                // 使用缓存的音频
+                await PlayAudioFromBytes(cachedAudio.AudioData);
+                return;
+            }
+
+            // 如果没有缓存，调用API生成新的音频
             using var httpClient = new HttpClient();
             httpClient.Timeout = TimeSpan.FromMinutes(2);
             
@@ -1387,7 +1398,8 @@ namespace Buddie.Controls
                 model = ttsConfig.Model,
                 input = text,
                 voice = ttsConfig.Voice,
-                speed = ttsConfig.Speed
+                speed = ttsConfig.Speed,
+                response_format = "mp3"  // 明确指定MP3格式
             };
 
             var json = JsonSerializer.Serialize(requestBody);
@@ -1399,12 +1411,11 @@ namespace Buddie.Controls
             {
                 var audioBytes = await response.Content.ReadAsByteArrayAsync();
                 
-                // 保存到临时文件并播放
-                var tempFile = Path.GetTempFileName() + ".mp3";
-                await File.WriteAllBytesAsync(tempFile, audioBytes);
+                // 保存到数据库缓存
+                await databaseService.SaveTtsAudioAsync(textHash, audioBytes, ttsConfigJson);
                 
-                // 播放音频文件
-                PlayAudioFile(tempFile);
+                // 播放音频
+                await PlayAudioFromBytes(audioBytes);
             }
             else
             {
@@ -1412,14 +1423,25 @@ namespace Buddie.Controls
             }
         }
 
-        private void PlayAudioFile(string filePath)
+        private string GenerateHash(string input)
+        {
+            using var sha256 = SHA256.Create();
+            byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+            return Convert.ToBase64String(bytes);
+        }
+
+        private async Task PlayAudioFromBytes(byte[] audioBytes)
         {
             try
             {
+                // 保存到临时文件
+                var tempFile = Path.GetTempFileName() + ".mp3";
+                await File.WriteAllBytesAsync(tempFile, audioBytes);
+                
                 // 使用系统默认播放器播放音频文件
                 var startInfo = new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = filePath,
+                    FileName = tempFile,
                     UseShellExecute = true,
                     CreateNoWindow = true,
                     WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
@@ -1428,13 +1450,13 @@ namespace Buddie.Controls
                 System.Diagnostics.Process.Start(startInfo);
                 
                 // 异步删除临时文件
-                Task.Run(async () =>
+                _ = Task.Run(async () =>
                 {
                     await Task.Delay(10000); // 等待10秒确保播放完成
                     try
                     {
-                        if (File.Exists(filePath))
-                            File.Delete(filePath);
+                        if (File.Exists(tempFile))
+                            File.Delete(tempFile);
                     }
                     catch
                     {
@@ -1447,6 +1469,203 @@ namespace Buddie.Controls
                 throw new Exception($"音频播放失败: {ex.Message}");
             }
         }
+
+        #region 流式TTS功能
+
+        private void StartStreamingTts(OpenAiTtsConfiguration ttsConfig)
+        {
+            // 取消之前的流式TTS任务
+            streamingTtsTokenSource?.Cancel();
+            streamingTtsTokenSource = new CancellationTokenSource();
+            
+            // 启动流式TTS处理任务
+            _ = Task.Run(async () => await ProcessStreamingTts(ttsConfig, streamingTtsTokenSource.Token));
+        }
+
+        private async Task ProcessStreamingTts(OpenAiTtsConfiguration ttsConfig, CancellationToken cancellationToken)
+        {
+            var processedContent = new StringBuilder();
+            
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    // 等待一小段时间，让内容累积
+                    await Task.Delay(100, cancellationToken);
+                    
+                    string currentContent;
+                    lock (streamingContent)
+                    {
+                        currentContent = streamingContent.ToString();
+                    }
+                    
+                    // 检查是否有新内容需要转换为语音
+                    if (currentContent.Length > processedContent.Length)
+                    {
+                        var newContent = currentContent.Substring(processedContent.Length);
+                        
+                        // 按句子或段落分割内容进行流式TTS
+                        var sentences = SplitIntoSentences(newContent);
+                        foreach (var sentence in sentences)
+                        {
+                            if (!string.IsNullOrWhiteSpace(sentence) && sentence.Trim().Length > 5)
+                            {
+                                await CallStreamingTtsApi(sentence.Trim(), ttsConfig, cancellationToken);
+                                processedContent.Append(sentence);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // 正常取消，不需要处理
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"流式TTS处理错误: {ex.Message}");
+            }
+        }
+
+        private List<string> SplitIntoSentences(string text)
+        {
+            var sentences = new List<string>();
+            var current = new StringBuilder();
+            
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                current.Append(c);
+                
+                // 检查句子结束标志
+                if (c == '.' || c == '!' || c == '?' || c == '。' || c == '！' || c == '？')
+                {
+                    // 检查下一个字符是否是空格或结束
+                    if (i == text.Length - 1 || char.IsWhiteSpace(text[i + 1]))
+                    {
+                        sentences.Add(current.ToString());
+                        current.Clear();
+                    }
+                }
+                // 也可以按照一定长度分割
+                else if (current.Length > 100 && char.IsWhiteSpace(c))
+                {
+                    sentences.Add(current.ToString());
+                    current.Clear();
+                }
+            }
+            
+            // 添加剩余内容
+            if (current.Length > 0)
+            {
+                sentences.Add(current.ToString());
+            }
+            
+            return sentences;
+        }
+
+        private async Task CallStreamingTtsApi(string text, OpenAiTtsConfiguration ttsConfig, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromMinutes(1);
+                
+                if (!string.IsNullOrEmpty(ttsConfig.ApiKey))
+                {
+                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {ttsConfig.ApiKey}");
+                }
+
+                var requestBody = new
+                {
+                    model = ttsConfig.Model,
+                    input = text,
+                    voice = ttsConfig.Voice,
+                    speed = ttsConfig.Speed,
+                    stream_format = "sse"  // 使用SSE流格式
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await httpClient.PostAsync(ttsConfig.ApiUrl, content, cancellationToken);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    using var stream = await response.Content.ReadAsStreamAsync();
+                    using var reader = new StreamReader(stream);
+                    
+                    var audioChunks = new List<byte[]>();
+                    string? line;
+                    
+                    while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
+                    {
+                        if (line.StartsWith("data:"))
+                        {
+                            var jsonData = line.Substring(5).Trim();
+                            
+                            if (jsonData == "[DONE]")
+                            {
+                                break;
+                            }
+                            
+                            if (!string.IsNullOrEmpty(jsonData))
+                            {
+                                try
+                                {
+                                    var jsonDoc = JsonDocument.Parse(jsonData);
+                                    if (jsonDoc.RootElement.TryGetProperty("audio", out var audioProperty))
+                                    {
+                                        var base64Audio = audioProperty.GetString();
+                                        if (!string.IsNullOrEmpty(base64Audio))
+                                        {
+                                            var audioBytes = Convert.FromBase64String(base64Audio);
+                                            audioChunks.Add(audioBytes);
+                                        }
+                                    }
+                                }
+                                catch (JsonException ex)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"JSON解析错误: {ex.Message}");
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 合并所有音频块并播放
+                    if (audioChunks.Count > 0)
+                    {
+                        var combinedAudio = CombineAudioChunks(audioChunks);
+                        await PlayAudioFromBytes(combinedAudio);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // 正常取消，不需要处理
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"流式TTS API调用错误: {ex.Message}");
+            }
+        }
+
+        private byte[] CombineAudioChunks(List<byte[]> chunks)
+        {
+            var totalLength = chunks.Sum(chunk => chunk.Length);
+            var combined = new byte[totalLength];
+            var offset = 0;
+            
+            foreach (var chunk in chunks)
+            {
+                Buffer.BlockCopy(chunk, 0, combined, offset, chunk.Length);
+                offset += chunk.Length;
+            }
+            
+            return combined;
+        }
+
+        #endregion
 
         #region 对话历史功能
 

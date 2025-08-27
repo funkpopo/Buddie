@@ -44,6 +44,25 @@ namespace Buddie
 
             base.OnStartup(e);
         }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("Application shutting down...");
+            
+            // 清理TTS音频缓存
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("Cleaning up TTS audio cache...");
+                DatabaseManager.CleanupTtsAudioCache();
+                System.Diagnostics.Debug.WriteLine("TTS audio cache cleanup completed");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to cleanup TTS audio cache: {ex.Message}");
+            }
+            
+            base.OnExit(e);
+        }
         
         private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {

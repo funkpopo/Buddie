@@ -503,5 +503,73 @@ namespace Buddie.Database
         }
 
         #endregion
+
+        #region TTS Audio Cache
+
+        public async Task<DbTtsAudio?> GetTtsAudioAsync(string textHash)
+        {
+            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
+            await connection.OpenAsync();
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT * FROM TtsAudio 
+                WHERE TextHash = @TextHash;
+                
+                UPDATE TtsAudio 
+                SET LastAccessedAt = datetime('now') 
+                WHERE TextHash = @TextHash;";
+            command.Parameters.AddWithValue("@TextHash", textHash);
+
+            using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new DbTtsAudio
+                {
+                    Id = reader.GetInt32(0),
+                    TextHash = reader.GetString(1),
+                    AudioData = (byte[])reader["AudioData"],
+                    TtsConfigJson = reader.GetString(3),
+                    CreatedAt = ParseDateTime(reader.GetString(4)),
+                    LastAccessedAt = ParseDateTime(reader.GetString(5))
+                };
+            }
+
+            return null;
+        }
+
+        public async Task SaveTtsAudioAsync(string textHash, byte[] audioData, string ttsConfigJson)
+        {
+            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
+            await connection.OpenAsync();
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT OR REPLACE INTO TtsAudio (TextHash, AudioData, TtsConfigJson, CreatedAt, LastAccessedAt)
+                VALUES (@TextHash, @AudioData, @TtsConfigJson, datetime('now'), datetime('now'))";
+            
+            command.Parameters.AddWithValue("@TextHash", textHash);
+            command.Parameters.AddWithValue("@AudioData", audioData);
+            command.Parameters.AddWithValue("@TtsConfigJson", ttsConfigJson);
+
+            await command.ExecuteNonQueryAsync();
+        }
+
+        public async Task CleanupOldTtsAudioAsync(int daysToKeep = 7)
+        {
+            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
+            await connection.OpenAsync();
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                DELETE FROM TtsAudio 
+                WHERE LastAccessedAt < datetime('now', '-' || @DaysToKeep || ' days')";
+            command.Parameters.AddWithValue("@DaysToKeep", daysToKeep);
+
+            var rowsAffected = await command.ExecuteNonQueryAsync();
+            System.Diagnostics.Debug.WriteLine($"Cleaned up {rowsAffected} old TTS audio entries");
+        }
+
+        #endregion
     }
 }
