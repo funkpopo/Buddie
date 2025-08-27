@@ -149,9 +149,10 @@ namespace Buddie
             SettingsControl.TtsConfigurationAdded += async (s, config) => {
                 try
                 {
-                    // 新配置不需要立即保存到数据库，等用户点击保存按钮后再保存
-                    // 配置已经通过TtsConfigControl.Initialize绑定到appSettings.TtsConfigurations
+                    // 新配置添加到集合中并保存到数据库
                     System.Diagnostics.Debug.WriteLine($"TTS configuration added: {config.Name}");
+                    // 配置已经通过TtsConfigControl.Initialize绑定到appSettings.TtsConfigurations
+                    // 新添加的配置在用户点击保存按钮时会触发TtsConfigurationUpdated事件
                 }
                 catch (Exception ex)
                 {
@@ -162,7 +163,9 @@ namespace Buddie
             SettingsControl.TtsConfigurationUpdated += async (s, config) => {
                 try
                 {
+                    // 当用户点击保存按钮后，保存单个配置
                     await appSettings.SaveTtsConfigurationAsync(config);
+                    System.Diagnostics.Debug.WriteLine($"TTS configuration saved successfully: {config.Name}");
                 }
                 catch (Exception ex)
                 {
@@ -269,8 +272,19 @@ namespace Buddie
             HideWindow();
         }
 
-        private void ExitApplication_Click(object? sender, EventArgs e)
+        private async void ExitApplication_Click(object? sender, EventArgs e)
         {
+            // 保存所有设置到数据库
+            try
+            {
+                await appSettings.SaveToDatabaseAsync();
+                System.Diagnostics.Debug.WriteLine("Settings saved before application exit");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save settings on exit: {ex.Message}");
+            }
+            
             trayIcon?.Dispose();
             System.Windows.Application.Current.Shutdown();
         }
@@ -548,6 +562,10 @@ namespace Buddie
                 this.Topmost = appSettings.IsTopmost;
                 this.ShowInTaskbar = appSettings.ShowInTaskbar;
                 ApplyTheme();
+                
+                // 重新初始化配置控件，确保加载的配置显示出来
+                SettingsControl.RefreshApiConfigurations(appSettings.ApiConfigurations);
+                SettingsControl.RefreshTtsConfigurations(appSettings.TtsConfigurations);
                 
                 // 更新卡片显示
                 UpdateCardsFromApiConfigurations();

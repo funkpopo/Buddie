@@ -50,6 +50,7 @@ namespace Buddie.Controls
                 {
                     Name = $"TTS配置 {configurations.Count + 1}",
                     ApiUrl = "http://localhost:5050/v1/audio/speech",
+                    ApiKey = "",  // 确保ApiKey有默认值
                     Model = "tts-1",
                     Voice = "alloy",
                     Speed = 1.0,

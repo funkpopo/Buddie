@@ -75,6 +75,18 @@ namespace Buddie.Controls
                 TtsConfigurationActivated?.Invoke(this, config);
             };
         }
+        
+        public void RefreshTtsConfigurations(ObservableCollection<OpenAiTtsConfiguration> ttsConfigurations)
+        {
+            // 重新初始化TTS配置控件，用于数据库加载后刷新
+            TtsConfigControl.Initialize(ttsConfigurations);
+        }
+        
+        public void RefreshApiConfigurations(ObservableCollection<OpenApiConfiguration> apiConfigurations)
+        {
+            // 重新初始化API配置控件，用于数据库加载后刷新
+            ApiConfigControl.Initialize(apiConfigurations);
+        }
 
         public event EventHandler? ApiConfigurationChanged;
         

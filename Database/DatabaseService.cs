@@ -7,6 +7,21 @@ namespace Buddie.Database
 {
     public class DatabaseService
     {
+        private static DateTime ParseDateTime(string dateTimeStr)
+        {
+            if (string.IsNullOrEmpty(dateTimeStr) || dateTimeStr == "0")
+            {
+                return DateTime.UtcNow;
+            }
+
+            if (DateTime.TryParse(dateTimeStr, out DateTime result))
+            {
+                return result;
+            }
+
+            return DateTime.UtcNow;
+        }
+
         #region App Settings
 
         public async Task<DbAppSettings?> GetAppSettingsAsync()
@@ -27,7 +42,7 @@ namespace Buddie.Database
                     ShowInTaskbar = reader.GetBoolean(2),
                     EnableAnimation = reader.GetBoolean(3),
                     IsDarkTheme = reader.GetBoolean(4),
-                    UpdatedAt = DateTime.Parse(reader.GetString(5))
+                    UpdatedAt = ParseDateTime(reader.GetString(5))
                 };
             }
 
@@ -98,8 +113,8 @@ namespace Buddie.Database
                     IsMultimodalEnabled = reader.GetBoolean(6),
                     ChannelType = reader.GetInt32(7),
                     SupportsThinking = reader.GetBoolean(8),
-                    CreatedAt = DateTime.Parse(reader.GetString(9)),
-                    UpdatedAt = DateTime.Parse(reader.GetString(10))
+                    CreatedAt = ParseDateTime(reader.GetString(9)),
+                    UpdatedAt = ParseDateTime(reader.GetString(10))
                 });
             }
 
@@ -184,7 +199,30 @@ namespace Buddie.Database
             using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                configurations.Add(new DbTtsConfiguration
+                var createdAtStr = reader.GetString(9);
+                var updatedAtStr = reader.GetString(10);
+                
+                // 处理可能的无效日期格式
+                DateTime createdAt = DateTime.UtcNow;
+                DateTime updatedAt = DateTime.UtcNow;
+                
+                if (!string.IsNullOrEmpty(createdAtStr) && createdAtStr != "0")
+                {
+                    if (!DateTime.TryParse(createdAtStr, out createdAt))
+                    {
+                        createdAt = DateTime.UtcNow;
+                    }
+                }
+                
+                if (!string.IsNullOrEmpty(updatedAtStr) && updatedAtStr != "0")
+                {
+                    if (!DateTime.TryParse(updatedAtStr, out updatedAt))
+                    {
+                        updatedAt = DateTime.UtcNow;
+                    }
+                }
+                
+                var config = new DbTtsConfiguration
                 {
                     Id = reader.GetInt32(0),
                     Name = reader.GetString(1),
@@ -195,16 +233,21 @@ namespace Buddie.Database
                     Speed = reader.GetDouble(6),
                     IsStreamingEnabled = reader.GetBoolean(7),
                     IsActive = reader.GetBoolean(8),
-                    CreatedAt = DateTime.Parse(reader.GetString(9)),
-                    UpdatedAt = DateTime.Parse(reader.GetString(10))
-                });
+                    CreatedAt = createdAt,
+                    UpdatedAt = updatedAt
+                };
+                configurations.Add(config);
+                System.Diagnostics.Debug.WriteLine($"[DB] Loaded TTS config from DB: {config.Name}, Id: {config.Id}");
             }
 
+            System.Diagnostics.Debug.WriteLine($"[DB] Total TTS configurations loaded: {configurations.Count}");
             return configurations;
         }
 
         public async Task<int> SaveTtsConfigurationAsync(DbTtsConfiguration config)
         {
+            System.Diagnostics.Debug.WriteLine($"[DB] Saving TTS config: {config.Name}, Id: {config.Id}, ApiKey: '{config.ApiKey ?? "null"}'");
+            
             config.UpdatedAt = DateTime.UtcNow;
 
             using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
@@ -240,12 +283,13 @@ namespace Buddie.Database
             command.Parameters.AddWithValue("@Speed", config.Speed);
             command.Parameters.AddWithValue("@IsStreamingEnabled", config.IsStreamingEnabled);
             command.Parameters.AddWithValue("@IsActive", config.IsActive);
-            command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
-            command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+            command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt == default ? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") : config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+            command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt == default ? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") : config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
 
             var result = await command.ExecuteScalarAsync();
             var id = Convert.ToInt32(result);
             config.Id = id;
+            System.Diagnostics.Debug.WriteLine($"[DB] Successfully saved TTS config with ID: {id}");
             return id;
         }
 
@@ -287,8 +331,8 @@ namespace Buddie.Database
                 {
                     Id = reader.GetInt32(0),
                     Title = reader.GetString(1),
-                    CreatedAt = DateTime.Parse(reader.GetString(2)),
-                    UpdatedAt = DateTime.Parse(reader.GetString(3)),
+                    CreatedAt = ParseDateTime(reader.GetString(2)),
+                    UpdatedAt = ParseDateTime(reader.GetString(3)),
                     MessageCount = reader.GetInt32(4)
                 });
             }
@@ -390,7 +434,7 @@ namespace Buddie.Database
                     Content = reader.GetString(2),
                     IsUser = reader.GetBoolean(3),
                     ReasoningContent = reader.IsDBNull(4) ? null : reader.GetString(4),
-                    CreatedAt = DateTime.Parse(reader.GetString(5))
+                    CreatedAt = ParseDateTime(reader.GetString(5))
                 });
             }
 

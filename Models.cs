@@ -296,11 +296,11 @@ namespace Buddie
             return new DbTtsConfiguration
             {
                 Id = this.Id,
-                Name = this.Name,
-                ApiUrl = this.ApiUrl,
-                ApiKey = this.ApiKey,
-                Model = this.Model,
-                Voice = this.Voice,
+                Name = this.Name ?? "",
+                ApiUrl = this.ApiUrl ?? "http://localhost:5050/v1/audio/speech",
+                ApiKey = this.ApiKey ?? "",  // 确保ApiKey不为null
+                Model = this.Model ?? "tts-1",
+                Voice = this.Voice ?? "alloy",
                 Speed = this.Speed,
                 IsStreamingEnabled = this.IsStreamingEnabled,
                 IsActive = this.IsActive
@@ -481,12 +481,22 @@ namespace Buddie
                 System.Diagnostics.Debug.WriteLine($"Saving {TtsConfigurations.Count} TTS configurations...");
                 foreach (var config in TtsConfigurations)
                 {
+                    System.Diagnostics.Debug.WriteLine($"TTS Config: {config.Name}, IsSaved: {config.IsSaved}, Id: {config.Id}, ApiKey: '{config.ApiKey}'");
                     if (config.IsSaved) // Remove the Id > 0 condition to allow new configurations
                     {
-                        var dbConfig = config.ToDbModel();
-                        var savedId = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
-                        config.Id = savedId; // Update the configuration with the new ID
-                        System.Diagnostics.Debug.WriteLine($"Saved TTS config: {config.Name} with ID {savedId}");
+                        try
+                        {
+                            var dbConfig = config.ToDbModel();
+                            System.Diagnostics.Debug.WriteLine($"Converting to DB model - Name: {dbConfig.Name}, ApiKey: '{dbConfig.ApiKey ?? "null"}'");
+                            var savedId = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
+                            config.Id = savedId; // Update the configuration with the new ID
+                            System.Diagnostics.Debug.WriteLine($"Successfully saved TTS config: {config.Name} with ID {savedId}");
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Failed to save TTS config {config.Name}: {ex.Message}");
+                            System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                        }
                     }
                     else
                     {
@@ -590,7 +600,8 @@ namespace Buddie
                     if (config != configToActivate && config.IsActive)
                     {
                         config.IsActive = false;
-                        if (config.IsSaved)
+                        // Save if configuration has been saved before
+                        if (config.IsSaved && config.Id > 0)
                         {
                             await SaveTtsConfigurationAsync(config);
                         }
@@ -601,7 +612,8 @@ namespace Buddie
                 if (!configToActivate.IsActive)
                 {
                     configToActivate.IsActive = true;
-                    if (configToActivate.IsSaved)
+                    // Save if configuration has been saved before
+                    if (configToActivate.IsSaved && configToActivate.Id > 0)
                     {
                         await SaveTtsConfigurationAsync(configToActivate);
                     }

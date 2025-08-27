@@ -43,6 +43,8 @@ local.settings.json
 # Secrets management
 Secrets.toml
 
+.vscode
+
 # Database files
 *.db
 *.db-journal
