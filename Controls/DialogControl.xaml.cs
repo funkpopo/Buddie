@@ -27,6 +27,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Forms;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Controls
 {
@@ -467,21 +468,18 @@ namespace Buddie.Controls
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
             };
 
-            try
+            var flowDocument = ExceptionHandlingService.UI.ExecuteSafely(() =>
             {
                 // 将Markdown转换为HTML
                 var html = Markdown.ToHtml(markdownText, markdownPipeline);
                 
                 // 将HTML转换为FlowDocument
-                var flowDocument = ConvertHtmlToFlowDocument(html);
-                richTextBox.Document = flowDocument;
-            }
-            catch (Exception)
-            {
-                // 如果转换失败，回退到普通文本
-                var paragraph = new Paragraph(new Run(markdownText));
-                richTextBox.Document = new FlowDocument(paragraph);
-            }
+                return ConvertHtmlToFlowDocument(html);
+            }, 
+            new FlowDocument(new Paragraph(new Run(markdownText))), // 回退到普通文本
+            "Markdown转换");
+            
+            richTextBox.Document = flowDocument;
 
             return richTextBox;
         }
@@ -815,7 +813,7 @@ namespace Buddie.Controls
             
             AddMessageBubble(actualMessage, true);
 
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 // 创建新的取消令牌
                 currentRequest = new CancellationTokenSource();
@@ -883,49 +881,47 @@ namespace Buddie.Controls
 
                     if (response.IsSuccessStatusCode)
                     {
-                        try
+                        var messageContent = ExceptionHandlingService.ExecuteSafely(() =>
                         {
                             var jsonDoc = JsonDocument.Parse(responseText);
                             var choices = jsonDoc.RootElement.GetProperty("choices");
                             if (choices.GetArrayLength() > 0)
                             {
-                                var messageContent = choices[0].GetProperty("message").GetProperty("content").GetString();
-                                AddMessageBubble(messageContent ?? "无响应内容", false);
+                                return choices[0].GetProperty("message").GetProperty("content").GetString() ?? "无响应内容";
                             }
                             else
                             {
-                                AddMessageBubble("API响应格式错误", false);
+                                return "API响应格式错误";
                             }
-                        }
-                        catch (JsonException)
+                        },
+                        ExceptionHandlingService.HandlingStrategy.LogOnly,
+                        $"API返回了无效的JSON格式: {responseText}",
+                        new ExceptionHandlingService.ExceptionContext
                         {
-                            AddMessageBubble($"API返回了无效的JSON格式: {responseText}", false);
-                        }
+                            Component = "DialogControl",
+                            Operation = "解析API响应"
+                        });
+                        
+                        AddMessageBubble(messageContent, false);
                     }
                     else
                     {
                         AddMessageBubble($"API请求失败: {response.StatusCode}", false);
                     }
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                // 请求被取消，不显示错误消息
-            }
-            catch (Exception ex)
-            {
-                AddMessageBubble($"请求错误: {ex.Message}", false);
-            }
-            finally
-            {
+
                 // 恢复发送状态
                 SetSendingState(false);
-            }
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "发送API请求"
+            });
         }
 
         private async Task ProcessStreamingResponse(HttpClient httpClient, string apiUrl, StringContent requestContent)
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
                 {
@@ -962,7 +958,7 @@ namespace Buddie.Controls
                         
                         if (!string.IsNullOrEmpty(jsonData))
                         {
-                            try
+                            ExceptionHandlingService.ExecuteSafely(() =>
                             {
                                 var jsonDoc = JsonDocument.Parse(jsonData);
                                 var choices = jsonDoc.RootElement.GetProperty("choices");
@@ -980,7 +976,7 @@ namespace Buddie.Controls
                                             {
                                                 streamingReasoning.Append(reasoning);
                                                 // 实时更新思维过程UI
-                                                await Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
+                                                Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
                                             }
                                         }
                                         
@@ -992,33 +988,29 @@ namespace Buddie.Controls
                                             {
                                                 streamingContent.Append(messageText);
                                                 // 实时更新UI
-                                                await Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
+                                                Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
                                             }
                                         }
                                     }
                                 }
-                            }
-                            catch (JsonException)
+                            },
+                            ExceptionHandlingService.HandlingStrategy.LogOnly,
+                            new ExceptionHandlingService.ExceptionContext
                             {
-                                // 忽略无效的JSON行
-                                continue;
-                            }
+                                Component = "DialogControl",
+                                Operation = "解析流式JSON数据"
+                            });
                         }
                     }
                 }
                 
                 // 完成流式输出
                 await Dispatcher.InvokeAsync(() => FinalizeStreamingMessage());
-            }
-            catch (OperationCanceledException)
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
             {
-                // 被取消，清理当前流式消息
-                await Dispatcher.InvokeAsync(() => FinalizeStreamingMessage());
-            }
-            catch (Exception ex)
-            {
-                AddMessageBubble($"流式处理错误: {ex.Message}", false);
-            }
+                Component = "DialogControl", 
+                Operation = "处理流式响应"
+            });
         }
 
         private void InitializeStreamingMessage()
@@ -1208,60 +1200,58 @@ namespace Buddie.Controls
 
         private async void TtsButton_Click(object sender, RoutedEventArgs e)
         {
-            var button = sender as System.Windows.Controls.Button;
-            var messageText = button?.Tag as string;
-            
-            if (string.IsNullOrEmpty(messageText) || button == null)
+            await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
             {
-                System.Diagnostics.Debug.WriteLine("TTS: 消息文本为空或按钮为null");
-                return;
-            }
+                var button = sender as System.Windows.Controls.Button;
+                var messageText = button?.Tag as string;
+                
+                if (string.IsNullOrEmpty(messageText) || button == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("TTS: 消息文本为空或按钮为null");
+                    return;
+                }
 
-            var appSettings = DataContext as AppSettings;
-            var ttsConfig = appSettings?.GetActiveTtsConfiguration();
-            
-            if (ttsConfig == null)
-            {
-                System.Diagnostics.Debug.WriteLine("TTS: 未找到激活的TTS配置");
-                System.Windows.MessageBox.Show("未找到TTS配置，请先在设置中配置并激活TTS服务。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                return;
-            }
+                var appSettings = DataContext as AppSettings;
+                var ttsConfig = appSettings?.GetActiveTtsConfiguration();
+                
+                if (ttsConfig == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("TTS: 未找到激活的TTS配置");
+                    System.Windows.MessageBox.Show("未找到TTS配置，请先在设置中配置并激活TTS服务。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    return;
+                }
 
-            System.Diagnostics.Debug.WriteLine($"TTS: 开始处理消息，长度: {messageText.Length}");
-            
-            // 改变按钮状态表示正在处理
-            var originalContent = button.Content;
-            button.Content = "⏳";
-            button.IsEnabled = false;
+                System.Diagnostics.Debug.WriteLine($"TTS: 开始处理消息，长度: {messageText.Length}");
+                
+                // 改变按钮状态表示正在处理
+                var originalContent = button.Content;
+                button.Content = "⏳";
+                button.IsEnabled = false;
 
-            try
-            {
-                await CallTtsApi(messageText, ttsConfig);
-                System.Diagnostics.Debug.WriteLine("TTS: 调用成功");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"TTS: 调用失败 - {ex.Message}");
-                System.Windows.MessageBox.Show($"TTS调用失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-            }
-            finally
-            {
-                // 恢复按钮状态
-                button.Content = originalContent;
-                button.IsEnabled = true;
-            }
+                try
+                {
+                    await CallTtsApi(messageText, ttsConfig);
+                    System.Diagnostics.Debug.WriteLine("TTS: 调用成功");
+                }
+                finally
+                {
+                    // 恢复按钮状态
+                    button.Content = originalContent;
+                    button.IsEnabled = true;
+                }
+            }, "TTS语音合成");
         }
 
         private void CopyButton_Click(object sender, RoutedEventArgs e)
         {
-            var button = sender as System.Windows.Controls.Button;
-            var messageText = button?.Tag as string;
-            
-            if (string.IsNullOrEmpty(messageText) || button == null)
-                return;
-
-            try
+            ExceptionHandlingService.UI.ExecuteSafely(() =>
             {
+                var button = sender as System.Windows.Controls.Button;
+                var messageText = button?.Tag as string;
+                
+                if (string.IsNullOrEmpty(messageText) || button == null)
+                    return;
+
                 System.Windows.Clipboard.SetText(messageText);
                 
                 // 临时改变按钮显示表示复制成功
@@ -1277,11 +1267,7 @@ namespace Buddie.Controls
                     timer.Stop();
                 };
                 timer.Start();
-            }
-            catch (Exception ex)
-            {
-                System.Windows.MessageBox.Show($"复制失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-            }
+            }, "复制消息内容");
         }
 
         private async Task CallTtsApi(string text, TtsConfiguration ttsConfig)
@@ -1629,15 +1615,11 @@ namespace Buddie.Controls
         /// </summary>
         private async void LoadConversationHistory()
         {
-            try
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
                 // 创建新的对话
                 await StartNewConversation();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to load conversation history: {ex.Message}");
-            }
+            }, "加载对话历史");
         }
 
         /// <summary>
@@ -1645,7 +1627,7 @@ namespace Buddie.Controls
         /// </summary>
         public async Task StartNewConversation()
         {
-            try
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
                 // 保存当前对话（如果有的话）
                 if (currentConversation != null)
@@ -1667,11 +1649,7 @@ namespace Buddie.Controls
                 ClearDialog();
                 
                 System.Diagnostics.Debug.WriteLine($"Started new conversation: {currentConversation.Id}");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to start new conversation: {ex.Message}");
-            }
+            }, "开始新对话");
         }
 
         /// <summary>
@@ -1679,7 +1657,7 @@ namespace Buddie.Controls
         /// </summary>
         public async Task LoadConversation(int conversationId)
         {
-            try
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
                 // 保存当前对话
                 if (currentConversation != null)
@@ -1699,11 +1677,7 @@ namespace Buddie.Controls
                     // 重建对话界面
                     await RebuildConversationUI();
                 }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to load conversation: {ex.Message}");
-            }
+            }, "加载指定对话");
         }
 
         /// <summary>
@@ -1711,7 +1685,7 @@ namespace Buddie.Controls
         /// </summary>
         public async Task SaveCurrentConversation()
         {
-            try
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
                 if (currentConversation == null) return;
 
@@ -1751,11 +1725,7 @@ namespace Buddie.Controls
                     await databaseService.SaveConversationAsync(currentConversation);
                     System.Diagnostics.Debug.WriteLine($"Updated conversation: {currentConversation.Id}");
                 }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to save current conversation: {ex.Message}");
-            }
+            }, "保存当前对话");
         }
 
         /// <summary>
@@ -1763,7 +1733,7 @@ namespace Buddie.Controls
         /// </summary>
         public async Task SaveMessage(string content, bool isUser, string? reasoningContent = null)
         {
-            try
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
                 if (currentConversation == null)
                 {
@@ -1804,11 +1774,7 @@ namespace Buddie.Controls
                     message.Id = messageId;
                     currentMessages.Add(message);
                 }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to save message: {ex.Message}");
-            }
+            }, "保存消息");
         }
 
         /// <summary>

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Database
 {
@@ -88,7 +89,7 @@ namespace Buddie.Database
 
         public static void InitializeDatabase()
         {
-            try
+            ExceptionHandlingService.Database.ExecuteSafely(() =>
             {
                 using var connection = new SqliteConnection(ConnectionString);
                 connection.Open();
@@ -209,17 +210,12 @@ namespace Buddie.Database
                 InitializeDefaultSettings(connection);
 
                 Debug.WriteLine($"Database initialized at: {DatabasePath}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Database initialization failed: {ex.Message}");
-                throw;
-            }
+            }, "初始化数据库");
         }
 
         private static void MigrateDatabaseSchema(SqliteConnection connection)
         {
-            try
+            ExceptionHandlingService.Database.ExecuteSafely(() =>
             {
                 // 检查TtsConfigurations表是否有IsActive列和ChannelType列
                 using var command = connection.CreateCommand();
@@ -257,12 +253,7 @@ namespace Buddie.Database
                     command.ExecuteNonQuery();
                     Debug.WriteLine("Added ChannelType column to TtsConfigurations table");
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Database migration failed: {ex.Message}");
-                // 不抛出异常，允许应用程序继续运行
-            }
+            }, "数据库架构迁移");
         }
 
         private static void InitializeDefaultSettings(SqliteConnection connection)
@@ -292,58 +283,40 @@ namespace Buddie.Database
 
         public static void BackupDatabase(string backupPath)
         {
-            try
+            ExceptionHandlingService.Database.ExecuteSafely(() =>
             {
                 File.Copy(DatabasePath, backupPath, true);
                 Debug.WriteLine($"Database backed up to: {backupPath}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Database backup failed: {ex.Message}");
-                throw;
-            }
+            }, "备份数据库");
         }
 
         public static void RestoreDatabase(string backupPath)
         {
-            try
+            ExceptionHandlingService.Database.ExecuteSafely(() =>
             {
                 if (File.Exists(backupPath))
                 {
                     File.Copy(backupPath, DatabasePath, true);
                     Debug.WriteLine($"Database restored from: {backupPath}");
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Database restore failed: {ex.Message}");
-                throw;
-            }
+            }, "恢复数据库");
         }
 
         public static void CleanupTtsAudioCache()
         {
-            try
+            ExceptionHandlingService.Database.ExecuteSafely(() =>
             {
                 // 使用新的综合清理策略而不是删除所有缓存
                 var databaseService = new DatabaseService();
                 // 使用默认设置：保留7天，最多1000条，最大500MB
                 Task.Run(async () =>
                 {
-                    try
+                    await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
                     {
                         await databaseService.CleanupTtsCacheAsync(7, 1000, 500);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"TTS cache cleanup failed: {ex.Message}");
-                    }
+                    }, "TTS缓存清理");
                 });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"TTS audio cache cleanup initialization failed: {ex.Message}");
-            }
+            }, "初始化TTS缓存清理");
         }
     }
 }

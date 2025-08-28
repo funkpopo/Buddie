@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Services.Tts
 {

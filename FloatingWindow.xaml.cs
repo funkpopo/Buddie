@@ -12,6 +12,7 @@ using SystemDrawing = System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Threading.Tasks;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie
 {
@@ -115,14 +116,9 @@ namespace Buddie
                 appSettings.IsDarkTheme = value;
                 ApplyTheme();
                 // 自动保存主题设置到数据库
-                try
-                {
-                    await appSettings.SaveToDatabaseAsync();
-                }
-                catch (Exception)
-                {
-                    // Handle save error silently during theme change
-                }
+                await ExceptionHandlingService.Database.ExecuteSafelyAsync(
+                    () => appSettings.SaveToDatabaseAsync(),
+                    "保存主题设置");
             };
             SettingsControl.ResetSettingsRequested += (s, e) => ResetSettings();
             SettingsControl.SettingsVisibilityChanged += (s, isVisible) => {
@@ -131,14 +127,9 @@ namespace Buddie
             };
             SettingsControl.ApiConfigurationChanged += async (s, e) => {
                 // 自动保存配置更改到数据库
-                try
-                {
-                    await appSettings.SaveToDatabaseAsync();
-                }
-                catch (Exception)
-                {
-                    // Handle save error silently
-                }
+                await ExceptionHandlingService.Database.ExecuteSafelyAsync(
+                    () => appSettings.SaveToDatabaseAsync(),
+                    "保存API配置");
                 
                 UpdateCardsFromApiConfigurations();
                 UpdateCardDisplay();
@@ -146,27 +137,17 @@ namespace Buddie
             
             // 订阅TTS配置事件
             SettingsControl.TtsConfigurationActivated += async (s, config) => {
-                try
-                {
-                    await appSettings.ActivateTtsConfigurationAsync(config);
-                }
-                catch (Exception)
-                {
-                    // Handle TTS configuration error silently
-                }
+                await ExceptionHandlingService.Tts.ExecuteSafelyAsync(
+                    () => appSettings.ActivateTtsConfigurationAsync(config),
+                    "激活TTS配置");
             };
             
             SettingsControl.TtsConfigurationAdded += (s, config) => {
-                try
-                {
+                ExceptionHandlingService.UI.ExecuteSafely(() => {
                     // 新配置添加到集合中并保存到数据库
                     // 配置已经通过TtsConfigControl.Initialize绑定到appSettings.TtsConfigurations
                     // 新添加的配置在用户点击保存按钮时会触发TtsConfigurationUpdated事件
-                }
-                catch (Exception)
-                {
-                    // Handle TTS configuration addition error silently
-                }
+                }, "TTS配置添加");
             };
             
             SettingsControl.TtsConfigurationUpdated += async (s, config) => {

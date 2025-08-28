@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Threading;
 using Buddie.Database;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie
 {
@@ -9,7 +10,7 @@ namespace Buddie
     {
         protected override async void OnStartup(StartupEventArgs e)
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 // Set up global exception handlers
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
@@ -25,12 +26,13 @@ namespace Buddie
                 await floatingWindow.LoadSettingsFromDatabaseAsync();
                 
                 floatingWindow.Show();
-            }
-            catch (Exception ex)
+            },
+            ExceptionHandlingService.HandlingStrategy.ShowMessage,
+            new ExceptionHandlingService.ExceptionContext
             {
-                MessageBox.Show($"应用程序启动失败: {ex.Message}", "启动错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                Shutdown();
-            }
+                Component = "App",
+                Operation = "应用程序启动"
+            });
 
             base.OnStartup(e);
         }
@@ -38,25 +40,29 @@ namespace Buddie
         protected override void OnExit(ExitEventArgs e)
         {
             // 最后一次保存应用程序设置
-            try
+            ExceptionHandlingService.ExecuteSafely(() =>
             {
                 var mainWindow = Current.MainWindow as FloatingWindow;
                 mainWindow?.SaveSettingsBeforeExit();
-            }
-            catch (Exception)
+            },
+            ExceptionHandlingService.HandlingStrategy.Silent, // 静默处理应用退出时的错误
+            new ExceptionHandlingService.ExceptionContext
             {
-                // Silently handle save failure during application exit
-            }
+                Component = "App",
+                Operation = "保存设置"
+            });
             
             // 清理TTS音频缓存
-            try
+            ExceptionHandlingService.ExecuteSafely(() =>
             {
                 DatabaseManager.CleanupTtsAudioCache();
-            }
-            catch (Exception)
+            },
+            ExceptionHandlingService.HandlingStrategy.Silent, // 静默处理清理失败
+            new ExceptionHandlingService.ExceptionContext
             {
-                // Silently handle cleanup failure during application exit
-            }
+                Component = "App",
+                Operation = "清理TTS缓存"
+            });
             
             base.OnExit(e);
         }

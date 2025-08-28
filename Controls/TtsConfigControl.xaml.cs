@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Collections.ObjectModel;
 using System.Windows.Media;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Controls
 {
@@ -38,7 +39,7 @@ namespace Buddie.Controls
 
         private void AddTtsConfig_Click(object sender, RoutedEventArgs e)
         {
-            try
+            ExceptionHandlingService.UI.ExecuteSafely(() =>
             {
                 var configurations = TtsConfigList.ItemsSource as ObservableCollection<TtsConfiguration>;
                 if (configurations == null)
@@ -59,13 +60,7 @@ namespace Buddie.Controls
                 configurations.Add(newConfig);
                 UpdateNoTtsConfigMessageVisibility(configurations);
                 ConfigurationAdded?.Invoke(this, newConfig);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error in AddTtsConfig_Click: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                MessageBox.Show($"添加TTS配置时出错：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            }, "添加TTS配置");
         }
 
         private void SaveTtsConfig_Click(object sender, RoutedEventArgs e)
