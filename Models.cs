@@ -32,9 +32,7 @@ namespace Buddie
     {
         OpenAI,
         ElevenLabs,
-        MiniMax,
-        Azure,
-        GeminiAPI
+        MiniMax
     }
 
     public class TtsPresetChannel
@@ -327,8 +325,6 @@ namespace Buddie
                     TtsChannelType.OpenAI => true,
                     TtsChannelType.ElevenLabs => false, // ElevenLabs-DotNet包自动处理URL
                     TtsChannelType.MiniMax => true,
-                    TtsChannelType.Azure => true,
-                    TtsChannelType.GeminiAPI => true,
                     _ => true
                 };
             }
@@ -343,8 +339,6 @@ namespace Buddie
                     TtsChannelType.OpenAI => true,
                     TtsChannelType.ElevenLabs => true,
                     TtsChannelType.MiniMax => true,
-                    TtsChannelType.Azure => true,
-                    TtsChannelType.GeminiAPI => true,
                     _ => true
                 };
             }
@@ -359,8 +353,6 @@ namespace Buddie
                     TtsChannelType.OpenAI => true,
                     TtsChannelType.ElevenLabs => true,
                     TtsChannelType.MiniMax => true,
-                    TtsChannelType.Azure => true,
-                    TtsChannelType.GeminiAPI => false, // Gemini API 通常不需要单独指定模型
                     _ => true
                 };
             }
@@ -375,8 +367,6 @@ namespace Buddie
                     TtsChannelType.OpenAI => true,
                     TtsChannelType.ElevenLabs => true,
                     TtsChannelType.MiniMax => true,
-                    TtsChannelType.Azure => true,
-                    TtsChannelType.GeminiAPI => false, // Gemini API 通常不需要单独指定语音
                     _ => true
                 };
             }
@@ -392,8 +382,6 @@ namespace Buddie
                     TtsChannelType.OpenAI => "API Key:",
                     TtsChannelType.ElevenLabs => "xi-api-key:",
                     TtsChannelType.MiniMax => "API Key:",
-                    TtsChannelType.Azure => "Subscription Key:",
-                    TtsChannelType.GeminiAPI => "API Key:",
                     _ => "API Key:"
                 };
             }
@@ -408,8 +396,6 @@ namespace Buddie
                     TtsChannelType.OpenAI => "模型:",
                     TtsChannelType.ElevenLabs => "模型:",
                     TtsChannelType.MiniMax => "模型:",
-                    TtsChannelType.Azure => "语音类型:",
-                    TtsChannelType.GeminiAPI => "模型:",
                     _ => "模型:"
                 };
             }
@@ -424,8 +410,6 @@ namespace Buddie
                     TtsChannelType.OpenAI => "语音:",
                     TtsChannelType.ElevenLabs => "Voice ID:",
                     TtsChannelType.MiniMax => "语音:",
-                    TtsChannelType.Azure => "语音:",
-                    TtsChannelType.GeminiAPI => "语音:",
                     _ => "语音:"
                 };
             }
@@ -441,8 +425,6 @@ namespace Buddie
                     TtsChannelType.OpenAI => "例如: tts-1, tts-1-hd",
                     TtsChannelType.ElevenLabs => "例如: eleven_multilingual_v2, eleven_turbo_v2_5, eleven_flash_v2_5",
                     TtsChannelType.MiniMax => "例如: speech-01, speech-01-240228",
-                    TtsChannelType.Azure => "例如: neural, standard",
-                    TtsChannelType.GeminiAPI => "例如: gemini-pro",
                     _ => "请输入支持的模型名称"
                 };
             }
@@ -457,8 +439,6 @@ namespace Buddie
                     TtsChannelType.OpenAI => "例如: alloy, echo, fable, onyx, nova, shimmer",
                     TtsChannelType.ElevenLabs => "例如: JBFqnCBsd6RMkjVDRZzb (20位字符的Voice ID)",
                     TtsChannelType.MiniMax => "例如: male-qn-qingse, female-shaonv, presenter_male",
-                    TtsChannelType.Azure => "例如: zh-CN-XiaoxiaoNeural, en-US-JennyNeural",
-                    TtsChannelType.GeminiAPI => "例如: default",
                     _ => "请输入支持的语音名称"
                 };
             }
@@ -1009,34 +989,7 @@ namespace Buddie
                     RequestFormat = "minimax",
                     SupportsStreaming = false
                 },
-                new TtsPresetChannel
-                {
-                    Name = "Azure Cognitive Services",
-                    ChannelType = TtsChannelType.Azure,
-                    DefaultApiUrl = "https://{region}.tts.speech.microsoft.com/cognitiveservices/v1",
-                    SupportedModels = new[] { "neural", "standard" },
-                    SupportedVoices = new[] { "zh-CN-XiaoxiaoNeural", "zh-CN-YunxiNeural", "zh-CN-YunjianNeural", "zh-CN-XiaoyiNeural", "zh-CN-YunyangNeural", "zh-CN-XiaochenNeural", "zh-CN-XiaohanNeural", "zh-CN-XiaomengNeural", "zh-CN-XiaomoNeural", "zh-CN-XiaoqiuNeural", "zh-CN-XiaoruiNeural", "zh-CN-XiaoshuangNeural", "zh-CN-XiaoxuanNeural", "zh-CN-XiaoyanNeural", "zh-CN-XiaoyouNeural", "en-US-JennyNeural", "en-US-GuyNeural", "en-US-AriaNeural", "en-US-DavisNeural", "en-US-AmberNeural", "en-US-AnaNeural", "en-US-AshleyNeural", "en-US-BrandonNeural", "en-US-ChristopherNeural", "en-US-CoraNeural", "en-US-ElizabethNeural", "en-US-EricNeural", "en-US-JacobNeural", "en-US-JaneNeural", "en-US-JasonNeural", "en-US-MichelleNeural", "en-US-MonicaNeural", "en-US-NancyNeural", "en-US-RogerNeural", "en-US-SaraNeural", "en-US-SteffanNeural", "en-US-TonyNeural" },
-                    DefaultSpeed = 1.0,
-                    MinSpeed = 0.5,
-                    MaxSpeed = 1.2,
-                    AuthHeaderFormat = "Ocp-Apim-Subscription-Key",
-                    RequestFormat = "azure",
-                    SupportsStreaming = false
-                },
-                new TtsPresetChannel
-                {
-                    Name = "Gemini API",
-                    ChannelType = TtsChannelType.GeminiAPI,
-                    DefaultApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
-                    SupportedModels = new[] { "gemini-pro" },
-                    SupportedVoices = new[] { "default" },
-                    DefaultSpeed = 1.0,
-                    MinSpeed = 0.5,
-                    MaxSpeed = 1.2,
-                    AuthHeaderFormat = "Bearer {0}",
-                    RequestFormat = "gemini",
-                    SupportsStreaming = false
-                }
+
             };
         }
 

@@ -14,9 +14,7 @@ namespace Buddie.Services.Tts
             {
                 { TtsChannelType.OpenAI, () => new OpenAiTtsService() },
                 { TtsChannelType.ElevenLabs, () => new ElevenLabsTtsService() },
-                { TtsChannelType.MiniMax, () => new MiniMaxTtsService() },
-                { TtsChannelType.Azure, () => new AzureTtsService() },
-                { TtsChannelType.GeminiAPI, () => new GeminiTtsService() }
+                { TtsChannelType.MiniMax, () => new MiniMaxTtsService() }
             };
 
         /// <summary>

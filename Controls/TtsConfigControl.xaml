@@ -241,8 +241,6 @@
                                         <ComboBoxItem Content="OpenAI" Tag="OpenAI"/>
                                         <ComboBoxItem Content="ElevenLabs" Tag="ElevenLabs"/>
                                         <ComboBoxItem Content="MiniMax" Tag="MiniMax"/>
-                                        <ComboBoxItem Content="Azure" Tag="Azure"/>
-                                        <ComboBoxItem Content="Gemini API" Tag="GeminiAPI"/>
                                     </ComboBox>
                                     
                                     <!-- 配置名称 -->

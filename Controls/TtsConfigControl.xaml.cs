@@ -125,12 +125,6 @@ namespace Buddie.Controls
                     
                     break;
 
-                case TtsChannelType.Azure:
-                    if (!config.ApiUrl.Contains("{region}"))
-                        return "Azure API URL 应包含 {region} 占位符（例如：eastus）";
-                    
-                    break;
-
                 case TtsChannelType.OpenAI:
                     if (!config.Voice.Equals("alloy") && !config.Voice.Equals("echo") && 
                         !config.Voice.Equals("fable") && !config.Voice.Equals("onyx") && 
