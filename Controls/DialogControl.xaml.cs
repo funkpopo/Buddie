@@ -948,7 +948,7 @@ namespace Buddie.Controls
                                             {
                                                 streamingReasoning.Append(reasoning);
                                                 // 实时更新思维过程UI
-                                                await Dispatcher.InvokeAsync(async () => await UpdateStreamingMessage());
+                                                await Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
                                             }
                                         }
                                         
@@ -960,7 +960,7 @@ namespace Buddie.Controls
                                             {
                                                 streamingContent.Append(messageText);
                                                 // 实时更新UI
-                                                await Dispatcher.InvokeAsync(async () => await UpdateStreamingMessage());
+                                                await Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
                                             }
                                         }
                                     }
@@ -1028,7 +1028,7 @@ namespace Buddie.Controls
             DialogScrollViewer.ScrollToEnd();
         }
 
-        private async Task UpdateStreamingMessage()
+        private void UpdateStreamingMessage()
         {
             bool updated = false;
             
