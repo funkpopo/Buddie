@@ -9,6 +9,7 @@ using System.Diagnostics;
 using ElevenLabs;
 using ElevenLabs.TextToSpeech;
 using ElevenLabs.Voices;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Services.Tts
 {
@@ -24,15 +25,15 @@ namespace Buddie.Services.Tts
 
         protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request)
         {
-            var config = request.Configuration;
-            
-            if (string.IsNullOrEmpty(config.ApiKey))
+            return await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
             {
-                throw new TtsException(SupportedChannelType, "ElevenLabs API Key 不能为空");
-            }
+                var config = request.Configuration;
+                
+                if (string.IsNullOrEmpty(config.ApiKey))
+                {
+                    throw new TtsException(SupportedChannelType, "ElevenLabs API Key 不能为空");
+                }
 
-            try
-            {
                 Debug.WriteLine($"ElevenLabs TTS 请求 - Voice: {config.Voice}, Model: {config.Model}, Speed: {config.Speed}");
                 Debug.WriteLine($"Text: {request.Text}");
 
@@ -94,52 +95,53 @@ namespace Buddie.Services.Tts
                     throw new TtsException(SupportedChannelType, 
                         $"ElevenLabs API请求失败: {response.StatusCode}", errorContent);
                 }
-            }
-            catch (HttpRequestException ex)
-            {
-                Debug.WriteLine($"ElevenLabs HTTP 请求失败: {ex.Message}");
-                throw new TtsException(SupportedChannelType, 
-                    $"ElevenLabs网络请求失败: {ex.Message}", ex);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"ElevenLabs TTS 请求失败: {ex.Message}");
-                throw new TtsException(SupportedChannelType, 
-                    $"ElevenLabs API请求失败: {ex.Message}", ex);
-            }
+            }, 
+            new TtsResponse 
+            { 
+                IsSuccess = false, 
+                ErrorMessage = "ElevenLabs TTS服务调用失败" 
+            },
+            "ElevenLabs TTS API调用");
         }
 
         private void InitializeClient(TtsConfiguration config)
         {
-            if (_elevenLabsClient == null || _currentApiKey != config.ApiKey)
+            ExceptionHandlingService.ExecuteSafely(() =>
             {
-                if (string.IsNullOrEmpty(config.ApiKey))
+                if (_elevenLabsClient == null || _currentApiKey != config.ApiKey)
                 {
-                    throw new TtsException(SupportedChannelType, "ElevenLabs API Key 不能为空");
+                    if (string.IsNullOrEmpty(config.ApiKey))
+                    {
+                        throw new TtsException(SupportedChannelType, "ElevenLabs API Key 不能为空");
+                    }
+
+                    // 释放旧客户端
+                    _elevenLabsClient?.Dispose();
+
+                    var auth = new ElevenLabsAuthentication(config.ApiKey);
+                    _elevenLabsClient = new ElevenLabsClient(auth);
+                    _currentApiKey = config.ApiKey;
+                    
+                    Debug.WriteLine("ElevenLabs 客户端初始化成功");
+                    
+                    // 异步获取并记录默认语音设置（不阻塞主流程）
+                    Task.Run(async () =>
+                    {
+                        await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
+                        {
+                            await GetVoiceDefaultSettingsInfoAsync(config);
+                        }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
+                        {
+                            Component = "ElevenLabsTtsService",
+                            Operation = "获取默认语音设置"
+                        });
+                    });
                 }
-
-                // 释放旧客户端
-                _elevenLabsClient?.Dispose();
-
-                var auth = new ElevenLabsAuthentication(config.ApiKey);
-                _elevenLabsClient = new ElevenLabsClient(auth);
-                _currentApiKey = config.ApiKey;
-                
-                Debug.WriteLine("ElevenLabs 客户端初始化成功");
-                
-                // 异步获取并记录默认语音设置（不阻塞主流程）
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        await GetVoiceDefaultSettingsInfoAsync(config);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"获取语音默认设置信息失败: {ex.Message}");
-                    }
-                });
-            }
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, context: new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "ElevenLabsTtsService",
+                Operation = "初始化客户端"
+            });
         }
 
         protected override void SetupHttpHeaders(TtsConfiguration config)
@@ -201,7 +203,7 @@ namespace Buddie.Services.Tts
         /// </summary>
         public async Task<string[]> GetAvailableVoiceIdsAsync(TtsConfiguration config)
         {
-            try
+            return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 using var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
@@ -233,13 +235,14 @@ namespace Buddie.Services.Tts
                     Debug.WriteLine($"获取语音列表失败: {response.StatusCode}");
                     return Array.Empty<string>();
                 }
-            }
-            catch (Exception ex)
+            }, 
+            ExceptionHandlingService.HandlingStrategy.LogOnly,
+            Array.Empty<string>(),
+            new ExceptionHandlingService.ExceptionContext
             {
-                Debug.WriteLine($"获取ElevenLabs语音列表失败: {ex.Message}");
-                throw new TtsException(SupportedChannelType, 
-                    $"获取语音列表失败: {ex.Message}", ex);
-            }
+                Component = "ElevenLabsTtsService",
+                Operation = "获取语音列表"
+            });
         }
 
         /// <summary>
@@ -247,7 +250,7 @@ namespace Buddie.Services.Tts
         /// </summary>
         public async Task<string> GetVoiceDefaultSettingsInfoAsync(TtsConfiguration config)
         {
-            try
+            return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 using var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
@@ -265,12 +268,14 @@ namespace Buddie.Services.Tts
                     Debug.WriteLine($"获取默认语音设置失败: {response.StatusCode}");
                     return string.Empty;
                 }
-            }
-            catch (Exception ex)
+            },
+            ExceptionHandlingService.HandlingStrategy.LogOnly,
+            string.Empty,
+            new ExceptionHandlingService.ExceptionContext
             {
-                Debug.WriteLine($"获取默认语音设置异常: {ex.Message}");
-                return string.Empty;
-            }
+                Component = "ElevenLabsTtsService",
+                Operation = "获取默认语音设置"
+            });
         }
 
         public override void Dispose()

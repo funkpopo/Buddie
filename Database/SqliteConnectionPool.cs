@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Database
 {
@@ -125,15 +126,15 @@ namespace Buddie.Database
             {
                 for (int i = 0; i < _minConnections; i++)
                 {
-                    try
+                    ExceptionHandlingService.ExecuteSafely(() =>
                     {
                         var connection = CreateNewConnectionAsync().GetAwaiter().GetResult();
                         _availableConnections.Enqueue(connection);
-                    }
-                    catch (Exception ex)
+                    }, ExceptionHandlingService.HandlingStrategy.LogOnly, context: new ExceptionHandlingService.ExceptionContext
                     {
-                        System.Diagnostics.Debug.WriteLine($"Failed to initialize connection: {ex.Message}");
-                    }
+                        Component = "SqliteConnectionPool",
+                        Operation = "初始化最小连接数"
+                    });
                 }
             }
         }
@@ -164,7 +165,7 @@ namespace Buddie.Database
             if (pooledConnection?.Connection == null)
                 return false;
 
-            try
+            return ExceptionHandlingService.ExecuteSafely(() =>
             {
                 // 检查连接是否超时
                 if (DateTime.UtcNow - pooledConnection.LastUsed > _connectionTimeout)
@@ -172,11 +173,14 @@ namespace Buddie.Database
 
                 // 检查连接状态
                 return pooledConnection.Connection.State == System.Data.ConnectionState.Open;
-            }
-            catch
+            },
+            ExceptionHandlingService.HandlingStrategy.LogOnly,
+            false,
+            new ExceptionHandlingService.ExceptionContext
             {
-                return false;
-            }
+                Component = "SqliteConnectionPool",
+                Operation = "检查连接有效性"
+            });
         }
 
         /// <summary>
@@ -184,15 +188,15 @@ namespace Buddie.Database
         /// </summary>
         private void DisposeConnection(PooledConnection pooledConnection)
         {
-            try
+            ExceptionHandlingService.ExecuteSafely(() =>
             {
                 pooledConnection?.Connection?.Dispose();
                 Interlocked.Decrement(ref _currentConnectionCount);
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, context: new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"Error disposing connection: {ex.Message}");
-            }
+                Component = "SqliteConnectionPool",
+                Operation = "释放连接资源"
+            });
         }
 
         /// <summary>
@@ -238,16 +242,15 @@ namespace Buddie.Database
                 var connectionsToCreate = _minConnections - availableCount;
                 for (int i = 0; i < connectionsToCreate && _currentConnectionCount < _maxConnections; i++)
                 {
-                    try
+                    ExceptionHandlingService.ExecuteSafely(() =>
                     {
                         var newConnection = CreateNewConnectionAsync().GetAwaiter().GetResult();
                         _availableConnections.Enqueue(newConnection);
-                    }
-                    catch (Exception ex)
+                    }, ExceptionHandlingService.HandlingStrategy.LogOnly, context: new ExceptionHandlingService.ExceptionContext
                     {
-                        System.Diagnostics.Debug.WriteLine($"Failed to create connection during cleanup: {ex.Message}");
-                        break;
-                    }
+                        Component = "SqliteConnectionPool",
+                        Operation = "清理期间创建连接"
+                    });
                 }
             }
 

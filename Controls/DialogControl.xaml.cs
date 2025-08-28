@@ -468,7 +468,7 @@ namespace Buddie.Controls
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
             };
 
-            var flowDocument = ExceptionHandlingService.UI.ExecuteSafely(() =>
+            var flowDocument = ExceptionHandlingService.ExecuteSafely(() =>
             {
                 // 将Markdown转换为HTML
                 var html = Markdown.ToHtml(markdownText, markdownPipeline);
@@ -476,8 +476,13 @@ namespace Buddie.Controls
                 // 将HTML转换为FlowDocument
                 return ConvertHtmlToFlowDocument(html);
             }, 
+            ExceptionHandlingService.HandlingStrategy.LogOnly,
             new FlowDocument(new Paragraph(new Run(markdownText))), // 回退到普通文本
-            "Markdown转换");
+            new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "Markdown转换"
+            });
             
             richTextBox.Document = flowDocument;
 
@@ -1244,7 +1249,7 @@ namespace Buddie.Controls
 
         private void CopyButton_Click(object sender, RoutedEventArgs e)
         {
-            ExceptionHandlingService.UI.ExecuteSafely(() =>
+            ExceptionHandlingService.ExecuteSafely(() =>
             {
                 var button = sender as System.Windows.Controls.Button;
                 var messageText = button?.Tag as string;
@@ -1267,37 +1272,41 @@ namespace Buddie.Controls
                     timer.Stop();
                 };
                 timer.Start();
-            }, "复制消息内容");
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, context: new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "复制消息内容"
+            });
         }
 
         private async Task CallTtsApi(string text, TtsConfiguration ttsConfig)
         {
-            System.Diagnostics.Debug.WriteLine($"TTS API: 开始调用，文本长度: {text.Length}, 渠道: {ttsConfig.ChannelType}");
-            
-            // 生成文本和配置的哈希值作为缓存键
-            var textHash = GenerateHash($"{text}_{ttsConfig.Model}_{ttsConfig.Voice}_{ttsConfig.Speed}_{ttsConfig.ChannelType}");
-            var ttsConfigJson = JsonSerializer.Serialize(new 
-            { 
-                channelType = ttsConfig.ChannelType.ToString(),
-                model = ttsConfig.Model, 
-                voice = ttsConfig.Voice, 
-                speed = ttsConfig.Speed 
-            });
-
-            // 先尝试从数据库获取缓存的音频
-            var cachedAudio = await databaseService.GetTtsAudioAsync(textHash);
-            if (cachedAudio != null)
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                System.Diagnostics.Debug.WriteLine("TTS API: 使用缓存音频");
-                // 使用缓存的音频
-                await PlayAudioFromBytes(cachedAudio.AudioData);
-                return;
-            }
+                System.Diagnostics.Debug.WriteLine($"TTS API: 开始调用，文本长度: {text.Length}, 渠道: {ttsConfig.ChannelType}");
+                
+                // 生成文本和配置的哈希值作为缓存键
+                var textHash = GenerateHash($"{text}_{ttsConfig.Model}_{ttsConfig.Voice}_{ttsConfig.Speed}_{ttsConfig.ChannelType}");
+                var ttsConfigJson = JsonSerializer.Serialize(new 
+                { 
+                    channelType = ttsConfig.ChannelType.ToString(),
+                    model = ttsConfig.Model, 
+                    voice = ttsConfig.Voice, 
+                    speed = ttsConfig.Speed 
+                });
 
-            System.Diagnostics.Debug.WriteLine("TTS API: 未找到缓存，使用TTS服务生成新音频");
-            
-            try
-            {
+                // 先尝试从数据库获取缓存的音频
+                var cachedAudio = await databaseService.GetTtsAudioAsync(textHash);
+                if (cachedAudio != null)
+                {
+                    System.Diagnostics.Debug.WriteLine("TTS API: 使用缓存音频");
+                    // 使用缓存的音频
+                    await PlayAudioFromBytes(cachedAudio.AudioData);
+                    return;
+                }
+
+                System.Diagnostics.Debug.WriteLine("TTS API: 未找到缓存，使用TTS服务生成新音频");
+                
                 // 使用TTS服务工厂创建相应的服务
                 using var ttsService = TtsServiceFactory.CreateService(ttsConfig.ChannelType);
                 
@@ -1325,17 +1334,17 @@ namespace Buddie.Controls
                     {
                         _ = Task.Run(async () =>
                         {
-                            try
+                            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
                             {
                                 await databaseService.CleanupTtsCacheAsync(
                                     appSettings.TtsCacheCleanupDays,
                                     appSettings.MaxTtsCacheCount,
                                     appSettings.MaxTtsCacheSizeMB);
-                            }
-                            catch (Exception ex)
+                            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
                             {
-                                System.Diagnostics.Debug.WriteLine($"TTS Cache cleanup error: {ex.Message}");
-                            }
+                                Component = "DialogControl",
+                                Operation = "TTS缓存清理"
+                            });
                         });
                     }
                     
@@ -1347,12 +1356,11 @@ namespace Buddie.Controls
                 {
                     throw new Exception($"TTS服务失败: {ttsResponse.ErrorMessage}");
                 }
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"TTS API: 请求失败 - {ex.Message}");
-                throw new Exception($"TTS调用失败: {ex.Message}");
-            }
+                Component = "DialogControl", 
+                Operation = "TTS语音合成"
+            });
         }
 
         private string GenerateHash(string input)
@@ -1364,7 +1372,7 @@ namespace Buddie.Controls
 
         private async Task PlayAudioFromBytes(byte[] audioBytes, string? contentType = null)
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 System.Diagnostics.Debug.WriteLine($"播放音频: NAudio处理 {audioBytes.Length} bytes");
                 
@@ -1382,80 +1390,87 @@ namespace Buddie.Controls
                 
                 System.Diagnostics.Debug.WriteLine($"播放音频: 临时文件创建 {tempFile}");
                 
-                await Task.Run(async () =>
+                // 尝试使用NAudio播放
+                var success = await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
                 {
-                    try
+                    // 使用NAudio播放音频
+                    currentAudioReader = new AudioFileReader(tempFile);
+                    currentAudioPlayer = new WaveOutEvent();
+                    
+                    // 设置播放完成事件
+                    currentAudioPlayer.PlaybackStopped += async (sender, e) =>
                     {
-                        // 使用NAudio播放音频
-                        currentAudioReader = new AudioFileReader(tempFile);
-                        currentAudioPlayer = new WaveOutEvent();
-                        
-                        // 设置播放完成事件
-                        currentAudioPlayer.PlaybackStopped += async (sender, e) =>
+                        await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
                         {
-                            try
+                            await CleanupAudioResourcesAsync(tempFile);
+                            
+                            if (e.Exception != null)
                             {
-                                await CleanupAudioResourcesAsync(tempFile);
-                                
-                                if (e.Exception != null)
-                                {
-                                    System.Diagnostics.Debug.WriteLine($"NAudio播放异常: {e.Exception.Message}");
-                                }
-                                else
-                                {
-                                    System.Diagnostics.Debug.WriteLine("NAudio播放完成");
-                                }
+                                System.Diagnostics.Debug.WriteLine($"NAudio播放异常: {e.Exception.Message}");
                             }
-                            catch (Exception ex)
+                            else
                             {
-                                System.Diagnostics.Debug.WriteLine($"播放完成清理异常: {ex.Message}");
+                                System.Diagnostics.Debug.WriteLine("NAudio播放完成");
                             }
-                        };
-                        
-                        currentAudioPlayer.Init(currentAudioReader);
-                        currentAudioPlayer.Play();
-                        
-                        System.Diagnostics.Debug.WriteLine("NAudio开始播放");
-                        
-                        // 异步等待播放完成
-                        var playbackTask = Task.Run(async () =>
+                        }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
                         {
-                            while (currentAudioPlayer?.PlaybackState == PlaybackState.Playing)
-                            {
-                                await Task.Delay(100);
-                            }
+                            Component = "DialogControl",
+                            Operation = "音频播放完成清理"
                         });
-                        
-                        // 可选择等待播放完成
-                        await playbackTask;
-                    }
-                    catch (Exception ex)
+                    };
+                    
+                    currentAudioPlayer.Init(currentAudioReader);
+                    currentAudioPlayer.Play();
+                    
+                    System.Diagnostics.Debug.WriteLine("NAudio开始播放");
+                    
+                    // 异步等待播放完成
+                    while (currentAudioPlayer?.PlaybackState == PlaybackState.Playing)
                     {
-                        System.Diagnostics.Debug.WriteLine($"NAudio播放异常: {ex.Message}");
-                        
-                        // 如果NAudio失败，回退到简单的播放方式
-                        try
-                        {
-                            System.Diagnostics.Debug.WriteLine("NAudio失败，尝试回退播放");
-                            FallbackAudioPlayback(tempFile);
-                        }
-                        catch (Exception fallbackEx)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"回退播放也失败: {fallbackEx.Message}");
-                            throw new Exception($"音频播放失败: NAudio: {ex.Message}, 回退: {fallbackEx.Message}");
-                        }
-                        finally
-                        {
-                            await CleanupTempFileAsync(tempFile);
-                        }
+                        await Task.Delay(100);
+                    }
+                    
+                    return true;
+                }, ExceptionHandlingService.HandlingStrategy.LogOnly, false, new ExceptionHandlingService.ExceptionContext
+                {
+                    Component = "DialogControl",
+                    Operation = "NAudio音频播放", 
+                    AdditionalData = new Dictionary<string, object>
+                    {
+                        ["AudioFileSize"] = audioBytes.Length,
+                        ["ContentType"] = contentType ?? "unknown",
+                        ["TempFile"] = tempFile
                     }
                 });
-            }
-            catch (Exception ex)
+                
+                // 如果NAudio失败，尝试回退播放
+                if (!success)
+                {
+                    await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
+                    {
+                        System.Diagnostics.Debug.WriteLine("NAudio失败，尝试回退播放");
+                        FallbackAudioPlayback(tempFile);
+                        
+                        // 清理临时文件
+                        await CleanupTempFileAsync(tempFile);
+                        
+                        await Task.CompletedTask;
+                    }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
+                    {
+                        Component = "DialogControl",
+                        Operation = "音频播放回退处理"
+                    });
+                }
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"播放音频异常: {ex.Message}");
-                throw new Exception($"音频播放失败: {ex.Message}");
-            }
+                Component = "DialogControl",
+                Operation = "音频播放",
+                AdditionalData = new Dictionary<string, object>
+                {
+                    ["AudioSize"] = audioBytes.Length,
+                    ["ContentType"] = contentType ?? "unknown"
+                }
+            });
         }
         /// <summary>
         /// 停止当前音频播放（异步）
@@ -1536,7 +1551,7 @@ namespace Buddie.Controls
         /// </summary>
         private void FallbackAudioPlayback(string audioFile)
         {
-            try
+            ExceptionHandlingService.ExecuteSafely(() =>
             {
                 // 使用系统默认播放器
                 var processInfo = new System.Diagnostics.ProcessStartInfo
@@ -1550,17 +1565,20 @@ namespace Buddie.Controls
                 using var process = System.Diagnostics.Process.Start(processInfo);
                 process?.WaitForExit(30000); // 最多等待30秒
                 System.Diagnostics.Debug.WriteLine("系统播放器播放完成");
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.Rethrow, context: new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"回退播放方法失败: {ex.Message}");
-                throw;
-            }
+                Component = "DialogControl",
+                Operation = "回退音频播放",
+                AdditionalData = new Dictionary<string, object>
+                {
+                    ["AudioFile"] = audioFile
+                }
+            });
         }
         
         private async Task CleanupAudioResourcesAsync(string? tempFile = null)
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 // 释放音频资源
                 if (currentAudioPlayer != null)
@@ -1583,16 +1601,16 @@ namespace Buddie.Controls
                 }
                 
                 System.Diagnostics.Debug.WriteLine("音频资源清理完成");
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"音频资源清理异常: {ex.Message}");
-            }
+                Component = "DialogControl",
+                Operation = "清理音频资源"
+            });
         }
         
         private async Task CleanupTempFileAsync(string tempFile)
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 // 稍微延迟以确保文件没有被占用
                 await Task.Delay(1000);
@@ -1601,11 +1619,11 @@ namespace Buddie.Controls
                     await Task.Run(() => File.Delete(tempFile));
                     System.Diagnostics.Debug.WriteLine($"播放音频: 临时文件已删除 {tempFile}");
                 }
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"播放音频: 删除临时文件失败 {ex.Message}");
-            }
+                Component = "DialogControl",
+                Operation = "清理临时文件"
+            });
         }
 
         #region 对话历史功能
@@ -1782,7 +1800,7 @@ namespace Buddie.Controls
         /// </summary>
         private async Task RebuildConversationUI()
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 Messages.Clear();
 
@@ -1801,11 +1819,11 @@ namespace Buddie.Controls
 
                 ScrollToBottom();
                 await Task.CompletedTask;
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to rebuild conversation UI: {ex.Message}");
-            }
+                Component = "DialogControl",
+                Operation = "重建对话界面"
+            });
         }
 
         /// <summary>
@@ -1821,7 +1839,7 @@ namespace Buddie.Controls
         /// </summary>
         public async Task DeleteConversation(int conversationId)
         {
-            try
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
                 await databaseService.DeleteConversationAsync(conversationId);
                 
@@ -1830,12 +1848,7 @@ namespace Buddie.Controls
                 {
                     await StartNewConversation();
                 }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to delete conversation: {ex.Message}");
-                throw;
-            }
+            }, "删除对话");
         }
 
         /// <summary>
@@ -1843,15 +1856,10 @@ namespace Buddie.Controls
         /// </summary>
         public async Task<List<DbConversation>> GetAllConversations()
         {
-            try
-            {
-                return await databaseService.GetConversationsAsync();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to get conversations: {ex.Message}");
-                return new List<DbConversation>();
-            }
+            return await ExceptionHandlingService.Database.ExecuteSafelyAsync(
+                () => databaseService.GetConversationsAsync(),
+                new List<DbConversation>(),
+                "获取对话列表");
         }
 
         #endregion
@@ -1878,7 +1886,7 @@ namespace Buddie.Controls
         /// </summary>
         private async Task ShowSidebar()
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 isSidebarVisible = true;
                 
@@ -1888,11 +1896,11 @@ namespace Buddie.Controls
                 
                 // 刷新对话列表
                 await RefreshConversationsList();
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to show sidebar: {ex.Message}");
-            }
+                Component = "DialogControl",
+                Operation = "显示侧边栏"
+            });
         }
 
         /// <summary>
@@ -1900,20 +1908,20 @@ namespace Buddie.Controls
         /// </summary>
         private async Task HideSidebar()
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 isSidebarVisible = false;
                 
                 // 隐藏侧边栏
                 SidebarColumn.Width = new GridLength(0);
                 HistorySidebar.Visibility = Visibility.Collapsed;
-            }
-            catch (Exception ex)
+                
+                await Task.CompletedTask;
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to hide sidebar: {ex.Message}");
-            }
-            
-            await Task.CompletedTask;
+                Component = "DialogControl",
+                Operation = "隐藏侧边栏"
+            });
         }
 
         /// <summary>
@@ -1921,15 +1929,15 @@ namespace Buddie.Controls
         /// </summary>
         private async Task RefreshConversationsList()
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 var conversations = await GetAllConversations();
                 ConversationsList.ItemsSource = conversations;
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to refresh conversations list: {ex.Message}");
-            }
+                Component = "DialogControl",
+                Operation = "刷新对话列表"
+            });
         }
 
         private async void NewConversationButton_Click(object sender, RoutedEventArgs e)
@@ -1950,23 +1958,23 @@ namespace Buddie.Controls
 
         private async void DeleteConversationButton_Click(object sender, RoutedEventArgs e)
         {
-            var button = sender as System.Windows.Controls.Button;
-            if (button?.Tag is int conversationId)
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                var result = System.Windows.MessageBox.Show("确定要删除这个对话吗？", "确认删除", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
-                if (result == System.Windows.MessageBoxResult.Yes)
+                var button = sender as System.Windows.Controls.Button;
+                if (button?.Tag is int conversationId)
                 {
-                    try
+                    var result = System.Windows.MessageBox.Show("确定要删除这个对话吗？", "确认删除", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+                    if (result == System.Windows.MessageBoxResult.Yes)
                     {
                         await DeleteConversation(conversationId);
                         await RefreshConversationsList();
                     }
-                    catch (Exception ex)
-                    {
-                        System.Windows.MessageBox.Show($"删除对话失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                    }
                 }
-            }
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "删除对话按钮处理"
+            });
         }
 
         #endregion
@@ -1976,25 +1984,25 @@ namespace Buddie.Controls
         /// </summary>
         private void ReleaseAudioResources()
         {
-            try
+            ExceptionHandlingService.ExecuteSafely(() =>
             {
                 // 停止并释放音频播放资源
                 StopCurrentAudio();
                 
                 // 关闭MediaFoundation
-                try
+                ExceptionHandlingService.ExecuteSafely(() =>
                 {
                     MediaFoundationApi.Shutdown();
-                }
-                catch (Exception ex)
+                }, ExceptionHandlingService.HandlingStrategy.LogOnly, context: new ExceptionHandlingService.ExceptionContext
                 {
-                    System.Diagnostics.Debug.WriteLine($"MediaFoundation关闭异常: {ex.Message}");
-                }
-            }
-            catch (Exception ex)
+                    Component = "DialogControl",
+                    Operation = "关闭MediaFoundation"
+                });
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, context: new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"音频资源释放异常: {ex.Message}");
-            }
+                Component = "DialogControl",
+                Operation = "释放音频资源"
+            });
         }
 
         #region 截图功能
@@ -2004,7 +2012,7 @@ namespace Buddie.Controls
         /// </summary>
         private async void ScreenshotButton_Click(object sender, RoutedEventArgs e)
         {
-            try
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 // 检查是否支持多模态
                 var appSettings = DataContext as AppSettings;
@@ -2026,12 +2034,11 @@ namespace Buddie.Controls
                     // 显示预览
                     ShowScreenshotPreview(screenshotBytes);
                 }
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"截图失败: {ex.Message}");
-                System.Windows.MessageBox.Show($"截图失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-            }
+                Component = "DialogControl",
+                Operation = "截图操作"
+            });
         }
 
         /// <summary>
@@ -2051,7 +2058,7 @@ namespace Buddie.Controls
         {
             return await Task.Run(() =>
             {
-                try
+                return ExceptionHandlingService.ExecuteSafely(() =>
                 {
                     // 获取主屏幕尺寸
                     var screenBounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
@@ -2067,12 +2074,11 @@ namespace Buddie.Controls
                     using var memoryStream = new MemoryStream();
                     bitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
                     return memoryStream.ToArray();
-                }
-                catch (Exception ex)
+                }, ExceptionHandlingService.HandlingStrategy.LogOnly, (byte[]?)null, new ExceptionHandlingService.ExceptionContext
                 {
-                    System.Diagnostics.Debug.WriteLine($"截图异常: {ex.Message}");
-                    return null;
-                }
+                    Component = "DialogControl",
+                    Operation = "屏幕截取"
+                });
             });
         }
 
@@ -2081,7 +2087,7 @@ namespace Buddie.Controls
         /// </summary>
         private void ShowScreenshotPreview(byte[] screenshotBytes)
         {
-            try
+            ExceptionHandlingService.ExecuteSafely(() =>
             {
                 // 将字节数组转换为BitmapImage
                 using var memoryStream = new MemoryStream(screenshotBytes);
@@ -2095,12 +2101,11 @@ namespace Buddie.Controls
                 // 设置预览图片
                 ScreenshotPreview.Source = bitmapImage;
                 ScreenshotPreviewBorder.Visibility = Visibility.Visible;
-            }
-            catch (Exception ex)
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, context: new ExceptionHandlingService.ExceptionContext
             {
-                System.Diagnostics.Debug.WriteLine($"显示截图预览失败: {ex.Message}");
-                System.Windows.MessageBox.Show($"显示截图预览失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-            }
+                Component = "DialogControl",
+                Operation = "显示截图预览"
+            });
         }
 
         /// <summary>

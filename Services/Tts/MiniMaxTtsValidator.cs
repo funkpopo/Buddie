@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Collections.Generic;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Services.Tts
 {
@@ -19,7 +20,7 @@ namespace Buddie.Services.Tts
         /// </summary>
         public static async Task<(bool IsValid, string Message)> ValidateConfigurationAsync(TtsConfiguration config)
         {
-            try
+            return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 Debug.WriteLine("=== MiniMax TTS 配置验证开始 ===");
                 
@@ -46,12 +47,14 @@ namespace Buddie.Services.Tts
                 
                 Debug.WriteLine("✅ MiniMax TTS 配置验证通过");
                 return (true, "配置验证通过");
-            }
-            catch (Exception ex)
+            },
+            ExceptionHandlingService.HandlingStrategy.LogOnly,
+            (false, "MiniMax TTS配置验证失败"),
+            new ExceptionHandlingService.ExceptionContext
             {
-                Debug.WriteLine($"❌ 配置验证过程中发生异常: {ex.Message}");
-                return (false, $"验证过程中发生异常: {ex.Message}");
-            }
+                Component = "MiniMaxTtsValidator",
+                Operation = "TTS配置验证"
+            });
         }
         
         /// <summary>
@@ -102,7 +105,7 @@ namespace Buddie.Services.Tts
         {
             Debug.WriteLine("🔍 检查网络连接...");
             
-            try
+            return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 var uri = new Uri(apiUrl);
                 var baseUrl = $"{uri.Scheme}://{uri.Host}";
@@ -116,22 +119,14 @@ namespace Buddie.Services.Tts
                 // 任何HTTP响应都表示网络连接正常
                 Debug.WriteLine("✅ 网络连接正常");
                 return (true, "网络连接正常");
-            }
-            catch (HttpRequestException ex)
+            },
+            ExceptionHandlingService.HandlingStrategy.LogOnly,
+            (false, "网络连接失败"),
+            new ExceptionHandlingService.ExceptionContext
             {
-                Debug.WriteLine($"❌ 网络连接失败: {ex.Message}");
-                return (false, $"网络连接失败: {ex.Message}");
-            }
-            catch (TaskCanceledException)
-            {
-                Debug.WriteLine("❌ 网络连接超时");
-                return (false, "网络连接超时，请检查网络设置");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"❌ 网络检查异常: {ex.Message}");
-                return (false, $"网络检查失败: {ex.Message}");
-            }
+                Component = "MiniMaxTtsValidator",
+                Operation = "网络连接测试"
+            });
         }
         
         /// <summary>
@@ -141,7 +136,7 @@ namespace Buddie.Services.Tts
         {
             Debug.WriteLine("🔍 检查API端点...");
             
-            try
+            return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 using var httpClient = new HttpClient();
                 httpClient.Timeout = TimeSpan.FromSeconds(30);
@@ -211,22 +206,14 @@ namespace Buddie.Services.Tts
                     Debug.WriteLine($"❌ API请求失败: {response.StatusCode}");
                     return (false, $"API请求失败: {response.StatusCode} - {responseContent}");
                 }
-            }
-            catch (HttpRequestException ex)
+            },
+            ExceptionHandlingService.HandlingStrategy.LogOnly,
+            (false, "API端点检查失败"),
+            new ExceptionHandlingService.ExceptionContext
             {
-                Debug.WriteLine($"❌ API请求异常: {ex.Message}");
-                return (false, $"API请求失败: {ex.Message}");
-            }
-            catch (TaskCanceledException)
-            {
-                Debug.WriteLine("❌ API请求超时");
-                return (false, "API请求超时，请检查网络连接或稍后重试");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"❌ API检查异常: {ex.Message}");
-                return (false, $"API检查失败: {ex.Message}");
-            }
+                Component = "MiniMaxTtsValidator",
+                Operation = "API端点检查"
+            });
         }
         
         /// <summary>

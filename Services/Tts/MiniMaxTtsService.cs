@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Services.Tts
 {
@@ -22,41 +23,37 @@ namespace Buddie.Services.Tts
 
         protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request)
         {
-            var config = request.Configuration;
-            
-            // 打印诊断信息
-            MiniMaxTtsValidator.PrintDiagnosticInfo(config);
-            
-            // 设置请求头
-            SetupHttpHeaders(config);
-
-            // 构建请求体，强制使用非流式和WAV格式
-            var requestBody = CreateRequestBody(request);
-            var json = JsonSerializer.Serialize(requestBody);
-            
-            // 构建完整的API URL，包含GroupId参数
-            var apiUrl = BuildApiUrl(config);
-            
-            Debug.WriteLine($"MiniMax TTS 请求体: {json}");
-            Debug.WriteLine($"MiniMax 请求URL: {apiUrl}");
-
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            try
+            return await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
             {
+                var config = request.Configuration;
+                
+                // 打印诊断信息
+                MiniMaxTtsValidator.PrintDiagnosticInfo(config);
+                
+                // 设置请求头
+                SetupHttpHeaders(config);
+
+                // 构建请求体，强制使用非流式和WAV格式
+                var requestBody = CreateRequestBody(request);
+                var json = JsonSerializer.Serialize(requestBody);
+                
+                // 构建完整的API URL，包含GroupId参数
+                var apiUrl = BuildApiUrl(config);
+                
+                Debug.WriteLine($"MiniMax TTS 请求体: {json}");
+                Debug.WriteLine($"MiniMax 请求URL: {apiUrl}");
+
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
                 // 使用非流式处理
                 return await ProcessNonStreamingResponseAsync(config, content, apiUrl);
-            }
-            catch (HttpRequestException ex)
-            {
-                throw new TtsException(SupportedChannelType, 
-                    $"MiniMax网络请求失败: {ex.Message}", ex);
-            }
-            catch (TaskCanceledException ex)
-            {
-                throw new TtsException(SupportedChannelType, 
-                    "MiniMax请求超时", ex);
-            }
+            },
+            new TtsResponse 
+            { 
+                IsSuccess = false, 
+                ErrorMessage = "MiniMax TTS服务调用失败" 
+            },
+            "MiniMax TTS API调用");
         }
 
         /// <summary>
