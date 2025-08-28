@@ -18,6 +18,7 @@ namespace Buddie.Controls
         public event EventHandler<TtsConfiguration>? TtsConfigurationAdded;
         public event EventHandler<TtsConfiguration>? TtsConfigurationUpdated;
         public event EventHandler<TtsConfiguration>? TtsConfigurationRemoved;
+        public event EventHandler<bool>? SettingsVisibilityChanged;
 
         public SettingsControl()
         {
@@ -127,14 +128,16 @@ namespace Buddie.Controls
         public void Show()
         {
             SettingsInterface.Visibility = Visibility.Visible;
+            SettingsInterface.Opacity = 1.0; // 初始显示时完全不透明
+            SettingsVisibilityChanged?.Invoke(this, true);
         }
 
         public void Toggle()
         {
             if (IsVisible)
             {
-                // 如果已经可见，将界面移到最前面而不是隐藏
-                BringToFront();
+                // 如果已经可见，隐藏界面
+                Hide();
             }
             else
             {
@@ -161,9 +164,19 @@ namespace Buddie.Controls
         public void Hide()
         {
             SettingsInterface.Visibility = Visibility.Collapsed;
+            SettingsVisibilityChanged?.Invoke(this, false);
         }
 
         public new bool IsVisible => SettingsInterface.Visibility == Visibility.Visible;
+
+        /// <summary>
+        /// 设置设置界面透明度
+        /// </summary>
+        /// <param name="opacity">透明度值</param>
+        public void SetOpacity(double opacity)
+        {
+            SettingsInterface.Opacity = opacity;
+        }
 
         public void ApplyTheme(bool isDarkTheme)
         {

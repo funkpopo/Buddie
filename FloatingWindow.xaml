@@ -12,7 +12,9 @@
         Topmost="True"
         ResizeMode="NoResize"
         ShowInTaskbar="True"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        MouseEnter="FloatingWindow_MouseEnter"
+        MouseLeave="FloatingWindow_MouseLeave">
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

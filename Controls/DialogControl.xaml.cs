@@ -31,6 +31,7 @@ namespace Buddie.Controls
 
         public event EventHandler<string>? MessageSent;
         public event EventHandler? DialogClosed;
+        public event EventHandler<bool>? DialogVisibilityChanged;
         
         private CancellationTokenSource? currentRequest;
         private bool isSending = false;
@@ -133,14 +134,16 @@ namespace Buddie.Controls
         public void Show()
         {
             DialogInterface.Visibility = Visibility.Visible;
+            DialogInterface.Opacity = 1.0; // 初始显示时完全不透明
+            DialogVisibilityChanged?.Invoke(this, true);
         }
 
         public void Toggle()
         {
             if (IsVisible)
             {
-                // 如果已经可见，将界面移到最前面而不是隐藏
-                BringToFront();
+                // 如果已经可见，隐藏界面
+                Hide();
             }
             else
             {
@@ -167,9 +170,19 @@ namespace Buddie.Controls
         public void Hide()
         {
             DialogInterface.Visibility = Visibility.Collapsed;
+            DialogVisibilityChanged?.Invoke(this, false);
         }
 
         public new bool IsVisible => DialogInterface.Visibility == Visibility.Visible;
+
+        /// <summary>
+        /// 设置对话界面透明度
+        /// </summary>
+        /// <param name="opacity">透明度值</param>
+        public void SetOpacity(double opacity)
+        {
+            DialogInterface.Opacity = opacity;
+        }
 
         public void AddMessage(string message, bool isUser = true)
         {

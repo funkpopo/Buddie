@@ -119,6 +119,10 @@ namespace Buddie
                 }
             };
             SettingsControl.ResetSettingsRequested += (s, e) => ResetSettings();
+            SettingsControl.SettingsVisibilityChanged += (s, isVisible) => {
+                // 更新卡片按钮状态
+                cardControl.UpdateSettingsButtonState(isVisible);
+            };
             SettingsControl.ApiConfigurationChanged += async (s, e) => {
                 // 自动保存配置更改到数据库
                 try
@@ -200,6 +204,10 @@ namespace Buddie
                 }
             };
             DialogControl.DialogClosed += (s, e) => EnableClickThrough(false);
+            DialogControl.DialogVisibilityChanged += (s, isVisible) => {
+                // 更新卡片按钮状态
+                cardControl.UpdateDialogButtonState(isVisible);
+            };
             
             // 初始化卡片控件
             cardControl.DialogRequested += (s, e) => {
@@ -636,6 +644,35 @@ namespace Buddie
             
             trayIcon?.Dispose();
             base.OnClosed(e);
+        }
+
+        private void FloatingWindow_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            // 鼠标进入应用窗口时，将展开的界面设置为完全不透明
+            UpdateInterfaceOpacity(1.0);
+        }
+
+        private void FloatingWindow_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            // 鼠标离开应用窗口时，将展开的界面透明度调整为0.2
+            UpdateInterfaceOpacity(0.2);
+        }
+
+        /// <summary>
+        /// 更新展开界面的透明度
+        /// </summary>
+        /// <param name="opacity">透明度值</param>
+        private void UpdateInterfaceOpacity(double opacity)
+        {
+            // 只影响当前可见的界面
+            if (DialogControl.IsVisible)
+            {
+                DialogControl.SetOpacity(opacity);
+            }
+            if (SettingsControl.IsVisible)
+            {
+                SettingsControl.SetOpacity(opacity);
+            }
         }
     }
 }

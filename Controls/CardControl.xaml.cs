@@ -19,6 +19,10 @@ namespace Buddie.Controls
         public event EventHandler? MouseEntered;
         public event EventHandler? MouseLeft;
 
+        // 界面状态跟踪
+        private bool isDialogOpen = false;
+        private bool isSettingsOpen = false;
+
         public CardControl()
         {
             InitializeComponent();
@@ -135,6 +139,46 @@ namespace Buddie.Controls
             
             // Update card info
             UpdateCardInfo($"{currentIndex}/{totalCount}");
+        }
+
+        // 更新按钮状态显示
+        public void UpdateDialogButtonState(bool isOpen)
+        {
+            isDialogOpen = isOpen;
+            UpdateButtonColors();
+        }
+
+        public void UpdateSettingsButtonState(bool isOpen)
+        {
+            isSettingsOpen = isOpen;
+            UpdateButtonColors();
+        }
+
+        private void UpdateButtonColors()
+        {
+            // 对话按钮：展开时显示橘色
+            if (isDialogOpen)
+            {
+                DialogButton.Background = System.Windows.Media.Brushes.Orange;
+                DialogButton.Foreground = System.Windows.Media.Brushes.White;
+            }
+            else
+            {
+                DialogButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(128, 255, 255, 255)); // #80FFFFFF
+                DialogButton.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(255, 51, 51, 51)); // #333333
+            }
+
+            // 设置按钮：展开时显示蓝色
+            if (isSettingsOpen)
+            {
+                SettingsButton.Background = System.Windows.Media.Brushes.Blue;
+                SettingsButton.Foreground = System.Windows.Media.Brushes.White;
+            }
+            else
+            {
+                SettingsButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(128, 255, 255, 255)); // #80FFFFFF
+                SettingsButton.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(255, 51, 51, 51)); // #333333
+            }
         }
     }
 }
