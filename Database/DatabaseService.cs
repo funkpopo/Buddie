@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Database
 {
@@ -386,33 +387,37 @@ namespace Buddie.Database
 
         public async Task DeleteConversationAsync(int id)
         {
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
-
-            using var transaction = connection.BeginTransaction();
-            try
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
-                // Delete messages first (due to foreign key constraint)
-                using var deleteMessagesCommand = connection.CreateCommand();
-                deleteMessagesCommand.Transaction = transaction;
-                deleteMessagesCommand.CommandText = "DELETE FROM Messages WHERE ConversationId = @Id";
-                deleteMessagesCommand.Parameters.AddWithValue("@Id", id);
-                await deleteMessagesCommand.ExecuteNonQueryAsync();
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
 
-                // Delete conversation
-                using var deleteConversationCommand = connection.CreateCommand();
-                deleteConversationCommand.Transaction = transaction;
-                deleteConversationCommand.CommandText = "DELETE FROM Conversations WHERE Id = @Id";
-                deleteConversationCommand.Parameters.AddWithValue("@Id", id);
-                await deleteConversationCommand.ExecuteNonQueryAsync();
+                using var transaction = connection.BeginTransaction();
+                
+                try
+                {
+                    // Delete messages first (due to foreign key constraint)
+                    using var deleteMessagesCommand = connection.CreateCommand();
+                    deleteMessagesCommand.Transaction = transaction;
+                    deleteMessagesCommand.CommandText = "DELETE FROM Messages WHERE ConversationId = @Id";
+                    deleteMessagesCommand.Parameters.AddWithValue("@Id", id);
+                    await deleteMessagesCommand.ExecuteNonQueryAsync();
 
-                transaction.Commit();
-            }
-            catch
-            {
-                transaction.Rollback();
-                throw;
-            }
+                    // Delete conversation
+                    using var deleteConversationCommand = connection.CreateCommand();
+                    deleteConversationCommand.Transaction = transaction;
+                    deleteConversationCommand.CommandText = "DELETE FROM Conversations WHERE Id = @Id";
+                    deleteConversationCommand.Parameters.AddWithValue("@Id", id);
+                    await deleteConversationCommand.ExecuteNonQueryAsync();
+
+                    transaction.Commit();
+                }
+                catch
+                {
+                    transaction.Rollback();
+                    throw;
+                }
+            }, "删除对话");
         }
 
         #endregion
@@ -449,51 +454,54 @@ namespace Buddie.Database
 
         public async Task<int> SaveMessageAsync(DbMessage message)
         {
-            message.CreatedAt = DateTime.UtcNow;
-
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
-
-            using var transaction = connection.BeginTransaction();
-            try
+            return await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
-                // Insert message
-                using var insertCommand = connection.CreateCommand();
-                insertCommand.Transaction = transaction;
-                insertCommand.CommandText = @"
-                    INSERT INTO Messages (ConversationId, Content, IsUser, ReasoningContent, CreatedAt)
-                    VALUES (@ConversationId, @Content, @IsUser, @ReasoningContent, @CreatedAt);
-                    SELECT last_insert_rowid();";
+                message.CreatedAt = DateTime.UtcNow;
 
-                insertCommand.Parameters.AddWithValue("@ConversationId", message.ConversationId);
-                insertCommand.Parameters.AddWithValue("@Content", message.Content);
-                insertCommand.Parameters.AddWithValue("@IsUser", message.IsUser);
-                insertCommand.Parameters.AddWithValue("@ReasoningContent", (object?)message.ReasoningContent ?? DBNull.Value);
-                insertCommand.Parameters.AddWithValue("@CreatedAt", message.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
 
-                var result = await insertCommand.ExecuteScalarAsync();
-                var messageId = Convert.ToInt32(result);
-                message.Id = messageId;
+                using var transaction = connection.BeginTransaction();
+                try
+                {
+                    // Insert message
+                    using var insertCommand = connection.CreateCommand();
+                    insertCommand.Transaction = transaction;
+                    insertCommand.CommandText = @"
+                        INSERT INTO Messages (ConversationId, Content, IsUser, ReasoningContent, CreatedAt)
+                        VALUES (@ConversationId, @Content, @IsUser, @ReasoningContent, @CreatedAt);
+                        SELECT last_insert_rowid();";
 
-                // Update conversation UpdatedAt timestamp
-                using var updateCommand = connection.CreateCommand();
-                updateCommand.Transaction = transaction;
-                updateCommand.CommandText = @"
-                    UPDATE Conversations 
-                    SET UpdatedAt = @UpdatedAt 
-                    WHERE Id = @ConversationId";
-                updateCommand.Parameters.AddWithValue("@UpdatedAt", message.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
-                updateCommand.Parameters.AddWithValue("@ConversationId", message.ConversationId);
-                await updateCommand.ExecuteNonQueryAsync();
+                    insertCommand.Parameters.AddWithValue("@ConversationId", message.ConversationId);
+                    insertCommand.Parameters.AddWithValue("@Content", message.Content);
+                    insertCommand.Parameters.AddWithValue("@IsUser", message.IsUser);
+                    insertCommand.Parameters.AddWithValue("@ReasoningContent", (object?)message.ReasoningContent ?? DBNull.Value);
+                    insertCommand.Parameters.AddWithValue("@CreatedAt", message.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
 
-                transaction.Commit();
-                return messageId;
-            }
-            catch
-            {
-                transaction.Rollback();
-                throw;
-            }
+                    var result = await insertCommand.ExecuteScalarAsync();
+                    var messageId = Convert.ToInt32(result);
+                    message.Id = messageId;
+
+                    // Update conversation UpdatedAt timestamp
+                    using var updateCommand = connection.CreateCommand();
+                    updateCommand.Transaction = transaction;
+                    updateCommand.CommandText = @"
+                        UPDATE Conversations 
+                        SET UpdatedAt = @UpdatedAt 
+                        WHERE Id = @ConversationId";
+                    updateCommand.Parameters.AddWithValue("@UpdatedAt", message.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+                    updateCommand.Parameters.AddWithValue("@ConversationId", message.ConversationId);
+                    await updateCommand.ExecuteNonQueryAsync();
+
+                    transaction.Commit();
+                    return messageId;
+                }
+                catch
+                {
+                    transaction.Rollback();
+                    throw;
+                }
+            }, 0, "保存消息");
         }
 
         public async Task DeleteMessageAsync(int id)
@@ -658,7 +666,7 @@ namespace Buddie.Database
         /// </summary>
         public async Task CleanupTtsCacheAsync(int daysToKeep = 7, int maxCount = 1000, long maxSizeMB = 500)
         {
-            try
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
                 // 首先清理过期条目
                 await CleanupOldTtsAudioAsync(daysToKeep);
@@ -668,12 +676,7 @@ namespace Buddie.Database
                 await CleanupTtsCacheByLruAsync(maxCount, maxSizeBytes);
 
                 System.Diagnostics.Debug.WriteLine("TTS Cache cleanup completed successfully");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"TTS Cache cleanup failed: {ex.Message}");
-                throw;
-            }
+            }, "TTS缓存清理");
         }
 
         #endregion

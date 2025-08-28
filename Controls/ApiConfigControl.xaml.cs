@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Controls
 {
@@ -188,55 +189,65 @@ namespace Buddie.Controls
                 return;
             }
 
-            string configId = $"{config.Name}_{DateTime.Now.Ticks}";
-            
-            // 如果已经有测试在进行，先取消
-            if (testCancellationTokens.TryGetValue(configId, out var existingCts))
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                existingCts.Cancel();
-                testCancellationTokens.TryRemove(configId, out _);
-            }
-
-            var cts = new CancellationTokenSource();
-            testCancellationTokens.TryAdd(configId, cts);
-
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-            try
-            {
-                config.TestStatus = TestStatus.Testing;
-                config.TestMessage = "正在测试...";
-
-                var requestData = new
+                string configId = $"{config.Name}_{DateTime.Now.Ticks}";
+                
+                // 如果已经有测试在进行，先取消
+                if (testCancellationTokens.TryGetValue(configId, out var existingCts))
                 {
-                    model = config.ModelName,
-                    messages = new[]
-                    {
-                        new { role = "user", content = "ping" }
-                    },
-                    max_tokens = 10
-                };
+                    existingCts.Cancel();
+                    testCancellationTokens.TryRemove(configId, out _);
+                }
 
-                var json = JsonSerializer.Serialize(requestData);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var cts = new CancellationTokenSource();
+                testCancellationTokens.TryAdd(configId, cts);
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, config.ApiUrl);
-                request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
-                request.Content = content;
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-                var response = await httpClient.SendAsync(request, cts.Token);
-                stopwatch.Stop();
-                var delayMs = stopwatch.ElapsedMilliseconds;
-
-                if (response.IsSuccessStatusCode)
+                try
                 {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    try
+                    config.TestStatus = TestStatus.Testing;
+                    config.TestMessage = "正在测试...";
+
+                    var requestData = new
                     {
-                        var responseObj = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                        
-                        if (responseObj.TryGetProperty("choices", out var choices) && 
-                            choices.GetArrayLength() > 0)
+                        model = config.ModelName,
+                        messages = new[]
+                        {
+                            new { role = "user", content = "ping" }
+                        },
+                        max_tokens = 10
+                    };
+
+                    var json = JsonSerializer.Serialize(requestData);
+                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                    using var request = new HttpRequestMessage(HttpMethod.Post, config.ApiUrl);
+                    request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
+                    request.Content = content;
+
+                    var response = await httpClient.SendAsync(request, cts.Token);
+                    stopwatch.Stop();
+                    var delayMs = stopwatch.ElapsedMilliseconds;
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseContent = await response.Content.ReadAsStringAsync();
+                        var isValidResponse = ExceptionHandlingService.ExecuteSafely(() =>
+                        {
+                            var responseObj = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                            return responseObj.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0;
+                        }, 
+                        ExceptionHandlingService.HandlingStrategy.LogOnly, 
+                        false,
+                        new ExceptionHandlingService.ExceptionContext
+                        {
+                            Component = "ApiConfigControl",
+                            Operation = "解析API测试响应"
+                        });
+
+                        if (isValidResponse)
                         {
                             config.TestStatus = TestStatus.Success;
                             config.TestMessage = $"连接成功 ({delayMs}ms)";
@@ -247,43 +258,28 @@ namespace Buddie.Controls
                             config.TestMessage = $"响应格式异常 ({delayMs}ms)";
                         }
                     }
-                    catch (JsonException)
+                    else
                     {
                         config.TestStatus = TestStatus.Failed;
-                        config.TestMessage = $"JSON格式错误 ({delayMs}ms)";
+                        config.TestMessage = $"HTTP {(int)response.StatusCode} ({delayMs}ms)";
                     }
                 }
-                else
+                catch (OperationCanceledException)
                 {
+                    stopwatch.Stop();
                     config.TestStatus = TestStatus.Failed;
-                    config.TestMessage = $"HTTP {(int)response.StatusCode} ({delayMs}ms)";
+                    config.TestMessage = "测试被取消";
                 }
-            }
-            catch (OperationCanceledException)
+                finally
+                {
+                    testCancellationTokens.TryRemove(configId, out _);
+                    cts.Dispose();
+                }
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
             {
-                stopwatch.Stop();
-                config.TestStatus = TestStatus.Failed;
-                config.TestMessage = "测试被取消";
-            }
-            catch (HttpRequestException)
-            {
-                stopwatch.Stop();
-                var delayMs = stopwatch.ElapsedMilliseconds;
-                config.TestStatus = TestStatus.Failed;
-                config.TestMessage = $"网络错误 ({delayMs}ms)";
-            }
-            catch (Exception)
-            {
-                stopwatch.Stop();
-                var delayMs = stopwatch.ElapsedMilliseconds;
-                config.TestStatus = TestStatus.Failed;
-                config.TestMessage = $"错误 ({delayMs}ms)";
-            }
-            finally
-            {
-                testCancellationTokens.TryRemove(configId, out _);
-                cts.Dispose();
-            }
+                Component = "ApiConfigControl",
+                Operation = "API配置测试"
+            });
         }
 
         private void TextBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)

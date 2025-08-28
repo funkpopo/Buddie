@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Services.Tts
 {
@@ -16,28 +17,28 @@ namespace Buddie.Services.Tts
 
         protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request)
         {
-            var config = request.Configuration;
-            
-            // 设置请求头
-            SetupHttpHeaders(config);
-
-            // 构建请求体
-            var requestBody = new
+            return await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
             {
-                model = config.Model,
-                input = request.Text,
-                voice = config.Voice,
-                speed = config.Speed,
-                response_format = "wav"
-            };
+                var config = request.Configuration;
+                
+                // 设置请求头
+                SetupHttpHeaders(config);
 
-            var json = JsonSerializer.Serialize(requestBody);
-            Debug.WriteLine($"OpenAI 请求体: {json}");
+                // 构建请求体
+                var requestBody = new
+                {
+                    model = config.Model,
+                    input = request.Text,
+                    voice = config.Voice,
+                    speed = config.Speed,
+                    response_format = "wav"
+                };
 
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var json = JsonSerializer.Serialize(requestBody);
+                Debug.WriteLine($"OpenAI 请求体: {json}");
 
-            try
-            {
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                
                 var response = await _httpClient.PostAsync(config.ApiUrl, content);
                 var result = await ProcessHttpResponseAsync(response);
 
@@ -49,17 +50,13 @@ namespace Buddie.Services.Tts
                 }
 
                 return result;
-            }
-            catch (HttpRequestException ex)
-            {
-                throw new TtsException(SupportedChannelType, 
-                    $"OpenAI网络请求失败: {ex.Message}", ex);
-            }
-            catch (TaskCanceledException ex)
-            {
-                throw new TtsException(SupportedChannelType, 
-                    "OpenAI请求超时", ex);
-            }
+            },
+            new TtsResponse 
+            { 
+                IsSuccess = false, 
+                ErrorMessage = "OpenAI TTS服务调用失败"
+            },
+            "OpenAI TTS API调用");
         }
 
         protected override void SetupHttpHeaders(TtsConfiguration config)

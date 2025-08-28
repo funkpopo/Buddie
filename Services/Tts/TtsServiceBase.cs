@@ -24,10 +24,10 @@ namespace Buddie.Services.Tts
 
         public virtual async Task<TtsResponse> ConvertTextToSpeechAsync(TtsRequest request)
         {
-            var stopwatch = Stopwatch.StartNew();
-            
-            try
+            return await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
             {
+                var stopwatch = Stopwatch.StartNew();
+                
                 Debug.WriteLine($"TTS [{SupportedChannelType}]: 开始处理请求，文本长度: {request.Text.Length}");
 
                 // 验证配置
@@ -53,17 +53,9 @@ namespace Buddie.Services.Tts
                 Debug.WriteLine($"TTS [{SupportedChannelType}]: 处理完成，音频大小: {result.AudioData.Length} bytes，耗时: {result.ProcessingTime.TotalMilliseconds}ms");
                 
                 return result;
-            }
-            catch (TtsException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                stopwatch.Stop();
-                Debug.WriteLine($"TTS [{SupportedChannelType}]: 处理失败 - {ex.Message}");
-                throw new TtsException(SupportedChannelType, $"TTS调用失败: {ex.Message}", ex);
-            }
+            }, 
+            new TtsResponse { IsSuccess = false, ErrorMessage = "TTS服务调用失败" },
+            $"TTS [{SupportedChannelType}] 转换文本到语音");
         }
 
         public virtual TtsValidationResult ValidateConfiguration(TtsConfiguration configuration)
