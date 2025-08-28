@@ -569,6 +569,11 @@ namespace Buddie
         private ObservableCollection<TtsConfiguration> _ttsConfigurations = new ObservableCollection<TtsConfiguration>();
         private DatabaseService _databaseService = new DatabaseService();
 
+        // TTS缓存设置
+        private int _maxTtsCacheCount = 1000;
+        private long _maxTtsCacheSizeMB = 500;
+        private int _ttsCacheCleanupDays = 7;
+
         public bool IsTopmost
         {
             get => _isTopmost;
@@ -603,6 +608,25 @@ namespace Buddie
         {
             get => _ttsConfigurations;
             set => SetProperty(ref _ttsConfigurations, value);
+        }
+
+        // TTS缓存配置属性
+        public int MaxTtsCacheCount
+        {
+            get => _maxTtsCacheCount;
+            set => SetProperty(ref _maxTtsCacheCount, value);
+        }
+
+        public long MaxTtsCacheSizeMB
+        {
+            get => _maxTtsCacheSizeMB;
+            set => SetProperty(ref _maxTtsCacheSizeMB, value);
+        }
+
+        public int TtsCacheCleanupDays
+        {
+            get => _ttsCacheCleanupDays;
+            set => SetProperty(ref _ttsCacheCleanupDays, value);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

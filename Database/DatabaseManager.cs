@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Buddie.Database
 {
@@ -324,18 +325,24 @@ namespace Buddie.Database
         {
             try
             {
-                using var connection = new SqliteConnection(ConnectionString);
-                connection.Open();
-
-                using var command = connection.CreateCommand();
-                command.CommandText = "DELETE FROM TtsAudio";
-                var rowsAffected = command.ExecuteNonQuery();
-                
-                Debug.WriteLine($"Cleaned up {rowsAffected} TTS audio cache entries");
+                // 使用新的综合清理策略而不是删除所有缓存
+                var databaseService = new DatabaseService();
+                // 使用默认设置：保留7天，最多1000条，最大500MB
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await databaseService.CleanupTtsCacheAsync(7, 1000, 500);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"TTS cache cleanup failed: {ex.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"TTS audio cache cleanup failed: {ex.Message}");
+                Debug.WriteLine($"TTS audio cache cleanup initialization failed: {ex.Message}");
             }
         }
     }

@@ -1710,6 +1710,26 @@ namespace Buddie.Controls
                     await databaseService.SaveTtsAudioAsync(textHash, ttsResponse.AudioData, ttsConfigJson);
                     System.Diagnostics.Debug.WriteLine("TTS API: 音频已保存到缓存");
                     
+                    // 触发缓存清理（使用AppSettings中的配置）
+                    var appSettings = DataContext as AppSettings;
+                    if (appSettings != null)
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await databaseService.CleanupTtsCacheAsync(
+                                    appSettings.TtsCacheCleanupDays,
+                                    appSettings.MaxTtsCacheCount,
+                                    appSettings.MaxTtsCacheSizeMB);
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"TTS Cache cleanup error: {ex.Message}");
+                            }
+                        });
+                    }
+                    
                     // 播放音频
                     await PlayAudioFromBytes(ttsResponse.AudioData, ttsResponse.ContentType);
                     System.Diagnostics.Debug.WriteLine("TTS API: 音频播放完成");
@@ -1753,7 +1773,7 @@ namespace Buddie.Controls
                 
                 System.Diagnostics.Debug.WriteLine($"播放音频: 临时文件创建 {tempFile}");
                 
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     try
                     {
@@ -1817,7 +1837,7 @@ namespace Buddie.Controls
                         }
                         finally
                         {
-                            CleanupTempFile(tempFile);
+                            await CleanupTempFileAsync(tempFile);
                         }
                     }
                 });

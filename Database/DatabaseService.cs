@@ -567,6 +567,106 @@ namespace Buddie.Database
             System.Diagnostics.Debug.WriteLine($"Cleaned up {rowsAffected} old TTS audio entries");
         }
 
+        /// <summary>
+        /// 获取TTS缓存统计信息
+        /// </summary>
+        public async Task<(int count, long totalSizeBytes)> GetTtsCacheStatsAsync()
+        {
+            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
+            await connection.OpenAsync();
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT 
+                    COUNT(*) as Count,
+                    COALESCE(SUM(LENGTH(AudioData)), 0) as TotalSize
+                FROM TtsAudio";
+
+            using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return (reader.GetInt32(0), reader.GetInt64(1));
+            }
+
+            return (0, 0);
+        }
+
+        /// <summary>
+        /// 基于LRU策略清理TTS缓存，保留最近访问的条目
+        /// </summary>
+        public async Task CleanupTtsCacheByLruAsync(int maxCount, long maxSizeBytes)
+        {
+            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
+            await connection.OpenAsync();
+
+            // 检查当前缓存状态
+            var (currentCount, currentSize) = await GetTtsCacheStatsAsync();
+            System.Diagnostics.Debug.WriteLine($"TTS Cache - Current: {currentCount} items, {currentSize / (1024 * 1024.0):F2} MB");
+
+            if (currentCount <= maxCount && currentSize <= maxSizeBytes)
+            {
+                System.Diagnostics.Debug.WriteLine("TTS Cache - No cleanup needed");
+                return;
+            }
+
+            // 计算需要删除的条目数
+            int itemsToDelete = 0;
+            if (currentCount > maxCount)
+            {
+                itemsToDelete = Math.Max(itemsToDelete, currentCount - maxCount);
+            }
+
+            // 如果超过大小限制，删除更多条目
+            if (currentSize > maxSizeBytes)
+            {
+                // 保守估计，删除25%额外的条目以留出缓冲空间
+                var estimatedItemsNeededForSize = (int)((currentSize - maxSizeBytes) * currentCount / (double)currentSize * 1.25);
+                itemsToDelete = Math.Max(itemsToDelete, estimatedItemsNeededForSize);
+            }
+
+            if (itemsToDelete <= 0) return;
+
+            // 执行LRU清理：删除最久未访问的条目
+            using var deleteCommand = connection.CreateCommand();
+            deleteCommand.CommandText = @"
+                DELETE FROM TtsAudio 
+                WHERE Id IN (
+                    SELECT Id FROM TtsAudio 
+                    ORDER BY LastAccessedAt ASC 
+                    LIMIT @ItemsToDelete
+                )";
+            deleteCommand.Parameters.AddWithValue("@ItemsToDelete", itemsToDelete);
+
+            var deletedCount = await deleteCommand.ExecuteNonQueryAsync();
+            
+            // 获取清理后的统计信息
+            var (newCount, newSize) = await GetTtsCacheStatsAsync();
+            System.Diagnostics.Debug.WriteLine($"TTS Cache - Deleted {deletedCount} items, New stats: {newCount} items, {newSize / (1024 * 1024.0):F2} MB");
+        }
+
+        /// <summary>
+        /// 综合清理TTS缓存：同时应用时间、数量和大小限制
+        /// </summary>
+        public async Task CleanupTtsCacheAsync(int daysToKeep = 7, int maxCount = 1000, long maxSizeMB = 500)
+        {
+            try
+            {
+                // 首先清理过期条目
+                await CleanupOldTtsAudioAsync(daysToKeep);
+
+                // 然后应用LRU策略清理数量和大小
+                var maxSizeBytes = maxSizeMB * 1024 * 1024;
+                await CleanupTtsCacheByLruAsync(maxCount, maxSizeBytes);
+
+                System.Diagnostics.Debug.WriteLine("TTS Cache cleanup completed successfully");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TTS Cache cleanup failed: {ex.Message}");
+                throw;
+            }
+        }
+
         #endregion
     }
 }
