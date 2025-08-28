@@ -52,6 +52,11 @@ namespace Buddie
         private AppSettings appSettings = new AppSettings();
         private readonly List<System.Windows.Media.Color> usedCardColors = new List<System.Windows.Media.Color>();
         private readonly Random colorRandom = new Random();
+        
+        // 用户交互状态管理
+        private bool isUserInteracting = false;
+        private System.Windows.Threading.DispatcherTimer? interactionTimer;
+        private readonly TimeSpan interactionDelay = TimeSpan.FromSeconds(2);
 
         public FloatingWindow()
         {
@@ -66,6 +71,9 @@ namespace Buddie
             
             // 设置窗口加载完成后启用点击穿透
             this.SourceInitialized += FloatingWindow_SourceInitialized;
+            
+            // 初始化交互计时器
+            InitializeInteractionTimer();
         }
         
         private void FloatingWindow_SourceInitialized(object? sender, EventArgs e)
@@ -220,6 +228,9 @@ namespace Buddie
             };
             cardControl.MouseEntered += (s, e) => EnableClickThrough(false);
             cardControl.MouseLeft += (s, e) => EnableClickThrough(false);
+            
+            // 监听子控件的焦点事件以防止输入时透明化
+            SubscribeToFocusEvents();
         }
 
         private void InitializeCards()
@@ -643,8 +654,173 @@ namespace Buddie
             }
             
             trayIcon?.Dispose();
+            interactionTimer?.Stop();
             base.OnClosed(e);
         }
+        
+        #region 用户交互状态管理
+        
+        /// <summary>
+        /// 初始化交互计时器
+        /// </summary>
+        private void InitializeInteractionTimer()
+        {
+            interactionTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = interactionDelay
+            };
+            interactionTimer.Tick += InteractionTimer_Tick;
+        }
+        
+        /// <summary>
+        /// 交互计时器事件处理
+        /// </summary>
+        private void InteractionTimer_Tick(object? sender, EventArgs e)
+        {
+            interactionTimer?.Stop();
+            SetUserInteracting(false);
+        }
+        
+        /// <summary>
+        /// 设置用户交互状态
+        /// </summary>
+        private void SetUserInteracting(bool interacting)
+        {
+            isUserInteracting = interacting;
+            
+            if (interacting)
+            {
+                // 用户开始交互，立即设置为不透明
+                UpdateInterfaceOpacity(1.0);
+                // 重置计时器
+                interactionTimer?.Stop();
+                interactionTimer?.Start();
+            }
+            else
+            {
+                // 用户停止交互，根据鼠标位置决定透明度
+                var mousePosition = System.Windows.Forms.Control.MousePosition;
+                var windowBounds = new System.Drawing.Rectangle(
+                    (int)this.Left, (int)this.Top, 
+                    (int)this.ActualWidth, (int)this.ActualHeight);
+                
+                if (!windowBounds.Contains(mousePosition))
+                {
+                    UpdateInterfaceOpacity(0.2);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 订阅焦点事件以监控用户交互
+        /// </summary>
+        private void SubscribeToFocusEvents()
+        {
+            // 监听整个窗口的焦点变化
+            this.GotFocus += (s, e) => 
+            {
+                if (IsInputElementOrChild(e.OriginalSource as DependencyObject))
+                {
+                    SetUserInteracting(true);
+                }
+            };
+            
+            // 使用PreviewLostKeyboardFocus代替LostFocus
+            this.PreviewLostKeyboardFocus += (s, e) => 
+            {
+                // 检查焦点是否转移到了其他输入元素
+                if (!IsInputElementOrChild(e.NewFocus as DependencyObject))
+                {
+                    // 延迟一点时间，让用户有机会点击其他输入元素
+                    var delayTimer = new System.Windows.Threading.DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromMilliseconds(100)
+                    };
+                    delayTimer.Tick += (sender, args) =>
+                    {
+                        delayTimer.Stop();
+                        if (!IsAnyInputElementFocused())
+                        {
+                            SetUserInteracting(false);
+                        }
+                    };
+                    delayTimer.Start();
+                }
+            };
+            
+            // 监听鼠标点击事件
+            this.PreviewMouseDown += (s, e) =>
+            {
+                if (IsInputElementOrChild(e.OriginalSource as DependencyObject))
+                {
+                    SetUserInteracting(true);
+                }
+            };
+            
+            // 监听键盘输入事件
+            this.PreviewKeyDown += (s, e) =>
+            {
+                if (IsAnyInputElementFocused())
+                {
+                    SetUserInteracting(true);
+                }
+            };
+        }
+        
+        /// <summary>
+        /// 检查元素是否为输入元素
+        /// </summary>
+        private bool IsInputElement(DependencyObject? element)
+        {
+            if (element == null) return false;
+            
+            // 直接检查元素类型，避免递归调用
+            return element is System.Windows.Controls.TextBox || 
+                   element is System.Windows.Controls.RichTextBox || 
+                   element is System.Windows.Controls.PasswordBox ||
+                   element is System.Windows.Controls.ComboBox ||
+                   element is System.Windows.Controls.Slider;
+        }
+        
+        /// <summary>
+        /// 检查是否有输入元素父级（带深度限制防止无限递归）
+        /// </summary>
+        private bool HasInputElementParent(DependencyObject? element, int maxDepth = 10)
+        {
+            if (element == null || maxDepth <= 0) return false;
+            
+            var parent = System.Windows.Media.VisualTreeHelper.GetParent(element);
+            if (parent == null) return false;
+            
+            // 直接检查父元素类型，不调用IsInputElement避免递归
+            if (parent is System.Windows.Controls.TextBox || 
+                parent is System.Windows.Controls.RichTextBox || 
+                parent is System.Windows.Controls.PasswordBox ||
+                parent is System.Windows.Controls.ComboBox ||
+                parent is System.Windows.Controls.Slider)
+                return true;
+                
+            return HasInputElementParent(parent, maxDepth - 1);
+        }
+        
+        /// <summary>
+        /// 检查元素或其父级是否为输入元素
+        /// </summary>
+        private bool IsInputElementOrChild(DependencyObject? element)
+        {
+            return IsInputElement(element) || HasInputElementParent(element);
+        }
+        
+        /// <summary>
+        /// 检查当前是否有任何输入元素获得焦点
+        /// </summary>
+        private bool IsAnyInputElementFocused()
+        {
+            var focusedElement = Keyboard.FocusedElement as DependencyObject;
+            return IsInputElementOrChild(focusedElement);
+        }
+        
+        #endregion
 
         private void FloatingWindow_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
@@ -664,6 +840,12 @@ namespace Buddie
         /// <param name="opacity">透明度值</param>
         private void UpdateInterfaceOpacity(double opacity)
         {
+            // 如果用户正在交互，保持完全不透明
+            if (isUserInteracting && opacity < 1.0)
+            {
+                opacity = 1.0;
+            }
+            
             // 只影响当前可见的界面
             if (DialogControl.IsVisible)
             {

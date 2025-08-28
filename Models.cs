@@ -990,7 +990,7 @@ namespace Buddie
                     Name = "MiniMax TTS",
                     ChannelType = TtsChannelType.MiniMax,
                     DefaultApiUrl = "https://api.minimaxi.com/v1/t2a_v2",
-                    SupportedModels = new[] { "speech-1.0-hd", "speech-01", "speech-01-240228", "speech-01-turbo" },
+                    SupportedModels = new[] { "speech-01-hd", "speech-01", "speech-02-hd", "speech-02", "speech-02-turbo", "speech-2.5-hd-preview", "speech-2.5-turbo-preview" },
                     SupportedVoices = new[] { 
                         // 默认语音
                         "female-shaonv",
