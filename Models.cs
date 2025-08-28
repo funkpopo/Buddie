@@ -482,7 +482,7 @@ namespace Buddie
             // 更新默认语速
             Speed = preset.DefaultSpeed;
             
-            System.Diagnostics.Debug.WriteLine($"TTS渠道默认值已更新: {ChannelType} - 模型:{Model}, 语音:{Voice}, API URL:{ApiUrl}");
+            System.Diagnostics.Debug.WriteLine($"TTS渠道默认值已更新: {ChannelType}");
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -627,98 +627,52 @@ namespace Buddie
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("Starting to load settings from database...");
-                
                 // Load app settings
                 var dbAppSettings = await _databaseService.GetAppSettingsAsync();
                 if (dbAppSettings != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Loaded app settings: Topmost={dbAppSettings.IsTopmost}, DarkTheme={dbAppSettings.IsDarkTheme}");
                     IsTopmost = dbAppSettings.IsTopmost;
                     ShowInTaskbar = dbAppSettings.ShowInTaskbar;
                     EnableAnimation = dbAppSettings.EnableAnimation;
                     IsDarkTheme = dbAppSettings.IsDarkTheme;
                 }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("No app settings found in database");
-                }
 
                 // Load API configurations
                 var dbApiConfigs = await _databaseService.GetApiConfigurationsAsync();
-                System.Diagnostics.Debug.WriteLine($"Found {dbApiConfigs.Count} API configurations in database");
                 ApiConfigurations.Clear();
                 foreach (var dbConfig in dbApiConfigs)
                 {
                     ApiConfigurations.Add(OpenApiConfiguration.FromDbModel(dbConfig));
-                    System.Diagnostics.Debug.WriteLine($"Loaded API config: {dbConfig.Name} - {dbConfig.ModelName}");
                 }
 
                 // Load TTS configurations
                 var dbTtsConfigs = await _databaseService.GetTtsConfigurationsAsync();
-                System.Diagnostics.Debug.WriteLine($"Found {dbTtsConfigs.Count} TTS configurations in database");
                 TtsConfigurations.Clear();
                 foreach (var dbConfig in dbTtsConfigs)
                 {
                     var config = TtsConfiguration.FromDbModel(dbConfig);
                     TtsConfigurations.Add(config);
-                    System.Diagnostics.Debug.WriteLine($"Loaded TTS config: {dbConfig.Name}, IsActive: {dbConfig.IsActive} -> {config.IsActive}");
                 }
 
-                // 验证激活状态，确保最多只有一个配置处于激活状态
+                // Ensure only one TTS configuration is active
                 var activeConfigs = TtsConfigurations.Where(c => c.IsActive).ToList();
-                System.Diagnostics.Debug.WriteLine($"激活状态验证: 发现 {activeConfigs.Count} 个激活的TTS配置");
                 
                 if (activeConfigs.Count > 1)
                 {
-                    System.Diagnostics.Debug.WriteLine($"❌ 冲突检测：发现 {activeConfigs.Count} 个激活的TTS配置，需要修复冲突");
-                    System.Diagnostics.Debug.WriteLine("激活的配置列表:");
-                    for (int i = 0; i < activeConfigs.Count; i++)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"  [{i}] {activeConfigs[i].Name} (ID: {activeConfigs[i].Id})");
-                    }
-                    
-                    System.Diagnostics.Debug.WriteLine($"保留第一个配置: {activeConfigs[0].Name}，取消激活其余 {activeConfigs.Count - 1} 个配置");
+                    // Keep first active config, deactivate others
                     for (int i = 1; i < activeConfigs.Count; i++)
                     {
                         activeConfigs[i].IsActive = false;
-                        System.Diagnostics.Debug.WriteLine($"  取消激活: {activeConfigs[i].Name}");
                         if (activeConfigs[i].Id > 0)
                         {
                             await SaveTtsConfigurationAsync(activeConfigs[i]);
-                            System.Diagnostics.Debug.WriteLine($"  已保存取消激活状态: {activeConfigs[i].Name}");
                         }
                     }
-                    System.Diagnostics.Debug.WriteLine($"✅ 冲突已修复，当前激活配置: {activeConfigs[0].Name}");
                 }
-                else if (activeConfigs.Count == 1)
-                {
-                    System.Diagnostics.Debug.WriteLine($"✅ 激活状态正确：唯一激活的TTS配置 - {activeConfigs[0].Name} (ID: {activeConfigs[0].Id})");
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("⚠️  当前没有激活的TTS配置");
-                    if (TtsConfigurations.Count > 0)
-                    {
-                        System.Diagnostics.Debug.WriteLine("可用的TTS配置列表:");
-                        foreach (var config in TtsConfigurations)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"  - {config.Name} (ID: {config.Id}, IsActive: {config.IsActive})");
-                        }
-                        System.Diagnostics.Debug.WriteLine("💡 建议：用户需要手动激活一个TTS配置，或检查数据库中的激活状态是否正确保存");
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine("💡 提示：当前没有任何TTS配置，用户需要创建并激活一个配置");
-                    }
-                }
-                
-                System.Diagnostics.Debug.WriteLine("Successfully loaded settings from database");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to load settings from database: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                // Handle database load error silently
             }
         }
 
@@ -727,8 +681,6 @@ namespace Buddie
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("Starting to save settings to database...");
-                
                 // Save app settings
                 var dbAppSettings = new DbAppSettings
                 {
@@ -739,58 +691,39 @@ namespace Buddie
                     IsDarkTheme = IsDarkTheme
                 };
                 await _databaseService.SaveAppSettingsAsync(dbAppSettings);
-                System.Diagnostics.Debug.WriteLine("App settings saved to database");
 
                 // Save API configurations
-                System.Diagnostics.Debug.WriteLine($"Saving {ApiConfigurations.Count} API configurations...");
                 foreach (var config in ApiConfigurations)
                 {
-                    if (config.IsSaved) // Remove the Id > 0 condition to allow new configurations
+                    if (config.IsSaved)
                     {
                         var dbConfig = config.ToDbModel();
                         var savedId = await _databaseService.SaveApiConfigurationAsync(dbConfig);
-                        config.Id = savedId; // Update the configuration with the new ID
-                        System.Diagnostics.Debug.WriteLine($"Saved API config: {config.Name} with ID {savedId}");
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Skipped API config: {config.Name} (not marked as saved)");
+                        config.Id = savedId;
                     }
                 }
 
                 // Save TTS configurations
-                System.Diagnostics.Debug.WriteLine($"Saving {TtsConfigurations.Count} TTS configurations...");
                 foreach (var config in TtsConfigurations)
                 {
-                    System.Diagnostics.Debug.WriteLine($"TTS Config: {config.Name}, IsSaved: {config.IsSaved}, Id: {config.Id}, IsActive: {config.IsActive}");
-                    if (config.IsSaved) // Remove the Id > 0 condition to allow new configurations
+                    if (config.IsSaved)
                     {
                         try
                         {
                             var dbConfig = config.ToDbModel();
-                            System.Diagnostics.Debug.WriteLine($"Converting to DB model - Name: {dbConfig.Name}, IsActive: {dbConfig.IsActive}");
                             var savedId = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
-                            config.Id = savedId; // Update the configuration with the new ID
-                            System.Diagnostics.Debug.WriteLine($"Successfully saved TTS config: {config.Name} with ID {savedId}, IsActive: {config.IsActive}");
+                            config.Id = savedId;
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Failed to save TTS config {config.Name}: {ex.Message}");
-                            System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                            // Handle individual TTS config save error
                         }
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Skipped TTS config: {config.Name} (not marked as saved)");
                     }
                 }
-                
-                System.Diagnostics.Debug.WriteLine("Successfully saved all settings to database");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to save settings to database: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                // Handle overall save error silently
             }
         }
 
@@ -799,17 +732,13 @@ namespace Buddie
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"Saving individual API configuration: {config.Name} (ID: {config.Id})");
                 var dbConfig = config.ToDbModel();
                 var id = await _databaseService.SaveApiConfigurationAsync(dbConfig);
                 config.Id = id;
                 config.IsSaved = true;
-                System.Diagnostics.Debug.WriteLine($"Successfully saved API configuration: {config.Name} with new ID: {id}");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to save API configuration: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 throw;
             }
         }
@@ -824,10 +753,8 @@ namespace Buddie
                 config.Id = id;
                 config.IsSaved = true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ 保存TTS配置失败: {config.Name}, 错误: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
                 throw;
             }
         }
@@ -843,9 +770,8 @@ namespace Buddie
                 }
                 ApiConfigurations.Remove(config);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to delete API configuration: {ex.Message}");
                 throw;
             }
         }
@@ -861,9 +787,8 @@ namespace Buddie
                 }
                 TtsConfigurations.Remove(config);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to delete TTS configuration: {ex.Message}");
                 throw;
             }
         }
@@ -873,7 +798,7 @@ namespace Buddie
         {
             try
             {
-                // 先取消激活所有其他TTS配置
+                // Deactivate all other TTS configurations
                 var deactivatedConfigs = new List<TtsConfiguration>();
                 foreach (var config in TtsConfigurations)
                 {
@@ -884,13 +809,13 @@ namespace Buddie
                     }
                 }
 
-                // 激活指定的配置
+                // Activate the specified configuration
                 if (!configToActivate.IsActive)
                 {
                     configToActivate.IsActive = true;
                 }
 
-                // 立即保存所有状态变更到数据库
+                // Save state changes to database
                 var configsToSave = new List<TtsConfiguration>(deactivatedConfigs);
                 if (configToActivate.IsSaved && configToActivate.Id > 0)
                 {
@@ -905,10 +830,8 @@ namespace Buddie
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"激活TTS配置失败: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
                 throw;
             }
         }
@@ -926,9 +849,8 @@ namespace Buddie
                 
                 TtsConfigurations.Remove(configToRemove);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to remove TTS configuration: {ex.Message}");
                 throw;
             }
         }

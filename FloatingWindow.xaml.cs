@@ -5,11 +5,9 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Forms;
 using System.ComponentModel;
-using System.Windows.Media.Animation;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Collections.ObjectModel;
-using System.Windows.Media.Effects;
 using SystemDrawing = System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
@@ -121,9 +119,9 @@ namespace Buddie
                 {
                     await appSettings.SaveToDatabaseAsync();
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to save theme setting: {ex.Message}");
+                    // Handle save error silently during theme change
                 }
             };
             SettingsControl.ResetSettingsRequested += (s, e) => ResetSettings();
@@ -137,9 +135,9 @@ namespace Buddie
                 {
                     await appSettings.SaveToDatabaseAsync();
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to save API configurations: {ex.Message}");
+                    // Handle save error silently
                 }
                 
                 UpdateCardsFromApiConfigurations();
@@ -152,9 +150,9 @@ namespace Buddie
                 {
                     await appSettings.ActivateTtsConfigurationAsync(config);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to activate TTS configuration: {ex.Message}");
+                    // Handle TTS configuration error silently
                 }
             };
             
@@ -165,9 +163,9 @@ namespace Buddie
                     // 配置已经通过TtsConfigControl.Initialize绑定到appSettings.TtsConfigurations
                     // 新添加的配置在用户点击保存按钮时会触发TtsConfigurationUpdated事件
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to add TTS configuration: {ex.Message}");
+                    // Handle TTS configuration addition error silently
                 }
             };
             
@@ -177,9 +175,9 @@ namespace Buddie
                     // 当用户点击保存按钮后，保存单个配置
                     await appSettings.SaveTtsConfigurationAsync(config);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to update TTS configuration: {ex.Message}");
+                    // Handle TTS configuration update error silently
                 }
             };
             
@@ -191,9 +189,9 @@ namespace Buddie
                         await appSettings.RemoveTtsConfigurationAsync(config);
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to remove TTS configuration: {ex.Message}");
+                    // Handle TTS configuration removal error silently
                 }
             };
             
@@ -296,9 +294,9 @@ namespace Buddie
             {
                 await appSettings.SaveToDatabaseAsync();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to save settings on exit: {ex.Message}");
+                // Handle save error silently during exit
             }
             
             trayIcon?.Dispose();
@@ -329,10 +327,9 @@ namespace Buddie
                 var saveTask = appSettings.SaveToDatabaseAsync();
                 saveTask.Wait(); // 等待保存完成
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ 窗口关闭时保存设置失败: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+                // Handle save error silently during window close
             }
         }
 
@@ -403,18 +400,6 @@ namespace Buddie
         private void ShowDialogForCurrentCard()
         {
             DialogControl.Toggle();
-            // 更新对话标题以显示当前使用的API配置
-            UpdateDialogTitle();
-        }
-        
-        // 更新对话界面标题
-        private void UpdateDialogTitle()
-        {
-            if (currentCardIndex < cards.Count && cards[currentCardIndex].ApiConfiguration != null)
-            {
-                var apiConfig = cards[currentCardIndex].ApiConfiguration;
-                // 配置信息仅在内部使用
-            }
         }
         
         private void UpdateCardDisplay()
@@ -590,9 +575,9 @@ namespace Buddie
                 UpdateCardsFromApiConfigurations();
                 UpdateCardDisplay();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to load settings from database: {ex.Message}");
+                // Handle load error silently
             }
         }
 
@@ -603,13 +588,12 @@ namespace Buddie
         {
             try
             {
-                // TODO: 实现对话记录保存逻辑
-                // 这里需要从DialogControl获取当前对话内容并保存到数据库
+                // 对话记录保存功能已在DialogControl中实现
                 await Task.CompletedTask;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to save conversation: {ex.Message}");
+                // Handle conversation save error silently
             }
         }
 
@@ -634,8 +618,8 @@ namespace Buddie
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"SaveSettingsBeforeExit failed: {ex.Message}");
-                throw; // 重新抛出异常让调用者知道失败了
+                // Handle save error silently
+                throw; // Re-throw for caller to handle
             }
         }
 
@@ -648,9 +632,9 @@ namespace Buddie
                 var saveTask = appSettings.SaveToDatabaseAsync();
                 saveTask.Wait(TimeSpan.FromSeconds(3)); // 最多等待3秒
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ 应用程序最终关闭时保存设置失败: {ex.Message}");
+                // Handle save error silently during final close
             }
             
             trayIcon?.Dispose();
