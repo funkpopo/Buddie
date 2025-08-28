@@ -1762,17 +1762,11 @@ namespace Buddie.Controls
                         currentAudioPlayer = new WaveOutEvent();
                         
                         // 设置播放完成事件
-                        currentAudioPlayer.PlaybackStopped += (sender, e) =>
+                        currentAudioPlayer.PlaybackStopped += async (sender, e) =>
                         {
                             try
                             {
-                                currentAudioReader?.Dispose();
-                                currentAudioPlayer?.Dispose();
-                                currentAudioReader = null;
-                                currentAudioPlayer = null;
-                                
-                                // 清理临时文件
-                                CleanupTempFile(tempFile);
+                                await CleanupAudioResourcesAsync(tempFile);
                                 
                                 if (e.Exception != null)
                                 {
@@ -1794,11 +1788,17 @@ namespace Buddie.Controls
                         
                         System.Diagnostics.Debug.WriteLine("NAudio开始播放");
                         
-                        // 等待播放完成
-                        while (currentAudioPlayer?.PlaybackState == PlaybackState.Playing)
+                        // 异步等待播放完成
+                        var playbackTask = Task.Run(async () =>
                         {
-                            Thread.Sleep(100);
-                        }
+                            while (currentAudioPlayer?.PlaybackState == PlaybackState.Playing)
+                            {
+                                await Task.Delay(100);
+                            }
+                        });
+                        
+                        // 可选择等待播放完成
+                        await playbackTask;
                     }
                     catch (Exception ex)
                     {
@@ -1829,22 +1829,19 @@ namespace Buddie.Controls
             }
         }
         /// <summary>
-        /// 停止当前音频播放
+        /// 停止当前音频播放（异步）
+        /// </summary>
+        private async Task StopCurrentAudioAsync()
+        {
+            await CleanupAudioResourcesAsync();
+        }
+        
+        /// <summary>
+        /// 停止当前音频播放（同步版本，保持兼容性）
         /// </summary>
         private void StopCurrentAudio()
         {
-            try
-            {
-                currentAudioPlayer?.Stop();
-                currentAudioReader?.Dispose();
-                currentAudioPlayer?.Dispose();
-                currentAudioReader = null;
-                currentAudioPlayer = null;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"停止音频播放异常: {ex.Message}");
-            }
+            _ = StopCurrentAudioAsync();
         }
         /// <summary>
         /// 根据ContentType和音频数据确定文件扩展名
@@ -1932,26 +1929,54 @@ namespace Buddie.Controls
             }
         }
         
-        private void CleanupTempFile(string tempFile)
+        private async Task CleanupAudioResourcesAsync(string? tempFile = null)
         {
-            // 异步清理临时文件
-            _ = Task.Run(async () =>
+            try
             {
-                try
+                // 释放音频资源
+                if (currentAudioPlayer != null)
                 {
-                    // 稍微延迟以确保文件没有被占用
-                    await Task.Delay(1000);
-                    if (File.Exists(tempFile))
-                    {
-                        File.Delete(tempFile);
-                        System.Diagnostics.Debug.WriteLine($"播放音频: 临时文件已删除 {tempFile}");
-                    }
+                    currentAudioPlayer.Stop();
+                    await Task.Run(() => currentAudioPlayer.Dispose());
+                    currentAudioPlayer = null;
                 }
-                catch (Exception ex)
+                
+                if (currentAudioReader != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"播放音频: 删除临时文件失败 {ex.Message}");
+                    await Task.Run(() => currentAudioReader.Dispose());
+                    currentAudioReader = null;
                 }
-            });
+                
+                // 清理临时文件
+                if (!string.IsNullOrEmpty(tempFile))
+                {
+                    await CleanupTempFileAsync(tempFile);
+                }
+                
+                System.Diagnostics.Debug.WriteLine("音频资源清理完成");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"音频资源清理异常: {ex.Message}");
+            }
+        }
+        
+        private async Task CleanupTempFileAsync(string tempFile)
+        {
+            try
+            {
+                // 稍微延迟以确保文件没有被占用
+                await Task.Delay(1000);
+                if (File.Exists(tempFile))
+                {
+                    await Task.Run(() => File.Delete(tempFile));
+                    System.Diagnostics.Debug.WriteLine($"播放音频: 临时文件已删除 {tempFile}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"播放音频: 删除临时文件失败 {ex.Message}");
+            }
         }
 
         #region 对话历史功能
