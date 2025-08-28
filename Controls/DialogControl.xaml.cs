@@ -20,10 +20,14 @@ using System.Windows.Documents;
 using Buddie.Database;
 using Buddie.Services.Tts;
 using System.Runtime.InteropServices;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Windows.Media.Imaging;
+using System.Windows.Forms;
 
 namespace Buddie.Controls
 {
-    public partial class DialogControl : UserControl
+    public partial class DialogControl : System.Windows.Controls.UserControl
     {
         // NAudio-based audio player
         private WaveOutEvent? currentAudioPlayer;
@@ -41,6 +45,10 @@ namespace Buddie.Controls
         private DatabaseService databaseService = new DatabaseService();
         private DbConversation? currentConversation;
         private List<DbMessage> currentMessages = new List<DbMessage>();
+        
+        // 截图相关字段
+        private byte[]? currentScreenshot;
+        private bool hasScreenshot = false;
 
         public DialogControl()
         {
@@ -96,16 +104,41 @@ namespace Buddie.Controls
             }
 
             var message = DialogInput.Text.Trim();
-            if (!string.IsNullOrEmpty(message))
+            
+            // 检查是否有内容需要发送（文字或图片）
+            if (!string.IsNullOrEmpty(message) || hasScreenshot)
             {
+                // 如果有截图但没有文字，提供默认文字
+                if (string.IsNullOrEmpty(message) && hasScreenshot)
+                {
+                    message = "请分析这张图片。";
+                }
+                
                 // 添加到历史记录
                 conversationHistory.Add(message);
                 
                 // 更新UI状态
                 SetSendingState(true);
                 
-                MessageSent?.Invoke(this, message);
+                // 如果有截图，传递给发送事件处理器
+                if (hasScreenshot)
+                {
+                    MessageSent?.Invoke(this, $"[MULTIMODAL]{message}");
+                }
+                else
+                {
+                    MessageSent?.Invoke(this, message);
+                }
+                
                 DialogInput.Clear();
+                
+                // 发送后清理截图
+                if (hasScreenshot)
+                {
+                    currentScreenshot = null;
+                    hasScreenshot = false;
+                    ScreenshotPreviewBorder.Visibility = Visibility.Collapsed;
+                }
             }
         }
 
@@ -154,16 +187,16 @@ namespace Buddie.Controls
         public void BringToFront()
         {
             // 通过重新设置Panel.ZIndex将控件置于最前面
-            var parent = this.Parent as Panel;
+            var parent = this.Parent as System.Windows.Controls.Panel;
             if (parent != null)
             {
                 var maxZ = 0;
                 foreach (UIElement child in parent.Children)
                 {
-                    var z = Panel.GetZIndex(child);
+                    var z = System.Windows.Controls.Panel.GetZIndex(child);
                     if (z > maxZ) maxZ = z;
                 }
-                Panel.SetZIndex(this, maxZ + 1);
+                System.Windows.Controls.Panel.SetZIndex(this, maxZ + 1);
             }
         }
 
@@ -254,38 +287,38 @@ namespace Buddie.Controls
                 // 按钮区域
                 var buttonPanel = new StackPanel
                 {
-                    Orientation = Orientation.Horizontal,
-                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Orientation = System.Windows.Controls.Orientation.Horizontal,
+                    HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
                     Margin = new Thickness(0, 0, 8, 5)
                 };
 
                 // 创建TTS按钮（喇叭图标）
-                var ttsButton = new Button
+                var ttsButton = new System.Windows.Controls.Button
                 {
                     Content = "🔊",
                     Width = 24,
                     Height = 24,
-                    Background = Brushes.Transparent,
+                    Background = System.Windows.Media.Brushes.Transparent,
                     BorderThickness = new Thickness(0),
                     FontSize = 12,
                     Margin = new Thickness(5, 0, 0, 0),
-                    Cursor = Cursors.Hand,
+                    Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = "朗读",
                     Tag = message // 存储消息内容供TTS使用
                 };
                 ttsButton.Click += TtsButton_Click;
 
                 // 创建复制按钮
-                var copyButton = new Button
+                var copyButton = new System.Windows.Controls.Button
                 {
                     Content = "📋",
                     Width = 24,
                     Height = 24,
-                    Background = Brushes.Transparent,
+                    Background = System.Windows.Media.Brushes.Transparent,
                     BorderThickness = new Thickness(0),
                     FontSize = 12,
                     Margin = new Thickness(5, 0, 0, 0),
-                    Cursor = Cursors.Hand,
+                    Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = "复制",
                     Tag = message // 存储消息内容供复制使用
                 };
@@ -314,21 +347,21 @@ namespace Buddie.Controls
                 // 按钮区域（左对齐）
                 var buttonPanel = new StackPanel
                 {
-                    Orientation = Orientation.Horizontal,
-                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Orientation = System.Windows.Controls.Orientation.Horizontal,
+                    HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
                     Margin = new Thickness(8, 0, 0, 5)
                 };
 
                 // 创建复制按钮
-                var copyButton = new Button
+                var copyButton = new System.Windows.Controls.Button
                 {
                     Content = "📋",
                     Width = 24,
                     Height = 24,
-                    Background = Brushes.Transparent,
+                    Background = System.Windows.Media.Brushes.Transparent,
                     BorderThickness = new Thickness(0),
                     FontSize = 12,
-                    Cursor = Cursors.Hand,
+                    Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = "复制",
                     Tag = message // 存储消息内容供复制使用
                 };
@@ -351,11 +384,11 @@ namespace Buddie.Controls
             {
                 Child = bubbleContent,
                 CornerRadius = new CornerRadius(18),
-                HorizontalAlignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                HorizontalAlignment = isUser ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left,
                 Margin = isUser ? new Thickness(50, 5, 10, 5) : new Thickness(10, 5, 50, 5),
                 Effect = new System.Windows.Media.Effects.DropShadowEffect
                 {
-                    Color = Colors.Black,
+                    Color = System.Windows.Media.Colors.Black,
                     Direction = 270,
                     ShadowDepth = 1,
                     Opacity = 0.1,
@@ -367,12 +400,12 @@ namespace Buddie.Controls
             if (contentElement is TextBlock tb)
             {
                 border.Background = tb.Background;
-                tb.Background = Brushes.Transparent;
+                tb.Background = System.Windows.Media.Brushes.Transparent;
             }
-            else if (contentElement is RichTextBox rtb)
+            else if (contentElement is System.Windows.Controls.RichTextBox rtb)
             {
                 border.Background = rtb.Background;
-                rtb.Background = Brushes.Transparent;
+                rtb.Background = System.Windows.Media.Brushes.Transparent;
                 rtb.BorderThickness = new Thickness(0);
             }
 
@@ -397,9 +430,9 @@ namespace Buddie.Controls
                    text.Contains("[") && text.Contains("]("); // 链接
         }
 
-        private RichTextBox CreateMarkdownRichTextBox(string markdownText)
+        private System.Windows.Controls.RichTextBox CreateMarkdownRichTextBox(string markdownText)
         {
-            var richTextBox = new RichTextBox
+            var richTextBox = new System.Windows.Controls.RichTextBox
             {
                 Padding = new Thickness(12, 8, 12, 8),
                 MaxWidth = 320,
@@ -463,8 +496,8 @@ namespace Buddie.Controls
                     var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
                     var codeRun = new Run(text)
                     {
-                        FontFamily = new FontFamily("Consolas, 'Courier New', monospace"),
-                        Background = new SolidColorBrush(Color.FromRgb(245, 245, 245))
+                        FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace"),
+                        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 245, 245))
                     };
                     paragraph.Inlines.Add(codeRun);
                 }
@@ -474,8 +507,8 @@ namespace Buddie.Controls
                     var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
                     var codeBlockRun = new Run(text)
                     {
-                        FontFamily = new FontFamily("Consolas, 'Courier New', monospace"),
-                        Background = new SolidColorBrush(Color.FromRgb(245, 245, 245))
+                        FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace"),
+                        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 245, 245))
                     };
                     paragraph.Inlines.Add(codeBlockRun);
                     paragraph.Inlines.Add(new LineBreak());
@@ -517,7 +550,7 @@ namespace Buddie.Controls
             return flowDocument;
         }
 
-        private void ProcessInlineFormatting(Paragraph paragraph, string html, string tag, FontWeight fontWeight, FontStyle fontStyle = default)
+        private void ProcessInlineFormatting(Paragraph paragraph, string html, string tag, FontWeight fontWeight, System.Windows.FontStyle fontStyle = default)
         {
             var pattern = $"<{tag}>(.*?)</{tag}>";
             var matches = System.Text.RegularExpressions.Regex.Matches(html, pattern);
@@ -539,7 +572,7 @@ namespace Buddie.Controls
                 {
                     FontWeight = fontWeight
                 };
-                if (fontStyle != default(FontStyle))
+                if (fontStyle != default(System.Windows.FontStyle))
                     formattedRun.FontStyle = fontStyle;
                 
                 paragraph.Inlines.Add(formattedRun);
@@ -564,7 +597,7 @@ namespace Buddie.Controls
             var messageContainer = new StackPanel
             {
                 Margin = new Thickness(10, 5, 50, 5),
-                HorizontalAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
                 MaxWidth = 350
             };
 
@@ -584,7 +617,7 @@ namespace Buddie.Controls
                     Padding = new Thickness(8),
                     Effect = new System.Windows.Media.Effects.DropShadowEffect
                     {
-                        Color = Colors.Black,
+                        Color = System.Windows.Media.Colors.Black,
                         Direction = 270,
                         ShadowDepth = 1,
                         Opacity = 0.05,
@@ -602,15 +635,15 @@ namespace Buddie.Controls
 
                 if (isDarkTheme)
                 {
-                    expander.Foreground = Brushes.LightGray;
-                    reasoningBorder.Background = new SolidColorBrush(Color.FromRgb(45, 45, 48));
-                    reasoningBlock.Foreground = new SolidColorBrush(Color.FromRgb(204, 204, 204));
+                    expander.Foreground = System.Windows.Media.Brushes.LightGray;
+                    reasoningBorder.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(45, 45, 48));
+                    reasoningBlock.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(204, 204, 204));
                 }
                 else
                 {
-                    expander.Foreground = Brushes.DarkGray;
-                    reasoningBorder.Background = new SolidColorBrush(Color.FromRgb(255, 253, 235));
-                    reasoningBlock.Foreground = new SolidColorBrush(Color.FromRgb(101, 103, 107));
+                    expander.Foreground = System.Windows.Media.Brushes.DarkGray;
+                    reasoningBorder.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 253, 235));
+                    reasoningBlock.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(101, 103, 107));
                 }
 
                 reasoningBorder.Child = reasoningBlock;
@@ -802,30 +835,30 @@ namespace Buddie.Controls
             {
                 if (contentElement is TextBlock textBlock)
                 {
-                    textBlock.Foreground = Brushes.White;
+                    textBlock.Foreground = System.Windows.Media.Brushes.White;
                     textBlock.Background = isUser ? 
-                        new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
-                        new SolidColorBrush(Color.FromRgb(58, 58, 60));
+                        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 132, 255)) : 
+                        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(58, 58, 60));
                 }
-                else if (contentElement is RichTextBox richTextBox)
+                else if (contentElement is System.Windows.Controls.RichTextBox richTextBox)
                 {
-                    richTextBox.Foreground = Brushes.White;
-                    richTextBox.Background = new SolidColorBrush(Color.FromRgb(58, 58, 60));
+                    richTextBox.Foreground = System.Windows.Media.Brushes.White;
+                    richTextBox.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(58, 58, 60));
                 }
             }
             else
             {
                 if (contentElement is TextBlock textBlock)
                 {
-                    textBlock.Foreground = isUser ? Brushes.White : Brushes.Black;
+                    textBlock.Foreground = isUser ? System.Windows.Media.Brushes.White : System.Windows.Media.Brushes.Black;
                     textBlock.Background = isUser ? 
-                        new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
-                        new SolidColorBrush(Color.FromRgb(240, 240, 240));
+                        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 132, 255)) : 
+                        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(240, 240, 240));
                 }
-                else if (contentElement is RichTextBox richTextBox)
+                else if (contentElement is System.Windows.Controls.RichTextBox richTextBox)
                 {
-                    richTextBox.Foreground = Brushes.Black;
-                    richTextBox.Background = new SolidColorBrush(Color.FromRgb(240, 240, 240));
+                    richTextBox.Foreground = System.Windows.Media.Brushes.Black;
+                    richTextBox.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(240, 240, 240));
                 }
             }
         }
@@ -859,7 +892,7 @@ namespace Buddie.Controls
                 UpdateTextBlockTheme(textBlock, isDarkTheme);
             }
             // 更新RichTextBox（Markdown内容）
-            else if (element is RichTextBox richTextBox)
+            else if (element is System.Windows.Controls.RichTextBox richTextBox)
             {
                 UpdateRichTextBoxTheme(richTextBox, isDarkTheme);
             }
@@ -886,46 +919,46 @@ namespace Buddie.Controls
         private void UpdateBorderTheme(Border border, bool isDarkTheme)
         {
             // 检查是否是消息气泡的Border
-            if (border.Background is SolidColorBrush backgroundBrush)
+            if (border.Background is System.Windows.Media.SolidColorBrush backgroundBrush)
             {
                 var color = backgroundBrush.Color;
                 
                 if (isDarkTheme)
                 {
                     // 用户消息（蓝色系）
-                    if (color == Color.FromRgb(0, 132, 255) || 
-                        color == Color.FromRgb(0, 122, 204))
+                    if (color == System.Windows.Media.Color.FromRgb(0, 132, 255) || 
+                        color == System.Windows.Media.Color.FromRgb(0, 122, 204))
                     {
-                        border.Background = new SolidColorBrush(Color.FromRgb(0, 132, 255));
+                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 132, 255));
                     }
                     // AI消息（灰色系）
-                    else if (color == Color.FromRgb(240, 240, 240) || 
-                             color == Color.FromRgb(245, 245, 245))
+                    else if (color == System.Windows.Media.Color.FromRgb(240, 240, 240) || 
+                             color == System.Windows.Media.Color.FromRgb(245, 245, 245))
                     {
-                        border.Background = new SolidColorBrush(Color.FromRgb(58, 58, 60));
+                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(58, 58, 60));
                     }
                     // 思维过程背景
-                    else if (color == Color.FromRgb(255, 253, 235))
+                    else if (color == System.Windows.Media.Color.FromRgb(255, 253, 235))
                     {
-                        border.Background = new SolidColorBrush(Color.FromRgb(45, 45, 48));
+                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(45, 45, 48));
                     }
                 }
                 else
                 {
                     // 用户消息（蓝色系）
-                    if (color == Color.FromRgb(0, 132, 255))
+                    if (color == System.Windows.Media.Color.FromRgb(0, 132, 255))
                     {
-                        border.Background = new SolidColorBrush(Color.FromRgb(0, 132, 255));
+                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 132, 255));
                     }
                     // AI消息（灰色系）
-                    else if (color == Color.FromRgb(58, 58, 60))
+                    else if (color == System.Windows.Media.Color.FromRgb(58, 58, 60))
                     {
-                        border.Background = new SolidColorBrush(Color.FromRgb(240, 240, 240));
+                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(240, 240, 240));
                     }
                     // 思维过程背景
-                    else if (color == Color.FromRgb(45, 45, 48))
+                    else if (color == System.Windows.Media.Color.FromRgb(45, 45, 48))
                     {
-                        border.Background = new SolidColorBrush(Color.FromRgb(255, 253, 235));
+                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 253, 235));
                     }
                 }
             }
@@ -942,21 +975,21 @@ namespace Buddie.Controls
                     parent = VisualTreeHelper.GetParent(parent);
                 }
                 
-                if (parent is Border parentBorder && parentBorder.Background is SolidColorBrush brush)
+                if (parent is Border parentBorder && parentBorder.Background is System.Windows.Media.SolidColorBrush brush)
                 {
                     var color = brush.Color;
-                    if (color == Color.FromRgb(0, 132, 255)) // 用户消息
+                    if (color == System.Windows.Media.Color.FromRgb(0, 132, 255)) // 用户消息
                     {
-                        textBlock.Foreground = Brushes.White;
+                        textBlock.Foreground = System.Windows.Media.Brushes.White;
                     }
                     else // AI消息或其他
                     {
-                        textBlock.Foreground = Brushes.White;
+                        textBlock.Foreground = System.Windows.Media.Brushes.White;
                     }
                 }
                 else
                 {
-                    textBlock.Foreground = Brushes.White;
+                    textBlock.Foreground = System.Windows.Media.Brushes.White;
                 }
             }
             else
@@ -968,34 +1001,34 @@ namespace Buddie.Controls
                     parent = VisualTreeHelper.GetParent(parent);
                 }
                 
-                if (parent is Border parentBorder && parentBorder.Background is SolidColorBrush brush)
+                if (parent is Border parentBorder && parentBorder.Background is System.Windows.Media.SolidColorBrush brush)
                 {
                     var color = brush.Color;
-                    if (color == Color.FromRgb(0, 132, 255)) // 用户消息
+                    if (color == System.Windows.Media.Color.FromRgb(0, 132, 255)) // 用户消息
                     {
-                        textBlock.Foreground = Brushes.White;
+                        textBlock.Foreground = System.Windows.Media.Brushes.White;
                     }
                     else // AI消息
                     {
-                        textBlock.Foreground = Brushes.Black;
+                        textBlock.Foreground = System.Windows.Media.Brushes.Black;
                     }
                 }
                 else
                 {
-                    textBlock.Foreground = Brushes.Black;
+                    textBlock.Foreground = System.Windows.Media.Brushes.Black;
                 }
             }
         }
 
-        private void UpdateRichTextBoxTheme(RichTextBox richTextBox, bool isDarkTheme)
+        private void UpdateRichTextBoxTheme(System.Windows.Controls.RichTextBox richTextBox, bool isDarkTheme)
         {
             if (isDarkTheme)
             {
-                richTextBox.Foreground = Brushes.White;
+                richTextBox.Foreground = System.Windows.Media.Brushes.White;
             }
             else
             {
-                richTextBox.Foreground = Brushes.Black;
+                richTextBox.Foreground = System.Windows.Media.Brushes.Black;
             }
         }
 
@@ -1009,11 +1042,11 @@ namespace Buddie.Controls
         {
             if (isDarkTheme)
             {
-                expander.Foreground = Brushes.LightGray;
+                expander.Foreground = System.Windows.Media.Brushes.LightGray;
             }
             else
             {
-                expander.Foreground = Brushes.DarkGray;
+                expander.Foreground = System.Windows.Media.Brushes.DarkGray;
             }
         }
 
@@ -1028,7 +1061,11 @@ namespace Buddie.Controls
 
         public async Task SendMessageToApi(string message, OpenApiConfiguration apiConfig)
         {
-            AddMessageBubble(message, true);
+            // 检查是否是多模态消息
+            bool isMultimodal = message.StartsWith("[MULTIMODAL]");
+            string actualMessage = isMultimodal ? message.Substring("[MULTIMODAL]".Length) : message;
+            
+            AddMessageBubble(actualMessage, true);
 
             try
             {
@@ -1039,15 +1076,48 @@ namespace Buddie.Controls
                 httpClient.Timeout = TimeSpan.FromMinutes(5);
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiConfig.ApiKey}");
 
-                var requestBody = new
+                object requestBody;
+                
+                if (isMultimodal && currentScreenshot != null && apiConfig.IsMultimodalEnabled)
                 {
-                    model = apiConfig.ModelName,
-                    messages = new[]
+                    // 构建多模态消息
+                    var imageBase64 = ConvertImageToBase64(currentScreenshot);
+                    
+                    requestBody = new
                     {
-                        new { role = "user", content = message }
-                    },
-                    stream = apiConfig.IsStreamingEnabled
-                };
+                        model = apiConfig.ModelName,
+                        messages = new[]
+                        {
+                            new
+                            {
+                                role = "user",
+                                content = new object[]
+                                {
+                                    new { type = "text", text = actualMessage },
+                                    new 
+                                    { 
+                                        type = "image_url", 
+                                        image_url = new { url = $"data:image/png;base64,{imageBase64}" }
+                                    }
+                                }
+                            }
+                        },
+                        stream = apiConfig.IsStreamingEnabled
+                    };
+                }
+                else
+                {
+                    // 普通文本消息
+                    requestBody = new
+                    {
+                        model = apiConfig.ModelName,
+                        messages = new[]
+                        {
+                            new { role = "user", content = actualMessage }
+                        },
+                        stream = apiConfig.IsStreamingEnabled
+                    };
+                }
 
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -1213,7 +1283,7 @@ namespace Buddie.Controls
             currentStreamingContainer = new StackPanel
             {
                 Margin = new Thickness(10, 5, 50, 5),
-                HorizontalAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
                 MaxWidth = 350
             };
             
@@ -1401,7 +1471,7 @@ namespace Buddie.Controls
                 Padding = new Thickness(8),
                 Effect = new System.Windows.Media.Effects.DropShadowEffect
                 {
-                    Color = Colors.Black,
+                    Color = System.Windows.Media.Colors.Black,
                     Direction = 270,
                     ShadowDepth = 1,
                     Opacity = 0.05,
@@ -1419,15 +1489,15 @@ namespace Buddie.Controls
             
             if (isDarkTheme)
             {
-                currentReasoningExpander.Foreground = Brushes.LightGray;
-                reasoningBorder.Background = new SolidColorBrush(Color.FromRgb(45, 45, 48));
-                currentReasoningTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(204, 204, 204));
+                currentReasoningExpander.Foreground = System.Windows.Media.Brushes.LightGray;
+                reasoningBorder.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(45, 45, 48));
+                currentReasoningTextBlock.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(204, 204, 204));
             }
             else
             {
-                currentReasoningExpander.Foreground = Brushes.DarkGray;
-                reasoningBorder.Background = new SolidColorBrush(Color.FromRgb(255, 253, 235));
-                currentReasoningTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(101, 103, 107));
+                currentReasoningExpander.Foreground = System.Windows.Media.Brushes.DarkGray;
+                reasoningBorder.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 253, 235));
+                currentReasoningTextBlock.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(101, 103, 107));
             }
             
             reasoningBorder.Child = currentReasoningTextBlock;
@@ -1515,7 +1585,7 @@ namespace Buddie.Controls
 
         private async void TtsButton_Click(object sender, RoutedEventArgs e)
         {
-            var button = sender as Button;
+            var button = sender as System.Windows.Controls.Button;
             var messageText = button?.Tag as string;
             
             if (string.IsNullOrEmpty(messageText) || button == null)
@@ -1530,7 +1600,7 @@ namespace Buddie.Controls
             if (ttsConfig == null)
             {
                 System.Diagnostics.Debug.WriteLine("TTS: 未找到激活的TTS配置");
-                MessageBox.Show("未找到TTS配置，请先在设置中配置并激活TTS服务。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show("未找到TTS配置，请先在设置中配置并激活TTS服务。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                 return;
             }
 
@@ -1549,7 +1619,7 @@ namespace Buddie.Controls
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"TTS: 调用失败 - {ex.Message}");
-                MessageBox.Show($"TTS调用失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show($"TTS调用失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
             finally
             {
@@ -1561,7 +1631,7 @@ namespace Buddie.Controls
 
         private void CopyButton_Click(object sender, RoutedEventArgs e)
         {
-            var button = sender as Button;
+            var button = sender as System.Windows.Controls.Button;
             var messageText = button?.Tag as string;
             
             if (string.IsNullOrEmpty(messageText) || button == null)
@@ -1569,7 +1639,7 @@ namespace Buddie.Controls
 
             try
             {
-                Clipboard.SetText(messageText);
+                System.Windows.Clipboard.SetText(messageText);
                 
                 // 临时改变按钮显示表示复制成功
                 var originalContent = button.Content;
@@ -1587,7 +1657,7 @@ namespace Buddie.Controls
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"复制失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show($"复制失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
         }
 
@@ -2216,11 +2286,11 @@ namespace Buddie.Controls
 
         private async void DeleteConversationButton_Click(object sender, RoutedEventArgs e)
         {
-            var button = sender as Button;
+            var button = sender as System.Windows.Controls.Button;
             if (button?.Tag is int conversationId)
             {
-                var result = MessageBox.Show("确定要删除这个对话吗？", "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (result == MessageBoxResult.Yes)
+                var result = System.Windows.MessageBox.Show("确定要删除这个对话吗？", "确认删除", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+                if (result == System.Windows.MessageBoxResult.Yes)
                 {
                     try
                     {
@@ -2229,7 +2299,7 @@ namespace Buddie.Controls
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"删除对话失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        System.Windows.MessageBox.Show($"删除对话失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
                     }
                 }
             }
@@ -2262,5 +2332,121 @@ namespace Buddie.Controls
                 System.Diagnostics.Debug.WriteLine($"音频资源释放异常: {ex.Message}");
             }
         }
+
+        #region 截图功能
+
+        /// <summary>
+        /// 截图按钮点击事件
+        /// </summary>
+        private async void ScreenshotButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 检查是否支持多模态
+                var appSettings = DataContext as AppSettings;
+                var activeConfig = appSettings?.ApiConfigurations.FirstOrDefault();
+                
+                if (activeConfig == null || !activeConfig.IsMultimodalEnabled)
+                {
+                    System.Windows.MessageBox.Show("当前API配置未启用多模态功能，请先在设置中启用多模态。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    return;
+                }
+
+                // 执行截图
+                var screenshotBytes = await CaptureScreenAsync();
+                if (screenshotBytes != null)
+                {
+                    currentScreenshot = screenshotBytes;
+                    hasScreenshot = true;
+                    
+                    // 显示预览
+                    ShowScreenshotPreview(screenshotBytes);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"截图失败: {ex.Message}");
+                System.Windows.MessageBox.Show($"截图失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 删除截图按钮点击事件
+        /// </summary>
+        private void RemoveScreenshotButton_Click(object sender, RoutedEventArgs e)
+        {
+            currentScreenshot = null;
+            hasScreenshot = false;
+            ScreenshotPreviewBorder.Visibility = Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// 异步截取屏幕
+        /// </summary>
+        private async Task<byte[]?> CaptureScreenAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    // 获取主屏幕尺寸
+                    var screenBounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
+                    
+                    // 创建位图
+                    using var bitmap = new System.Drawing.Bitmap(screenBounds.Width, screenBounds.Height);
+                    using var graphics = System.Drawing.Graphics.FromImage(bitmap);
+                    
+                    // 截取屏幕
+                    graphics.CopyFromScreen(screenBounds.X, screenBounds.Y, 0, 0, screenBounds.Size);
+                    
+                    // 转换为字节数组
+                    using var memoryStream = new MemoryStream();
+                    bitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
+                    return memoryStream.ToArray();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"截图异常: {ex.Message}");
+                    return null;
+                }
+            });
+        }
+
+        /// <summary>
+        /// 显示截图预览
+        /// </summary>
+        private void ShowScreenshotPreview(byte[] screenshotBytes)
+        {
+            try
+            {
+                // 将字节数组转换为BitmapImage
+                using var memoryStream = new MemoryStream(screenshotBytes);
+                var bitmapImage = new BitmapImage();
+                bitmapImage.BeginInit();
+                bitmapImage.StreamSource = memoryStream;
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.EndInit();
+                bitmapImage.Freeze();
+                
+                // 设置预览图片
+                ScreenshotPreview.Source = bitmapImage;
+                ScreenshotPreviewBorder.Visibility = Visibility.Visible;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"显示截图预览失败: {ex.Message}");
+                System.Windows.MessageBox.Show($"显示截图预览失败: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 将截图转换为Base64字符串
+        /// </summary>
+        private string ConvertImageToBase64(byte[] imageBytes)
+        {
+            return Convert.ToBase64String(imageBytes);
+        }
+
+        #endregion
     }
 }
