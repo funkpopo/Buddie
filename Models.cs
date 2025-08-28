@@ -9,6 +9,55 @@ using Buddie.Database;
 
 namespace Buddie
 {
+    public class MessageDisplayModel : INotifyPropertyChanged
+    {
+        private string _content = "";
+        private bool _isUser;
+        private string? _reasoningContent;
+        private DateTime _timestamp;
+
+        public string Content
+        {
+            get => _content;
+            set => SetProperty(ref _content, value);
+        }
+
+        public bool IsUser
+        {
+            get => _isUser;
+            set => SetProperty(ref _isUser, value);
+        }
+
+        public string? ReasoningContent
+        {
+            get => _reasoningContent;
+            set => SetProperty(ref _reasoningContent, value);
+        }
+
+        public DateTime Timestamp
+        {
+            get => _timestamp;
+            set => SetProperty(ref _timestamp, value);
+        }
+
+        public bool HasReasoning => !string.IsNullOrEmpty(ReasoningContent);
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string? propertyName = null)
+        {
+            if (Equals(storage, value)) return false;
+            storage = value;
+            OnPropertyChanged(propertyName);
+            return true;
+        }
+    }
+
     public enum TestStatus
     {
         NotTested,
@@ -884,6 +933,9 @@ namespace Buddie
         {
             return TtsConfigurations.FirstOrDefault(config => config.IsActive);
         }
+
+        // Property for data binding to check if TTS configuration is available
+        public bool HasActiveTtsConfiguration => GetActiveTtsConfiguration() != null;
     }
 
     public static class TtsPresetChannels

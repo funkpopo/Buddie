@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Windows.Input;
 using System.Threading;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Windows.Media.Animation;
 using System.Windows.Media;
 using System.Linq;
@@ -24,6 +25,8 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows.Media.Imaging;
 using System.Windows.Forms;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace Buddie.Controls
 {
@@ -32,6 +35,9 @@ namespace Buddie.Controls
         // NAudio-based audio player
         private WaveOutEvent? currentAudioPlayer;
         private AudioFileReader? currentAudioReader;
+
+        // UI virtualization - ObservableCollection for messages
+        public ObservableCollection<MessageDisplayModel> Messages { get; private set; }
 
         public event EventHandler<string>? MessageSent;
         public event EventHandler? DialogClosed;
@@ -53,6 +59,11 @@ namespace Buddie.Controls
         public DialogControl()
         {
             InitializeComponent();
+            
+            // Initialize messages collection and bind to ItemsControl
+            Messages = new ObservableCollection<MessageDisplayModel>();
+            DialogMessagesPanel.ItemsSource = Messages;
+            
             // 初始化Markdown管道，启用常用的扩展
             markdownPipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
@@ -219,16 +230,28 @@ namespace Buddie.Controls
 
         public void AddMessage(string message, bool isUser = true)
         {
-            var messageBubble = CreateMessageBubble(message, isUser);
-            DialogMessagesPanel.Children.Add(messageBubble);
-            DialogScrollViewer.ScrollToEnd();
+            var messageModel = new MessageDisplayModel
+            {
+                Content = message,
+                IsUser = isUser,
+                Timestamp = DateTime.Now
+            };
+            
+            Messages.Add(messageModel);
+            ScrollToBottom();
         }
 
         public async void AddMessageBubble(string message, bool isUser = true)
         {
-            var messageBubble = CreateMessageBubble(message, isUser);
-            DialogMessagesPanel.Children.Add(messageBubble);
-            DialogScrollViewer.ScrollToEnd();
+            var messageModel = new MessageDisplayModel
+            {
+                Content = message,
+                IsUser = isUser,
+                Timestamp = DateTime.Now
+            };
+            
+            Messages.Add(messageModel);
+            ScrollToBottom();
             
             // 自动保存消息到数据库
             await SaveMessage(message, isUser);
@@ -589,83 +612,45 @@ namespace Buddie.Controls
             }
         }
 
+        /// <summary>
+        /// Scroll to the bottom of the message list
+        /// </summary>
+        private void ScrollToBottom()
+        {
+            if (Messages.Count > 0)
+            {
+                DialogScrollViewer.ScrollToEnd();
+                
+                // Ensure the last item is visible by requesting bring into view
+                var lastMessage = Messages.LastOrDefault();
+                if (lastMessage != null)
+                {
+                    // Use Dispatcher to delay the scroll to ensure the item is rendered
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        DialogScrollViewer.ScrollToEnd();
+                    }), System.Windows.Threading.DispatcherPriority.Background);
+                }
+            }
+        }
+
         public void AddMessageBubbleWithReasoning(string? content, string? reasoningContent = null)
         {
-            var settings = DataContext as AppSettings;
-            var isDarkTheme = settings?.IsDarkTheme ?? false;
-            
-            var messageContainer = new StackPanel
+            var messageModel = new MessageDisplayModel
             {
-                Margin = new Thickness(10, 5, 50, 5),
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
-                MaxWidth = 350
+                Content = content ?? "",
+                IsUser = false,
+                ReasoningContent = reasoningContent,
+                Timestamp = DateTime.Now
             };
-
-            // 如果有思维内容，添加可折叠的思维过程
-            if (!string.IsNullOrEmpty(reasoningContent))
-            {
-                var expander = new Expander
-                {
-                    Header = "💭 思维过程",
-                    IsExpanded = false,
-                    Margin = new Thickness(0, 0, 0, 5)
-                };
-
-                var reasoningBorder = new Border
-                {
-                    CornerRadius = new CornerRadius(12),
-                    Padding = new Thickness(8),
-                    Effect = new System.Windows.Media.Effects.DropShadowEffect
-                    {
-                        Color = System.Windows.Media.Colors.Black,
-                        Direction = 270,
-                        ShadowDepth = 1,
-                        Opacity = 0.05,
-                        BlurRadius = 2
-                    }
-                };
-
-                var reasoningBlock = new TextBlock
-                {
-                    Text = reasoningContent,
-                    TextWrapping = TextWrapping.Wrap,
-                    FontSize = 11,
-                    LineHeight = 16
-                };
-
-                if (isDarkTheme)
-                {
-                    expander.Foreground = System.Windows.Media.Brushes.LightGray;
-                    reasoningBorder.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(45, 45, 48));
-                    reasoningBlock.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(204, 204, 204));
-                }
-                else
-                {
-                    expander.Foreground = System.Windows.Media.Brushes.DarkGray;
-                    reasoningBorder.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 253, 235));
-                    reasoningBlock.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(101, 103, 107));
-                }
-
-                reasoningBorder.Child = reasoningBlock;
-                expander.Content = reasoningBorder;
-                messageContainer.Children.Add(expander);
-            }
-
-            // 添加实际回复内容
-            if (!string.IsNullOrEmpty(content))
-            {
-                var contentBubble = CreateMessageBubble(content, false);
-                contentBubble.Margin = new Thickness(0);
-                messageContainer.Children.Add(contentBubble);
-            }
-
-            DialogMessagesPanel.Children.Add(messageContainer);
-            DialogScrollViewer.ScrollToEnd();
+            
+            Messages.Add(messageModel);
+            ScrollToBottom();
         }
 
         public void ClearMessages()
         {
-            DialogMessagesPanel.Children.Clear();
+            Messages.Clear();
         }
 
         public void ApplyTheme(bool isDarkTheme)
@@ -679,8 +664,8 @@ namespace Buddie.Controls
                 ApplyLightTheme();
             }
             
-            // 刷新所有现有的消息气泡
-            RefreshExistingMessageBubbles(isDarkTheme);
+            // With data binding and templates, theme changes are automatically handled
+            // No need to manually refresh message bubbles
         }
 
         private void ApplyDarkTheme()
@@ -718,9 +703,6 @@ namespace Buddie.Controls
             // 发送按钮样式调整
             SendButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
             SendButton.Foreground = System.Windows.Media.Brushes.White;
-            
-            // 更新对话消息的颜色
-            UpdateMessageColors(true);
         }
 
         private void ApplyLightTheme()
@@ -758,9 +740,6 @@ namespace Buddie.Controls
             // 发送按钮样式调整
             SendButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
             SendButton.Foreground = System.Windows.Media.Brushes.White;
-            
-            // 更新对话消息的颜色
-            UpdateMessageColors(false);
         }
 
         private void UpdateTextElementsColor(DependencyObject parent, System.Windows.Media.Brush color)
@@ -778,49 +757,8 @@ namespace Buddie.Controls
             }
         }
 
-        private void UpdateMessageColors(bool isDarkTheme)
-        {
-            foreach (UIElement child in DialogMessagesPanel.Children)
-            {
-                if (child is TextBlock messageBlock)
-                {
-                    if (isDarkTheme)
-                    {
-                        messageBlock.Foreground = System.Windows.Media.Brushes.White;
-                        // 调整消息背景颜色以适应深色主题
-                        var currentBackground = messageBlock.Background as System.Windows.Media.SolidColorBrush;
-                        if (currentBackground != null)
-                        {
-                            if (currentBackground.Color == System.Windows.Media.Colors.LightBlue)
-                            {
-                                messageBlock.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(70, 130, 180));
-                            }
-                            else if (currentBackground.Color == System.Windows.Media.Colors.LightGray)
-                            {
-                                messageBlock.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(80, 80, 80));
-                            }
-                        }
-                    }
-                    else
-                    {
-                        messageBlock.Foreground = System.Windows.Media.Brushes.Black;
-                        // 恢复浅色主题的消息背景颜色
-                        var currentBackground = messageBlock.Background as System.Windows.Media.SolidColorBrush;
-                        if (currentBackground != null)
-                        {
-                            if (currentBackground.Color == System.Windows.Media.Color.FromRgb(70, 130, 180))
-                            {
-                                messageBlock.Background = System.Windows.Media.Brushes.LightBlue;
-                            }
-                            else if (currentBackground.Color == System.Windows.Media.Color.FromRgb(80, 80, 80))
-                            {
-                                messageBlock.Background = System.Windows.Media.Brushes.LightGray;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // This method is no longer needed with data binding and templates
+        // Theme changes are handled automatically in the XAML templates
 
         /// <summary>
         /// 应用主题样式到消息气泡内容元素
@@ -863,201 +801,11 @@ namespace Buddie.Controls
             }
         }
 
-        /// <summary>
-        /// 刷新所有现有消息气泡的主题
-        /// </summary>
-        private void RefreshExistingMessageBubbles(bool isDarkTheme)
-        {
-            foreach (UIElement child in DialogMessagesPanel.Children)
-            {
-                UpdateElementTheme(child, isDarkTheme);
-            }
-        }
-
-        /// <summary>
-        /// 递归更新UI元素及其子元素的主题
-        /// </summary>
-        private void UpdateElementTheme(DependencyObject element, bool isDarkTheme)
-        {
-            if (element == null) return;
-
-            // 更新Border（消息气泡容器）
-            if (element is Border border)
-            {
-                UpdateBorderTheme(border, isDarkTheme);
-            }
-            // 更新TextBlock（消息文本）
-            else if (element is TextBlock textBlock)
-            {
-                UpdateTextBlockTheme(textBlock, isDarkTheme);
-            }
-            // 更新RichTextBox（Markdown内容）
-            else if (element is System.Windows.Controls.RichTextBox richTextBox)
-            {
-                UpdateRichTextBoxTheme(richTextBox, isDarkTheme);
-            }
-            // 更新StackPanel（包含思维过程的消息容器）
-            else if (element is StackPanel stackPanel)
-            {
-                UpdateStackPanelTheme(stackPanel, isDarkTheme);
-            }
-            // 更新Expander（思维过程展开器）
-            else if (element is Expander expander)
-            {
-                UpdateExpanderTheme(expander, isDarkTheme);
-            }
-
-            // 递归更新子元素
-            int childrenCount = VisualTreeHelper.GetChildrenCount(element);
-            for (int i = 0; i < childrenCount; i++)
-            {
-                var child = VisualTreeHelper.GetChild(element, i);
-                UpdateElementTheme(child, isDarkTheme);
-            }
-        }
-
-        private void UpdateBorderTheme(Border border, bool isDarkTheme)
-        {
-            // 检查是否是消息气泡的Border
-            if (border.Background is System.Windows.Media.SolidColorBrush backgroundBrush)
-            {
-                var color = backgroundBrush.Color;
-                
-                if (isDarkTheme)
-                {
-                    // 用户消息（蓝色系）
-                    if (color == System.Windows.Media.Color.FromRgb(0, 132, 255) || 
-                        color == System.Windows.Media.Color.FromRgb(0, 122, 204))
-                    {
-                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 132, 255));
-                    }
-                    // AI消息（灰色系）
-                    else if (color == System.Windows.Media.Color.FromRgb(240, 240, 240) || 
-                             color == System.Windows.Media.Color.FromRgb(245, 245, 245))
-                    {
-                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(58, 58, 60));
-                    }
-                    // 思维过程背景
-                    else if (color == System.Windows.Media.Color.FromRgb(255, 253, 235))
-                    {
-                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(45, 45, 48));
-                    }
-                }
-                else
-                {
-                    // 用户消息（蓝色系）
-                    if (color == System.Windows.Media.Color.FromRgb(0, 132, 255))
-                    {
-                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 132, 255));
-                    }
-                    // AI消息（灰色系）
-                    else if (color == System.Windows.Media.Color.FromRgb(58, 58, 60))
-                    {
-                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(240, 240, 240));
-                    }
-                    // 思维过程背景
-                    else if (color == System.Windows.Media.Color.FromRgb(45, 45, 48))
-                    {
-                        border.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 253, 235));
-                    }
-                }
-            }
-        }
-
-        private void UpdateTextBlockTheme(TextBlock textBlock, bool isDarkTheme)
-        {
-            if (isDarkTheme)
-            {
-                // 根据背景色判断是用户消息还是AI消息
-                var parent = VisualTreeHelper.GetParent(textBlock);
-                while (parent != null && !(parent is Border))
-                {
-                    parent = VisualTreeHelper.GetParent(parent);
-                }
-                
-                if (parent is Border parentBorder && parentBorder.Background is System.Windows.Media.SolidColorBrush brush)
-                {
-                    var color = brush.Color;
-                    if (color == System.Windows.Media.Color.FromRgb(0, 132, 255)) // 用户消息
-                    {
-                        textBlock.Foreground = System.Windows.Media.Brushes.White;
-                    }
-                    else // AI消息或其他
-                    {
-                        textBlock.Foreground = System.Windows.Media.Brushes.White;
-                    }
-                }
-                else
-                {
-                    textBlock.Foreground = System.Windows.Media.Brushes.White;
-                }
-            }
-            else
-            {
-                // 根据背景色判断是用户消息还是AI消息
-                var parent = VisualTreeHelper.GetParent(textBlock);
-                while (parent != null && !(parent is Border))
-                {
-                    parent = VisualTreeHelper.GetParent(parent);
-                }
-                
-                if (parent is Border parentBorder && parentBorder.Background is System.Windows.Media.SolidColorBrush brush)
-                {
-                    var color = brush.Color;
-                    if (color == System.Windows.Media.Color.FromRgb(0, 132, 255)) // 用户消息
-                    {
-                        textBlock.Foreground = System.Windows.Media.Brushes.White;
-                    }
-                    else // AI消息
-                    {
-                        textBlock.Foreground = System.Windows.Media.Brushes.Black;
-                    }
-                }
-                else
-                {
-                    textBlock.Foreground = System.Windows.Media.Brushes.Black;
-                }
-            }
-        }
-
-        private void UpdateRichTextBoxTheme(System.Windows.Controls.RichTextBox richTextBox, bool isDarkTheme)
-        {
-            if (isDarkTheme)
-            {
-                richTextBox.Foreground = System.Windows.Media.Brushes.White;
-            }
-            else
-            {
-                richTextBox.Foreground = System.Windows.Media.Brushes.Black;
-            }
-        }
-
-        private void UpdateStackPanelTheme(StackPanel stackPanel, bool isDarkTheme)
-        {
-            // StackPanel本身通常不需要更新，但我们需要更新其子元素
-            // 子元素会在递归调用中处理
-        }
-
-        private void UpdateExpanderTheme(Expander expander, bool isDarkTheme)
-        {
-            if (isDarkTheme)
-            {
-                expander.Foreground = System.Windows.Media.Brushes.LightGray;
-            }
-            else
-            {
-                expander.Foreground = System.Windows.Media.Brushes.DarkGray;
-            }
-        }
-
-        private Border? currentStreamingBubble;
-        private TextBlock? currentStreamingTextBlock;
-        private StackPanel? currentStreamingContainer;
-        private Expander? currentReasoningExpander;
-        private TextBlock? currentReasoningTextBlock;
+        // Obsolete methods removed - UI virtualization with data binding handles theming automatically
+        
+        private MessageDisplayModel? currentStreamingMessage;
         private StringBuilder streamingContent = new StringBuilder();
         private StringBuilder streamingReasoning = new StringBuilder();
-        private bool isReasoningPhase = true;
 
         public async Task SendMessageToApi(string message, OpenApiConfiguration apiConfig)
         {
@@ -1277,85 +1025,44 @@ namespace Buddie.Controls
         {
             streamingContent.Clear();
             streamingReasoning.Clear();
-            isReasoningPhase = true;
             
-            // 创建消息容器
-            currentStreamingContainer = new StackPanel
+            // Create a new message model for streaming
+            currentStreamingMessage = new MessageDisplayModel
             {
-                Margin = new Thickness(10, 5, 50, 5),
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
-                MaxWidth = 350
+                Content = "",
+                IsUser = false,
+                ReasoningContent = null,
+                Timestamp = DateTime.Now
             };
             
-            // 不在初始化时创建思维过程UI，而是在真正收到reasoning内容时创建
-            currentReasoningExpander = null;
-            currentReasoningTextBlock = null;
-            
-            // 创建内容消息气泡（暂时隐藏）
-            currentStreamingBubble = CreateMessageBubble("", false);
-            currentStreamingBubble.Margin = new Thickness(0);
-            currentStreamingBubble.Visibility = Visibility.Collapsed;
-            
-            // 正确提取TextBlock - 需要处理可能的Grid结构
-            if (currentStreamingBubble.Child is TextBlock directTextBlock)
-            {
-                currentStreamingTextBlock = directTextBlock;
-            }
-            else if (currentStreamingBubble.Child is Grid grid && grid.Children.Count > 0 && grid.Children[0] is TextBlock gridTextBlock)
-            {
-                currentStreamingTextBlock = gridTextBlock;
-            }
-            
-            currentStreamingContainer.Children.Add(currentStreamingBubble);
-            
-            DialogMessagesPanel.Children.Add(currentStreamingContainer);
-            DialogScrollViewer.ScrollToEnd();
+            Messages.Add(currentStreamingMessage);
+            ScrollToBottom();
         }
 
         private void UpdateStreamingMessage()
         {
+            if (currentStreamingMessage == null) return;
+            
             bool updated = false;
             
-            // 如果有思维内容且还没有创建思维过程UI，则创建它
-            if (streamingReasoning.Length > 0 && currentReasoningExpander == null)
+            // Update reasoning content if available
+            if (streamingReasoning.Length > 0)
             {
-                CreateReasoningUI();
-            }
-            
-            // 更新思维过程（如果有新内容）
-            if (currentReasoningTextBlock != null && streamingReasoning.Length > 0)
-            {
-                currentReasoningTextBlock.Text = streamingReasoning.ToString();
+                currentStreamingMessage.ReasoningContent = streamingReasoning.ToString();
                 updated = true;
             }
             
-            // 更新实际内容
-            if (currentStreamingTextBlock != null && streamingContent.Length > 0)
+            // Update actual content
+            if (streamingContent.Length > 0)
             {
-                // 如果开始收到实际内容，切换到内容阶段
-                if (isReasoningPhase)
-                {
-                    isReasoningPhase = false;
-                    // 显示内容气泡
-                    if (currentStreamingBubble != null)
-                    {
-                        currentStreamingBubble.Visibility = Visibility.Visible;
-                    }
-                    // 自动折叠思维过程
-                    if (currentReasoningExpander != null)
-                    {
-                        currentReasoningExpander.IsExpanded = false;
-                    }
-                }
-                
-                currentStreamingTextBlock.Text = streamingContent.ToString();
+                currentStreamingMessage.Content = streamingContent.ToString();
                 updated = true;
             }
             
-            // 只有在内容更新时才滚动，避免不必要的滚动
+            // Scroll to bottom if content was updated
             if (updated)
             {
-                DialogScrollViewer.ScrollToEnd();
+                ScrollToBottom();
             }
         }
 
@@ -1449,127 +1156,37 @@ namespace Buddie.Controls
             return sentences;
         }
 
-        private void CreateReasoningUI()
-        {
-            if (currentStreamingContainer == null || currentReasoningExpander != null)
-                return;
-                
-            var settings = DataContext as AppSettings;
-            var isDarkTheme = settings?.IsDarkTheme ?? false;
-            
-            // 创建思维过程展开器（初始展开状态）
-            currentReasoningExpander = new Expander
-            {
-                Header = "💭 思维过程",
-                IsExpanded = true,
-                Margin = new Thickness(0, 0, 0, 5)
-            };
-            
-            var reasoningBorder = new Border
-            {
-                CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(8),
-                Effect = new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color = System.Windows.Media.Colors.Black,
-                    Direction = 270,
-                    ShadowDepth = 1,
-                    Opacity = 0.05,
-                    BlurRadius = 2
-                }
-            };
-            
-            currentReasoningTextBlock = new TextBlock
-            {
-                Text = "",
-                TextWrapping = TextWrapping.Wrap,
-                FontSize = 11,
-                LineHeight = 16
-            };
-            
-            if (isDarkTheme)
-            {
-                currentReasoningExpander.Foreground = System.Windows.Media.Brushes.LightGray;
-                reasoningBorder.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(45, 45, 48));
-                currentReasoningTextBlock.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(204, 204, 204));
-            }
-            else
-            {
-                currentReasoningExpander.Foreground = System.Windows.Media.Brushes.DarkGray;
-                reasoningBorder.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 253, 235));
-                currentReasoningTextBlock.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(101, 103, 107));
-            }
-            
-            reasoningBorder.Child = currentReasoningTextBlock;
-            currentReasoningExpander.Content = reasoningBorder;
-            
-            // 在内容气泡之前插入思维过程UI
-            currentStreamingContainer.Children.Insert(0, currentReasoningExpander);
-        }
-
+        // CreateReasoningUI method removed - UI virtualization with data binding handles reasoning display automatically
+        
         private async void FinalizeStreamingMessage()
         {
-            if (currentStreamingContainer != null)
+            if (currentStreamingMessage != null)
             {
                 var finalContent = streamingContent.ToString().Trim();
                 var finalReasoning = streamingReasoning.ToString().Trim();
                 
-                // 自动保存AI回复消息到数据库
+                // Update the final message content
+                currentStreamingMessage.Content = finalContent;
+                currentStreamingMessage.ReasoningContent = string.IsNullOrEmpty(finalReasoning) ? null : finalReasoning;
+                
+                // Auto-save AI reply message to database
                 if (!string.IsNullOrEmpty(finalContent))
                 {
                     await SaveMessage(finalContent, false, string.IsNullOrEmpty(finalReasoning) ? null : finalReasoning);
                 }
                 
-                // 如果没有实际内容和思维内容，显示一个提示
+                // If no valid content was received, remove the message or update with placeholder
                 if (string.IsNullOrEmpty(finalContent) && string.IsNullOrEmpty(finalReasoning))
                 {
-                    DialogMessagesPanel.Children.Remove(currentStreamingContainer);
+                    Messages.Remove(currentStreamingMessage);
                     AddMessageBubbleWithoutSave("AI没有返回有效内容", false);
                 }
-                else if (string.IsNullOrEmpty(finalContent) && !string.IsNullOrEmpty(finalReasoning))
-                {
-                    // 只有思维内容，没有实际回复，隐藏内容气泡
-                    if (currentStreamingBubble != null)
-                    {
-                        currentStreamingBubble.Visibility = Visibility.Collapsed;
-                    }
-                }
-                else if (!string.IsNullOrEmpty(finalContent))
-                {
-                    // 有实际内容，重新创建气泡以确保TTS按钮的Tag正确设置
-                    if (currentStreamingBubble != null)
-                    {
-                        // 移除当前的空内容气泡
-                        currentStreamingContainer.Children.Remove(currentStreamingBubble);
-                        
-                        // 创建新的气泡（支持Markdown或普通文本）并添加到容器
-                        var newBubble = CreateMessageBubble(finalContent, false);
-                        newBubble.Margin = new Thickness(0);
-                        currentStreamingContainer.Children.Add(newBubble);
-                    }
-                }
                 
-                // 如果没有思维内容但创建了思维UI，则移除它
-                if (string.IsNullOrEmpty(finalReasoning) && currentReasoningExpander != null)
-                {
-                    currentStreamingContainer.Children.Remove(currentReasoningExpander);
-                }
-                // 确保思维过程在最终完成时是折叠的
-                else if (currentReasoningExpander != null && !string.IsNullOrEmpty(finalReasoning))
-                {
-                    currentReasoningExpander.IsExpanded = false;
-                }
+                // Clear references
+                currentStreamingMessage = null;
                 
-                // 清理引用
-                currentStreamingBubble = null;
-                currentStreamingTextBlock = null;
-                currentStreamingContainer = null;
-                currentReasoningExpander = null;
-                currentReasoningTextBlock = null;
-                isReasoningPhase = true;
-                
-                // 滚动到底部显示完整内容
-                DialogScrollViewer.ScrollToEnd();
+                // Scroll to bottom to show complete content
+                ScrollToBottom();
             }
         }
 
@@ -1578,9 +1195,15 @@ namespace Buddie.Controls
         /// </summary>
         private void AddMessageBubbleWithoutSave(string message, bool isUser = false)
         {
-            var messageBubble = CreateMessageBubble(message, isUser);
-            DialogMessagesPanel.Children.Add(messageBubble);
-            DialogScrollViewer.ScrollToEnd();
+            var messageModel = new MessageDisplayModel
+            {
+                Content = message,
+                IsUser = isUser,
+                Timestamp = DateTime.Now
+            };
+            
+            Messages.Add(messageModel);
+            ScrollToBottom();
         }
 
         private async void TtsButton_Click(object sender, RoutedEventArgs e)
@@ -2030,16 +1653,14 @@ namespace Buddie.Controls
                     await SaveCurrentConversation();
                 }
 
-                // 创建新对话
+                // 创建新对话（暂不保存，等到有用户输入时再保存）
                 currentConversation = new DbConversation
                 {
                     Title = $"对话 {DateTime.Now:MM-dd HH:mm}",
                     CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    UpdatedAt = DateTime.UtcNow,
+                    Id = 0  // 标记为未保存状态
                 };
-
-                var conversationId = await databaseService.SaveConversationAsync(currentConversation);
-                currentConversation.Id = conversationId;
 
                 // 清空当前消息和界面
                 currentMessages.Clear();
@@ -2094,6 +1715,14 @@ namespace Buddie.Controls
             {
                 if (currentConversation == null) return;
 
+                // 检查对话是否为空：没有任何用户输入内容
+                var hasUserContent = currentMessages.Any(m => m.IsUser && !string.IsNullOrWhiteSpace(m.Content));
+                if (!hasUserContent)
+                {
+                    System.Diagnostics.Debug.WriteLine("Skipping save: conversation has no user content");
+                    return;
+                }
+
                 // 更新对话标题（使用第一条用户消息的前20个字符）
                 if (currentMessages.Count > 0)
                 {
@@ -2108,7 +1737,20 @@ namespace Buddie.Controls
                 }
 
                 currentConversation.UpdatedAt = DateTime.UtcNow;
-                await databaseService.SaveConversationAsync(currentConversation);
+                
+                // 如果是首次保存（Id为0），则插入新记录并获取ID
+                if (currentConversation.Id == 0)
+                {
+                    var conversationId = await databaseService.SaveConversationAsync(currentConversation);
+                    currentConversation.Id = conversationId;
+                    System.Diagnostics.Debug.WriteLine($"First save of conversation: {currentConversation.Id}");
+                }
+                else
+                {
+                    // 更新已存在的对话
+                    await databaseService.SaveConversationAsync(currentConversation);
+                    System.Diagnostics.Debug.WriteLine($"Updated conversation: {currentConversation.Id}");
+                }
             }
             catch (Exception ex)
             {
@@ -2130,6 +1772,25 @@ namespace Buddie.Controls
 
                 if (currentConversation != null)
                 {
+                    // 如果是用户消息且对话还未保存，则先保存对话
+                    if (isUser && currentConversation.Id == 0)
+                    {
+                        // 先将用户消息添加到临时列表，以便SaveCurrentConversation能检测到有用户内容
+                        var tempMessage = new DbMessage
+                        {
+                            Content = content,
+                            IsUser = isUser,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        currentMessages.Add(tempMessage);
+                        
+                        // 现在保存对话（会检查是否有用户内容）
+                        await SaveCurrentConversation();
+                        
+                        // 移除临时消息，稍后会重新添加带有正确ConversationId的消息
+                        currentMessages.Remove(tempMessage);
+                    }
+                    
                     var message = new DbMessage
                     {
                         ConversationId = currentConversation.Id,
@@ -2157,30 +1818,22 @@ namespace Buddie.Controls
         {
             try
             {
-                ClearDialog();
+                Messages.Clear();
 
                 foreach (var message in currentMessages.OrderBy(m => m.CreatedAt))
                 {
-                    if (message.IsUser)
+                    var messageModel = new MessageDisplayModel
                     {
-                        AddMessageBubbleWithoutSave(message.Content, true);
-                    }
-                    else
-                    {
-                        // 对于AI消息，如果有思维内容，需要特殊处理
-                        if (!string.IsNullOrEmpty(message.ReasoningContent))
-                        {
-                            // TODO: 重建带思维内容的消息气泡
-                            AddMessageBubbleWithoutSave(message.Content, false);
-                        }
-                        else
-                        {
-                            AddMessageBubbleWithoutSave(message.Content, false);
-                        }
-                    }
+                        Content = message.Content,
+                        IsUser = message.IsUser,
+                        ReasoningContent = message.ReasoningContent,
+                        Timestamp = message.CreatedAt
+                    };
+                    
+                    Messages.Add(messageModel);
                 }
 
-                DialogScrollViewer.ScrollToEnd();
+                ScrollToBottom();
                 await Task.CompletedTask;
             }
             catch (Exception ex)
@@ -2194,7 +1847,7 @@ namespace Buddie.Controls
         /// </summary>
         private void ClearDialog()
         {
-            DialogMessagesPanel.Children.Clear();
+            Messages.Clear();
         }
 
         /// <summary>

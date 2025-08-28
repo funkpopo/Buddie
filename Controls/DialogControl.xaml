@@ -8,6 +8,147 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Resources/SharedResources.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            
+            <!-- 消息气泡数据模板 -->
+            <DataTemplate x:Key="MessageBubbleTemplate">
+                <Border x:Name="MessageBubble"
+                        CornerRadius="18"
+                        Margin="10,5,50,5"
+                        HorizontalAlignment="Left"
+                        Effect="{StaticResource CardShadow}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#F0F0F0"/>
+                            <Setter Property="Margin" Value="10,5,50,5"/>
+                            <Setter Property="HorizontalAlignment" Value="Left"/>
+                            <Style.Triggers>
+                                <!-- 用户消息样式 -->
+                                <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                    <Setter Property="Background" Value="#0084FF"/>
+                                    <Setter Property="Margin" Value="50,5,10,5"/>
+                                    <Setter Property="HorizontalAlignment" Value="Right"/>
+                                </DataTrigger>
+                                <!-- 深色主题下的AI消息 -->
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsUser}" Value="False"/>
+                                        <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Background" Value="#3A3A3C"/>
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- 消息内容 -->
+                        <TextBlock Grid.Row="0"
+                                   Text="{Binding Content}"
+                                   Padding="12,8,12,8"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="300"
+                                   FontSize="13"
+                                   LineHeight="18">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="Black"/>
+                                    <Style.Triggers>
+                                        <!-- 用户消息文字 -->
+                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+                                        <!-- 深色主题下的AI消息文字 -->
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsUser}" Value="False"/>
+                                                <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        
+                        <!-- 用户消息按钮区域 -->
+                        <StackPanel Grid.Row="1"
+                                   Orientation="Horizontal"
+                                   HorizontalAlignment="Left"
+                                   Margin="8,0,0,5">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <!-- 复制按钮 -->
+                            <Button Content="📋"
+                                    Width="24"
+                                    Height="24"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    FontSize="12"
+                                    Cursor="Hand"
+                                    ToolTip="复制"
+                                    Tag="{Binding Content}"
+                                    Click="CopyButton_Click"/>
+                        </StackPanel>
+                        
+                        <!-- AI消息按钮区域 -->
+                        <StackPanel Grid.Row="1"
+                                   Orientation="Horizontal"
+                                   HorizontalAlignment="Right"
+                                   Margin="0,0,8,5">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <!-- 只有AI消息且有TTS配置时显示 -->
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsUser}" Value="False"/>
+                                                <Condition Binding="{Binding DataContext.HasActiveTtsConfiguration, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <!-- 复制按钮 -->
+                            <Button Content="📋"
+                                    Width="24"
+                                    Height="24"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    FontSize="12"
+                                    Cursor="Hand"
+                                    ToolTip="复制"
+                                    Tag="{Binding Content}"
+                                    Click="CopyButton_Click"/>
+                            <!-- TTS按钮 -->
+                            <Button Content="🔊"
+                                    Width="24"
+                                    Height="24"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    FontSize="12"
+                                    Margin="5,0,0,0"
+                                    Cursor="Hand"
+                                    ToolTip="朗读"
+                                    Tag="{Binding Content}"
+                                    Click="TtsButton_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>
     
@@ -280,9 +421,105 @@
                               Margin="10"
                               VerticalScrollBarVisibility="Auto"
                               Background="Transparent">
-                    <StackPanel x:Name="DialogMessagesPanel"
-                                Orientation="Vertical"
-                                Margin="5"/>
+                    <ItemsControl x:Name="DialogMessagesPanel"
+                                  Margin="5"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  VirtualizingPanel.IsContainerVirtualizable="True"
+                                  ScrollViewer.CanContentScroll="True">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel Orientation="Vertical"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <!-- Message with reasoning -->
+                                    <StackPanel x:Name="MessageContainer">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasReasoning}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        
+                                        <!-- Reasoning content container -->
+                                        <StackPanel Margin="10,5,50,5"
+                                                   HorizontalAlignment="Left"
+                                                   MaxWidth="350">
+                                            <!-- 思维过程展开器 -->
+                                            <Expander Header="💭 思维过程"
+                                                     IsExpanded="False"
+                                                     Margin="0,0,0,5">
+                                                <Expander.Style>
+                                                    <Style TargetType="Expander">
+                                                        <Setter Property="Foreground" Value="DarkGray"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                <Setter Property="Foreground" Value="LightGray"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Expander.Style>
+                                                <Border CornerRadius="12"
+                                                       Padding="8">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="#FFFDEB"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                    <Setter Property="Background" Value="#2D2D30"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding ReasoningContent}"
+                                                              TextWrapping="Wrap"
+                                                              FontSize="11"
+                                                              LineHeight="16">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="#65676B"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
+                                            </Expander>
+                                            <!-- 消息内容 -->
+                                            <ContentControl Content="{Binding}"
+                                                           ContentTemplate="{StaticResource MessageBubbleTemplate}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    
+                                    <!-- Message without reasoning -->
+                                    <ContentControl x:Name="SimpleMessage"
+                                                   Content="{Binding}"
+                                                   ContentTemplate="{StaticResource MessageBubbleTemplate}">
+                                        <ContentControl.Style>
+                                            <Style TargetType="ContentControl">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasReasoning}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ContentControl.Style>
+                                    </ContentControl>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </ScrollViewer>
                 
                 <!-- 输入区域 -->
