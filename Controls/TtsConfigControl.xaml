@@ -107,6 +107,7 @@
                                     </TextBlock>
                                     <ComboBox Grid.Row="0" Grid.Column="1"
                                               SelectedValue="{Binding ChannelType, Mode=TwoWay}"
+                                              SelectedValuePath="Tag"
                                               Margin="0,0,10,8"
                                               Padding="10,8"
                                               SelectionChanged="ChannelType_SelectionChanged">
@@ -273,7 +274,8 @@
                                                Text="API URL:"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
-                                               VerticalAlignment="Center">
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding RequiresApiUrl, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="#495057"/>
@@ -295,14 +297,16 @@
                                              MinHeight="60"
                                              MaxHeight="120"
                                              VerticalScrollBarVisibility="Auto"
-                                             MouseDoubleClick="TextBox_MouseDoubleClick"/>
+                                             MouseDoubleClick="TextBox_MouseDoubleClick"
+                                             Visibility="{Binding RequiresApiUrl, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                     
                                     <!-- API Key -->
                                     <TextBlock Grid.Row="3" Grid.Column="0"
-                                               Text="API Key:"
+                                               Text="{Binding ApiKeyLabel}"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
-                                               VerticalAlignment="Center">
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding RequiresApiKey, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="#495057"/>
@@ -324,14 +328,16 @@
                                              MinHeight="60"
                                              MaxHeight="120"
                                              VerticalScrollBarVisibility="Auto"
-                                             MouseDoubleClick="TextBox_MouseDoubleClick"/>
+                                             MouseDoubleClick="TextBox_MouseDoubleClick"
+                                             Visibility="{Binding RequiresApiKey, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                     
                                     <!-- Model -->
                                     <TextBlock Grid.Row="4" Grid.Column="0"
-                                               Text="模型:"
+                                               Text="{Binding ModelLabel}"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
-                                               VerticalAlignment="Center">
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding RequiresModel, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="#495057"/>
@@ -348,15 +354,17 @@
                                              Margin="0,0,10,8"
                                              Style="{StaticResource RoundedTextBoxStyle}"
                                              Padding="10,8"
-                                             ToolTip="例如: tts-1, tts-1-hd 或其他支持的模型"
-                                             MouseDoubleClick="TextBox_MouseDoubleClick"/>
+                                             ToolTip="{Binding ModelTooltip}"
+                                             MouseDoubleClick="TextBox_MouseDoubleClick"
+                                             Visibility="{Binding RequiresModel, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                     
                                     <!-- Voice -->
                                     <TextBlock Grid.Row="5" Grid.Column="0"
-                                               Text="语音:"
+                                               Text="{Binding VoiceLabel}"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
-                                               VerticalAlignment="Center">
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding RequiresVoice, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="#495057"/>
@@ -373,8 +381,9 @@
                                              Margin="0,0,10,8"
                                              Style="{StaticResource RoundedTextBoxStyle}"
                                              Padding="10,8"
-                                             ToolTip="例如: alloy, echo, fable, onyx, nova, shimmer 或其他支持的语音"
-                                             MouseDoubleClick="TextBox_MouseDoubleClick"/>
+                                             ToolTip="{Binding VoiceTooltip}"
+                                             MouseDoubleClick="TextBox_MouseDoubleClick"
+                                             Visibility="{Binding RequiresVoice, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                     
                                     <!-- Speed -->
                                     <TextBlock Grid.Row="6" Grid.Column="0"
@@ -401,10 +410,10 @@
                                         </Grid.ColumnDefinitions>
                                         <Slider x:Name="TtsEditSpeedSlider"
                                                 Grid.Column="0"
-                                                Minimum="0.25"
-                                                Maximum="4.0"
+                                                Minimum="{Binding MinSpeed}"
+                                                Maximum="{Binding MaxSpeed}"
                                                 Value="{Binding Speed, Mode=TwoWay}"
-                                                TickFrequency="0.25"
+                                                TickFrequency="0.1"
                                                 IsSnapToTickEnabled="True"
                                                 ValueChanged="TtsEditSpeedSlider_ValueChanged"/>
                                         <TextBlock Grid.Column="1"
@@ -549,7 +558,8 @@
                                     <!-- API URL -->
                                     <StackPanel Grid.Row="2" Grid.Column="0"
                                                 Orientation="Horizontal"
-                                                Margin="0,0,0,8">
+                                                Margin="0,0,0,8"
+                                                Visibility="{Binding RequiresApiUrl, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <TextBlock Text="API URL: "
                                                    FontWeight="Bold">
                                             <TextBlock.Style>

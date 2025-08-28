@@ -323,9 +323,11 @@
                             <TextBox.Style>
                                 <Style TargetType="TextBox">
                                     <Setter Property="Foreground" Value="Black"/>
+                                    <Setter Property="CaretBrush" Value="Black"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
                                             <Setter Property="Foreground" Value="White"/>
+                                            <Setter Property="CaretBrush" Value="White"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>

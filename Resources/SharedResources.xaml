@@ -36,6 +36,10 @@
     <local:BooleanToYesNoConverter x:Key="BooleanToYesNoConverter"/>
     <local:BooleanToColorConverter x:Key="BooleanToColorConverter"/>
     <local:ChannelTypeToNameConverter x:Key="ChannelTypeToNameConverter"/>
+    <local:TtsChannelTypeToNameConverter x:Key="TtsChannelTypeToNameConverter"/>
+    <local:ComboBoxItemToTtsChannelTypeConverter x:Key="ComboBoxItemToTtsChannelTypeConverter"/>
+    <local:ThemeToMessageBackgroundConverter x:Key="ThemeToMessageBackgroundConverter"/>
+    <local:ThemeToMessageForegroundConverter x:Key="ThemeToMessageForegroundConverter"/>
     
     <!-- 通用按钮样式 -->
     <Style x:Key="RoundedButtonStyle" TargetType="Button">
@@ -86,6 +90,7 @@
     
     <!-- 圆角文本框样式 -->
     <Style x:Key="RoundedTextBoxStyle" TargetType="TextBox">
+        <Setter Property="CaretBrush" Value="Black"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
@@ -104,6 +109,7 @@
                 <Setter Property="Background" Value="#2D2D30"/>
                 <Setter Property="Foreground" Value="White"/>
                 <Setter Property="BorderBrush" Value="#3F3F46"/>
+                <Setter Property="CaretBrush" Value="White"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>
@@ -192,6 +198,7 @@
         <Setter Property="Foreground" Value="Black"/>
         <Setter Property="BorderBrush" Value="#CED4DA"/>
         <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CaretBrush" Value="Black"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
@@ -212,6 +219,7 @@
                 <Setter Property="Background" Value="#2D2D30"/>
                 <Setter Property="Foreground" Value="White"/>
                 <Setter Property="BorderBrush" Value="#3F3F46"/>
+                <Setter Property="CaretBrush" Value="White"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>

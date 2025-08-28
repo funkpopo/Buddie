@@ -8,8 +8,9 @@ namespace Buddie.Services.Tts
     /// <summary>
     /// TTS服务基类，提供公共功能
     /// </summary>
-    public abstract class TtsServiceBase : ITtsService
+    public abstract class TtsServiceBase : ITtsService, IDisposable
     {
+        private bool _disposed = false;
         protected readonly HttpClient _httpClient;
 
         protected TtsServiceBase()
@@ -134,7 +135,20 @@ namespace Buddie.Services.Tts
 
         public virtual void Dispose()
         {
-            _httpClient?.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    _httpClient?.Dispose();
+                }
+                _disposed = true;
+            }
         }
     }
 }

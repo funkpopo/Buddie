@@ -534,6 +534,7 @@ namespace Buddie
             
             // 应用主题到子控件
             SettingsControl.ApplyTheme(isDarkTheme);
+            DialogControl.ApplyTheme(isDarkTheme);
         }
 
         private void ApplyDarkTheme()

@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 
 namespace Buddie.Services.Tts
@@ -5,7 +6,7 @@ namespace Buddie.Services.Tts
     /// <summary>
     /// TTS服务接口，定义统一的文本转语音功能
     /// </summary>
-    public interface ITtsService
+    public interface ITtsService : IDisposable
     {
         /// <summary>
         /// 将文本转换为音频数据

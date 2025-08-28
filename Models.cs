@@ -253,6 +253,18 @@ namespace Buddie
                 if (SetProperty(ref _channelType, value))
                 {
                     UpdateDefaultsForChannel();
+                    // 通知相关属性变更以更新UI
+                    OnPropertyChanged(nameof(RequiresApiUrl));
+                    OnPropertyChanged(nameof(RequiresApiKey));
+                    OnPropertyChanged(nameof(RequiresModel));
+                    OnPropertyChanged(nameof(RequiresVoice));
+                    OnPropertyChanged(nameof(ApiKeyLabel));
+                    OnPropertyChanged(nameof(ModelLabel));
+                    OnPropertyChanged(nameof(VoiceLabel));
+                    OnPropertyChanged(nameof(ModelTooltip));
+                    OnPropertyChanged(nameof(VoiceTooltip));
+                    OnPropertyChanged(nameof(MinSpeed));
+                    OnPropertyChanged(nameof(MaxSpeed));
                 }
             }
         }
@@ -303,6 +315,172 @@ namespace Buddie
         {
             get => _isActive;
             set => SetProperty(ref _isActive, value);
+        }
+
+        // 动态属性 - 根据渠道类型确定是否需要显示某些字段
+        public bool RequiresApiUrl
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    TtsChannelType.OpenAI => true,
+                    TtsChannelType.ElevenLabs => false, // ElevenLabs-DotNet包自动处理URL
+                    TtsChannelType.MiniMax => true,
+                    TtsChannelType.Azure => true,
+                    TtsChannelType.GeminiAPI => true,
+                    _ => true
+                };
+            }
+        }
+
+        public bool RequiresApiKey
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    TtsChannelType.OpenAI => true,
+                    TtsChannelType.ElevenLabs => true,
+                    TtsChannelType.MiniMax => true,
+                    TtsChannelType.Azure => true,
+                    TtsChannelType.GeminiAPI => true,
+                    _ => true
+                };
+            }
+        }
+
+        public bool RequiresModel
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    TtsChannelType.OpenAI => true,
+                    TtsChannelType.ElevenLabs => true,
+                    TtsChannelType.MiniMax => true,
+                    TtsChannelType.Azure => true,
+                    TtsChannelType.GeminiAPI => false, // Gemini API 通常不需要单独指定模型
+                    _ => true
+                };
+            }
+        }
+
+        public bool RequiresVoice
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    TtsChannelType.OpenAI => true,
+                    TtsChannelType.ElevenLabs => true,
+                    TtsChannelType.MiniMax => true,
+                    TtsChannelType.Azure => true,
+                    TtsChannelType.GeminiAPI => false, // Gemini API 通常不需要单独指定语音
+                    _ => true
+                };
+            }
+        }
+
+        // 动态标签文本
+        public string ApiKeyLabel
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    TtsChannelType.OpenAI => "API Key:",
+                    TtsChannelType.ElevenLabs => "xi-api-key:",
+                    TtsChannelType.MiniMax => "API Key:",
+                    TtsChannelType.Azure => "Subscription Key:",
+                    TtsChannelType.GeminiAPI => "API Key:",
+                    _ => "API Key:"
+                };
+            }
+        }
+
+        public string ModelLabel
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    TtsChannelType.OpenAI => "模型:",
+                    TtsChannelType.ElevenLabs => "模型:",
+                    TtsChannelType.MiniMax => "模型:",
+                    TtsChannelType.Azure => "语音类型:",
+                    TtsChannelType.GeminiAPI => "模型:",
+                    _ => "模型:"
+                };
+            }
+        }
+
+        public string VoiceLabel
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    TtsChannelType.OpenAI => "语音:",
+                    TtsChannelType.ElevenLabs => "Voice ID:",
+                    TtsChannelType.MiniMax => "语音:",
+                    TtsChannelType.Azure => "语音:",
+                    TtsChannelType.GeminiAPI => "语音:",
+                    _ => "语音:"
+                };
+            }
+        }
+
+        // 动态提示文本
+        public string ModelTooltip
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    TtsChannelType.OpenAI => "例如: tts-1, tts-1-hd",
+                    TtsChannelType.ElevenLabs => "例如: eleven_multilingual_v2, eleven_turbo_v2_5, eleven_flash_v2_5",
+                    TtsChannelType.MiniMax => "例如: speech-01, speech-01-240228",
+                    TtsChannelType.Azure => "例如: neural, standard",
+                    TtsChannelType.GeminiAPI => "例如: gemini-pro",
+                    _ => "请输入支持的模型名称"
+                };
+            }
+        }
+
+        public string VoiceTooltip
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    TtsChannelType.OpenAI => "例如: alloy, echo, fable, onyx, nova, shimmer",
+                    TtsChannelType.ElevenLabs => "例如: JBFqnCBsd6RMkjVDRZzb (20位字符的Voice ID)",
+                    TtsChannelType.MiniMax => "例如: male-qn-qingse, female-shaonv, presenter_male",
+                    TtsChannelType.Azure => "例如: zh-CN-XiaoxiaoNeural, en-US-JennyNeural",
+                    TtsChannelType.GeminiAPI => "例如: default",
+                    _ => "请输入支持的语音名称"
+                };
+            }
+        }
+
+        // 动态语速范围
+        public double MinSpeed
+        {
+            get
+            {
+                var preset = TtsPresetChannels.GetPresetChannel(ChannelType);
+                return preset.MinSpeed;
+            }
+        }
+
+        public double MaxSpeed
+        {
+            get
+            {
+                var preset = TtsPresetChannels.GetPresetChannel(ChannelType);
+                return preset.MaxSpeed;
+            }
         }
 
         private void UpdateDefaultsForChannel()
@@ -786,8 +964,8 @@ namespace Buddie
                     SupportedModels = new[] { "tts-1", "tts-1-hd" },
                     SupportedVoices = new[] { "alloy", "echo", "fable", "onyx", "nova", "shimmer" },
                     DefaultSpeed = 1.0,
-                    MinSpeed = 0.25,
-                    MaxSpeed = 4.0,
+                    MinSpeed = 0.5,
+                    MaxSpeed = 1.2,
                     AuthHeaderFormat = "Bearer {0}",
                     RequestFormat = "openai",
                     SupportsStreaming = false
@@ -796,12 +974,23 @@ namespace Buddie
                 {
                     Name = "ElevenLabs",
                     ChannelType = TtsChannelType.ElevenLabs,
-                    DefaultApiUrl = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-                    SupportedModels = new[] { "eleven_monolingual_v1", "eleven_multilingual_v1", "eleven_multilingual_v2" },
-                    SupportedVoices = new[] { "21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "ErXwobaYiN019PkySvjV", "MF3mGyEYCl7XYWbV9V6O", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG", "pNInz6obpgDQGcFmaJgB", "yoZ06aMxZJJ28mfd3POQ" },
+                    DefaultApiUrl = "", // ElevenLabs-DotNet包自动处理API URL
+                    SupportedModels = new[] { "eleven_multilingual_v2", "eleven_turbo_v2_5", "eleven_flash_v2_5", "eleven_monolingual_v1", "eleven_multilingual_v1", "eleven_turbo_v2", "eleven_multilingual_v2_turbo" },
+                    SupportedVoices = new[] { 
+                        "JBFqnCBsd6RMkjVDRZzb", // George (Male, British)
+                        "21m00Tcm4TlvDq8ikWAM", // Rachel (Female, American)
+                        "AZnzlk1XvdvUeBnXmlld", // Domi (Female, American)
+                        "EXAVITQu4vr4xnSDxMaL", // Bella (Female, American)
+                        "ErXwobaYiN019PkySvjV", // Antoni (Male, American)
+                        "MF3mGyEYCl7XYWbV9V6O", // Elli (Female, American)
+                        "TxGEqnHWrfWFTfGW9XjX", // Josh (Male, American)
+                        "VR6AewLTigWG4xSOukaG", // Arnold (Male, American)
+                        "pNInz6obpgDQGcFmaJgB", // Adam (Male, American)
+                        "yoZ06aMxZJJ28mfd3POQ"  // Sam (Male, American)
+                    },
                     DefaultSpeed = 1.0,
-                    MinSpeed = 0.25,
-                    MaxSpeed = 2.0,
+                    MinSpeed = 0.5,
+                    MaxSpeed = 1.2,
                     AuthHeaderFormat = "xi-api-key",
                     RequestFormat = "elevenlabs",
                     SupportsStreaming = true
@@ -815,7 +1004,7 @@ namespace Buddie
                     SupportedVoices = new[] { "male-qn-qingse", "male-qn-jingying", "male-qn-badao", "male-qn-daxuesheng", "female-shaonv", "female-yujie", "female-chengshu", "female-tianmei", "presenter_male", "presenter_female", "audiobook_male_1", "audiobook_male_2", "audiobook_female_1", "audiobook_female_2" },
                     DefaultSpeed = 1.0,
                     MinSpeed = 0.5,
-                    MaxSpeed = 2.0,
+                    MaxSpeed = 1.2,
                     AuthHeaderFormat = "Bearer {0}",
                     RequestFormat = "minimax",
                     SupportsStreaming = false
@@ -829,7 +1018,7 @@ namespace Buddie
                     SupportedVoices = new[] { "zh-CN-XiaoxiaoNeural", "zh-CN-YunxiNeural", "zh-CN-YunjianNeural", "zh-CN-XiaoyiNeural", "zh-CN-YunyangNeural", "zh-CN-XiaochenNeural", "zh-CN-XiaohanNeural", "zh-CN-XiaomengNeural", "zh-CN-XiaomoNeural", "zh-CN-XiaoqiuNeural", "zh-CN-XiaoruiNeural", "zh-CN-XiaoshuangNeural", "zh-CN-XiaoxuanNeural", "zh-CN-XiaoyanNeural", "zh-CN-XiaoyouNeural", "en-US-JennyNeural", "en-US-GuyNeural", "en-US-AriaNeural", "en-US-DavisNeural", "en-US-AmberNeural", "en-US-AnaNeural", "en-US-AshleyNeural", "en-US-BrandonNeural", "en-US-ChristopherNeural", "en-US-CoraNeural", "en-US-ElizabethNeural", "en-US-EricNeural", "en-US-JacobNeural", "en-US-JaneNeural", "en-US-JasonNeural", "en-US-MichelleNeural", "en-US-MonicaNeural", "en-US-NancyNeural", "en-US-RogerNeural", "en-US-SaraNeural", "en-US-SteffanNeural", "en-US-TonyNeural" },
                     DefaultSpeed = 1.0,
                     MinSpeed = 0.5,
-                    MaxSpeed = 2.0,
+                    MaxSpeed = 1.2,
                     AuthHeaderFormat = "Ocp-Apim-Subscription-Key",
                     RequestFormat = "azure",
                     SupportsStreaming = false
@@ -843,7 +1032,7 @@ namespace Buddie
                     SupportedVoices = new[] { "default" },
                     DefaultSpeed = 1.0,
                     MinSpeed = 0.5,
-                    MaxSpeed = 2.0,
+                    MaxSpeed = 1.2,
                     AuthHeaderFormat = "Bearer {0}",
                     RequestFormat = "gemini",
                     SupportsStreaming = false

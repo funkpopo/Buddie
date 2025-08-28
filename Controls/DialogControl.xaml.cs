@@ -18,6 +18,7 @@ using NAudio.MediaFoundation;
 using Markdig;
 using System.Windows.Documents;
 using Buddie.Database;
+using Buddie.Services.Tts;
 using System.Runtime.InteropServices;
 
 namespace Buddie.Controls
@@ -210,40 +211,8 @@ namespace Buddie.Controls
                 };
             }
 
-            // 创建气泡样式
-            var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
-            
-            // 设置内容颜色
-            if (isDarkTheme)
-            {
-                if (contentElement is TextBlock textBlock)
-                {
-                    textBlock.Foreground = Brushes.White;
-                    textBlock.Background = isUser ? 
-                        new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
-                        new SolidColorBrush(Color.FromRgb(58, 58, 60));
-                }
-                else if (contentElement is RichTextBox richTextBox)
-                {
-                    richTextBox.Foreground = Brushes.White;
-                    richTextBox.Background = new SolidColorBrush(Color.FromRgb(58, 58, 60));
-                }
-            }
-            else
-            {
-                if (contentElement is TextBlock textBlock)
-                {
-                    textBlock.Foreground = isUser ? Brushes.White : Brushes.Black;
-                    textBlock.Background = isUser ? 
-                        new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
-                        new SolidColorBrush(Color.FromRgb(240, 240, 240));
-                }
-                else if (contentElement is RichTextBox richTextBox)
-                {
-                    richTextBox.Foreground = Brushes.Black;
-                    richTextBox.Background = new SolidColorBrush(Color.FromRgb(240, 240, 240));
-                }
-            }
+            // 应用当前主题样式
+            ApplyMessageBubbleTheme(contentElement, isUser);
 
             // 检查是否有TTS配置和是否为AI回复
             var hasButtons = false;
@@ -576,7 +545,8 @@ namespace Buddie.Controls
 
         public void AddMessageBubbleWithReasoning(string? content, string? reasoningContent = null)
         {
-            var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
+            var settings = DataContext as AppSettings;
+            var isDarkTheme = settings?.IsDarkTheme ?? false;
             
             var messageContainer = new StackPanel
             {
@@ -662,6 +632,9 @@ namespace Buddie.Controls
             {
                 ApplyLightTheme();
             }
+            
+            // 刷新所有现有的消息气泡
+            RefreshExistingMessageBubbles(isDarkTheme);
         }
 
         private void ApplyDarkTheme()
@@ -800,6 +773,234 @@ namespace Buddie.Controls
                         }
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// 应用主题样式到消息气泡内容元素
+        /// </summary>
+        private void ApplyMessageBubbleTheme(FrameworkElement contentElement, bool isUser)
+        {
+            var settings = DataContext as AppSettings;
+            var isDarkTheme = settings?.IsDarkTheme ?? false;
+            
+            // 设置内容颜色
+            if (isDarkTheme)
+            {
+                if (contentElement is TextBlock textBlock)
+                {
+                    textBlock.Foreground = Brushes.White;
+                    textBlock.Background = isUser ? 
+                        new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
+                        new SolidColorBrush(Color.FromRgb(58, 58, 60));
+                }
+                else if (contentElement is RichTextBox richTextBox)
+                {
+                    richTextBox.Foreground = Brushes.White;
+                    richTextBox.Background = new SolidColorBrush(Color.FromRgb(58, 58, 60));
+                }
+            }
+            else
+            {
+                if (contentElement is TextBlock textBlock)
+                {
+                    textBlock.Foreground = isUser ? Brushes.White : Brushes.Black;
+                    textBlock.Background = isUser ? 
+                        new SolidColorBrush(Color.FromRgb(0, 132, 255)) : 
+                        new SolidColorBrush(Color.FromRgb(240, 240, 240));
+                }
+                else if (contentElement is RichTextBox richTextBox)
+                {
+                    richTextBox.Foreground = Brushes.Black;
+                    richTextBox.Background = new SolidColorBrush(Color.FromRgb(240, 240, 240));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 刷新所有现有消息气泡的主题
+        /// </summary>
+        private void RefreshExistingMessageBubbles(bool isDarkTheme)
+        {
+            foreach (UIElement child in DialogMessagesPanel.Children)
+            {
+                UpdateElementTheme(child, isDarkTheme);
+            }
+        }
+
+        /// <summary>
+        /// 递归更新UI元素及其子元素的主题
+        /// </summary>
+        private void UpdateElementTheme(DependencyObject element, bool isDarkTheme)
+        {
+            if (element == null) return;
+
+            // 更新Border（消息气泡容器）
+            if (element is Border border)
+            {
+                UpdateBorderTheme(border, isDarkTheme);
+            }
+            // 更新TextBlock（消息文本）
+            else if (element is TextBlock textBlock)
+            {
+                UpdateTextBlockTheme(textBlock, isDarkTheme);
+            }
+            // 更新RichTextBox（Markdown内容）
+            else if (element is RichTextBox richTextBox)
+            {
+                UpdateRichTextBoxTheme(richTextBox, isDarkTheme);
+            }
+            // 更新StackPanel（包含思维过程的消息容器）
+            else if (element is StackPanel stackPanel)
+            {
+                UpdateStackPanelTheme(stackPanel, isDarkTheme);
+            }
+            // 更新Expander（思维过程展开器）
+            else if (element is Expander expander)
+            {
+                UpdateExpanderTheme(expander, isDarkTheme);
+            }
+
+            // 递归更新子元素
+            int childrenCount = VisualTreeHelper.GetChildrenCount(element);
+            for (int i = 0; i < childrenCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(element, i);
+                UpdateElementTheme(child, isDarkTheme);
+            }
+        }
+
+        private void UpdateBorderTheme(Border border, bool isDarkTheme)
+        {
+            // 检查是否是消息气泡的Border
+            if (border.Background is SolidColorBrush backgroundBrush)
+            {
+                var color = backgroundBrush.Color;
+                
+                if (isDarkTheme)
+                {
+                    // 用户消息（蓝色系）
+                    if (color == Color.FromRgb(0, 132, 255) || 
+                        color == Color.FromRgb(0, 122, 204))
+                    {
+                        border.Background = new SolidColorBrush(Color.FromRgb(0, 132, 255));
+                    }
+                    // AI消息（灰色系）
+                    else if (color == Color.FromRgb(240, 240, 240) || 
+                             color == Color.FromRgb(245, 245, 245))
+                    {
+                        border.Background = new SolidColorBrush(Color.FromRgb(58, 58, 60));
+                    }
+                    // 思维过程背景
+                    else if (color == Color.FromRgb(255, 253, 235))
+                    {
+                        border.Background = new SolidColorBrush(Color.FromRgb(45, 45, 48));
+                    }
+                }
+                else
+                {
+                    // 用户消息（蓝色系）
+                    if (color == Color.FromRgb(0, 132, 255))
+                    {
+                        border.Background = new SolidColorBrush(Color.FromRgb(0, 132, 255));
+                    }
+                    // AI消息（灰色系）
+                    else if (color == Color.FromRgb(58, 58, 60))
+                    {
+                        border.Background = new SolidColorBrush(Color.FromRgb(240, 240, 240));
+                    }
+                    // 思维过程背景
+                    else if (color == Color.FromRgb(45, 45, 48))
+                    {
+                        border.Background = new SolidColorBrush(Color.FromRgb(255, 253, 235));
+                    }
+                }
+            }
+        }
+
+        private void UpdateTextBlockTheme(TextBlock textBlock, bool isDarkTheme)
+        {
+            if (isDarkTheme)
+            {
+                // 根据背景色判断是用户消息还是AI消息
+                var parent = VisualTreeHelper.GetParent(textBlock);
+                while (parent != null && !(parent is Border))
+                {
+                    parent = VisualTreeHelper.GetParent(parent);
+                }
+                
+                if (parent is Border parentBorder && parentBorder.Background is SolidColorBrush brush)
+                {
+                    var color = brush.Color;
+                    if (color == Color.FromRgb(0, 132, 255)) // 用户消息
+                    {
+                        textBlock.Foreground = Brushes.White;
+                    }
+                    else // AI消息或其他
+                    {
+                        textBlock.Foreground = Brushes.White;
+                    }
+                }
+                else
+                {
+                    textBlock.Foreground = Brushes.White;
+                }
+            }
+            else
+            {
+                // 根据背景色判断是用户消息还是AI消息
+                var parent = VisualTreeHelper.GetParent(textBlock);
+                while (parent != null && !(parent is Border))
+                {
+                    parent = VisualTreeHelper.GetParent(parent);
+                }
+                
+                if (parent is Border parentBorder && parentBorder.Background is SolidColorBrush brush)
+                {
+                    var color = brush.Color;
+                    if (color == Color.FromRgb(0, 132, 255)) // 用户消息
+                    {
+                        textBlock.Foreground = Brushes.White;
+                    }
+                    else // AI消息
+                    {
+                        textBlock.Foreground = Brushes.Black;
+                    }
+                }
+                else
+                {
+                    textBlock.Foreground = Brushes.Black;
+                }
+            }
+        }
+
+        private void UpdateRichTextBoxTheme(RichTextBox richTextBox, bool isDarkTheme)
+        {
+            if (isDarkTheme)
+            {
+                richTextBox.Foreground = Brushes.White;
+            }
+            else
+            {
+                richTextBox.Foreground = Brushes.Black;
+            }
+        }
+
+        private void UpdateStackPanelTheme(StackPanel stackPanel, bool isDarkTheme)
+        {
+            // StackPanel本身通常不需要更新，但我们需要更新其子元素
+            // 子元素会在递归调用中处理
+        }
+
+        private void UpdateExpanderTheme(Expander expander, bool isDarkTheme)
+        {
+            if (isDarkTheme)
+            {
+                expander.Foreground = Brushes.LightGray;
+            }
+            else
+            {
+                expander.Foreground = Brushes.DarkGray;
             }
         }
 
@@ -1170,7 +1371,8 @@ namespace Buddie.Controls
             if (currentStreamingContainer == null || currentReasoningExpander != null)
                 return;
                 
-            var isDarkTheme = (DialogInterface.Background as SolidColorBrush)?.Color == Color.FromRgb(30, 30, 30);
+            var settings = DataContext as AppSettings;
+            var isDarkTheme = settings?.IsDarkTheme ?? false;
             
             // 创建思维过程展开器（初始展开状态）
             currentReasoningExpander = new Expander
@@ -1378,12 +1580,13 @@ namespace Buddie.Controls
 
         private async Task CallTtsApi(string text, TtsConfiguration ttsConfig)
         {
-            System.Diagnostics.Debug.WriteLine($"TTS API: 开始调用，文本长度: {text.Length}, API URL: {ttsConfig.ApiUrl}");
+            System.Diagnostics.Debug.WriteLine($"TTS API: 开始调用，文本长度: {text.Length}, 渠道: {ttsConfig.ChannelType}");
             
             // 生成文本和配置的哈希值作为缓存键
-            var textHash = GenerateHash($"{text}_{ttsConfig.Model}_{ttsConfig.Voice}_{ttsConfig.Speed}");
+            var textHash = GenerateHash($"{text}_{ttsConfig.Model}_{ttsConfig.Voice}_{ttsConfig.Speed}_{ttsConfig.ChannelType}");
             var ttsConfigJson = JsonSerializer.Serialize(new 
             { 
+                channelType = ttsConfig.ChannelType.ToString(),
                 model = ttsConfig.Model, 
                 voice = ttsConfig.Voice, 
                 speed = ttsConfig.Speed 
@@ -1399,51 +1602,44 @@ namespace Buddie.Controls
                 return;
             }
 
-            System.Diagnostics.Debug.WriteLine("TTS API: 未找到缓存，调用API生成新音频");
+            System.Diagnostics.Debug.WriteLine("TTS API: 未找到缓存，使用TTS服务生成新音频");
             
-            // 如果没有缓存，调用API生成新的音频
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromMinutes(2);
-            
-            if (!string.IsNullOrEmpty(ttsConfig.ApiKey))
+            try
             {
-                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {ttsConfig.ApiKey}");
-                System.Diagnostics.Debug.WriteLine("TTS API: 已添加API Key到请求头");
-            }
-
-            var requestBody = new
-            {
-                model = ttsConfig.Model,
-                input = text,
-                voice = ttsConfig.Voice,
-                speed = ttsConfig.Speed,
-                response_format = "wav"  // 改回WAV格式，更可靠
-            };
-
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            System.Diagnostics.Debug.WriteLine($"TTS API: 发送请求到 {ttsConfig.ApiUrl}");
-            var response = await httpClient.PostAsync(ttsConfig.ApiUrl, content);
-            
-            if (response.IsSuccessStatusCode)
-            {
-                var audioBytes = await response.Content.ReadAsByteArrayAsync();
-                System.Diagnostics.Debug.WriteLine($"TTS API: 收到音频数据，大小: {audioBytes.Length} bytes");
+                // 使用TTS服务工厂创建相应的服务
+                using var ttsService = TtsServiceFactory.CreateService(ttsConfig.ChannelType);
                 
-                // 保存到数据库缓存
-                await databaseService.SaveTtsAudioAsync(textHash, audioBytes, ttsConfigJson);
-                System.Diagnostics.Debug.WriteLine("TTS API: 音频已保存到缓存");
+                // 创建TTS请求
+                var ttsRequest = new TtsRequest
+                {
+                    Text = text,
+                    Configuration = ttsConfig
+                };
+
+                // 调用TTS服务
+                var ttsResponse = await ttsService.ConvertTextToSpeechAsync(ttsRequest);
                 
-                // 播放音频
-                await PlayAudioFromBytes(audioBytes);
-                System.Diagnostics.Debug.WriteLine("TTS API: 音频播放完成");
+                if (ttsResponse.IsSuccess)
+                {
+                    System.Diagnostics.Debug.WriteLine($"TTS API: 收到音频数据，大小: {ttsResponse.AudioData.Length} bytes");
+                    
+                    // 保存到数据库缓存
+                    await databaseService.SaveTtsAudioAsync(textHash, ttsResponse.AudioData, ttsConfigJson);
+                    System.Diagnostics.Debug.WriteLine("TTS API: 音频已保存到缓存");
+                    
+                    // 播放音频
+                    await PlayAudioFromBytes(ttsResponse.AudioData);
+                    System.Diagnostics.Debug.WriteLine("TTS API: 音频播放完成");
+                }
+                else
+                {
+                    throw new Exception($"TTS服务失败: {ttsResponse.ErrorMessage}");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                System.Diagnostics.Debug.WriteLine($"TTS API: 请求失败，状态码: {response.StatusCode}, 错误内容: {errorContent}");
-                throw new Exception($"TTS API请求失败: {response.StatusCode} - {errorContent}");
+                System.Diagnostics.Debug.WriteLine($"TTS API: 请求失败 - {ex.Message}");
+                throw new Exception($"TTS调用失败: {ex.Message}");
             }
         }
 

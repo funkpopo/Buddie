@@ -1,111 +1,284 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using ElevenLabs;
+using ElevenLabs.TextToSpeech;
+using ElevenLabs.Voices;
 
 namespace Buddie.Services.Tts
 {
     /// <summary>
-    /// ElevenLabs TTS服务实现
+    /// ElevenLabs TTS服务实现 - 使用ElevenLabs-DotNet包
     /// </summary>
     public class ElevenLabsTtsService : TtsServiceBase
     {
+        private ElevenLabsClient? _elevenLabsClient;
+        private string? _currentApiKey;
+
         public override TtsChannelType SupportedChannelType => TtsChannelType.ElevenLabs;
 
         protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request)
         {
             var config = request.Configuration;
             
-            // 设置请求头
-            SetupHttpHeaders(config);
-
-            // 构建API URL，替换voice_id占位符
-            var apiUrl = config.ApiUrl.Replace("{voice_id}", config.Voice);
-            Debug.WriteLine($"ElevenLabs API URL: {apiUrl}");
-
-            // 构建请求体
-            var requestBody = new
+            if (string.IsNullOrEmpty(config.ApiKey))
             {
-                text = request.Text,  // 确保text字段不为空
-                model_id = !string.IsNullOrEmpty(config.Model) ? config.Model : "eleven_turbo_v2_5",
-                voice_settings = new
-                {
-                    stability = 0.5,
-                    similarity_boost = 0.5,
-                    style = 0.0,
-                    use_speaker_boost = true
-                }
-            };
-
-            var json = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-            
-            Debug.WriteLine($"ElevenLabs 请求体: {json}");
-
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+                throw new TtsException(SupportedChannelType, "ElevenLabs API Key 不能为空");
+            }
 
             try
             {
-                var response = await _httpClient.PostAsync(apiUrl, content);
-                var result = await ProcessHttpResponseAsync(response);
+                Debug.WriteLine($"ElevenLabs TTS 请求 - Voice: {config.Voice}, Model: {config.Model}, Speed: {config.Speed}");
+                Debug.WriteLine($"Text: {request.Text}");
 
-                if (!result.IsSuccess)
+                // 确定要使用的模型
+                var modelToUse = !string.IsNullOrEmpty(config.Model) ? config.Model : "eleven_multilingual_v2";
+                
+                // 构建API URL
+                var apiUrl = $"https://api.elevenlabs.io/v1/text-to-speech/{config.Voice}?output_format=mp3_44100_128";
+                Debug.WriteLine($"API URL: {apiUrl}");
+
+                // 创建请求体，包含完整的voice_settings，使用用户配置的语速
+                var voiceSpeed = config.Speed > 0 ? config.Speed : 1.0;
+                Debug.WriteLine($"使用语速设置: {voiceSpeed}");
+                
+                var requestBody = new
                 {
-                    throw new TtsException(SupportedChannelType, 
-                        $"ElevenLabs API请求失败: {result.ErrorMessage}", 
-                        result.ErrorDetails ?? "");
-                }
+                    text = request.Text,
+                    model_id = modelToUse,
+                    voice_settings = new
+                    {
+                        stability = 0.5,
+                        speed = voiceSpeed,
+                        similarity_boost = 0.75
+                    }
+                };
 
-                return result;
+                var jsonContent = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions 
+                { 
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+                });
+
+                Debug.WriteLine($"请求体: {jsonContent}");
+
+                // 发送HTTP请求
+                using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+                
+                var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+                var response = await httpClient.PostAsync(apiUrl, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var audioData = await response.Content.ReadAsByteArrayAsync();
+                    Debug.WriteLine($"ElevenLabs TTS 响应成功，音频大小: {audioData.Length} bytes");
+
+                    return new TtsResponse
+                    {
+                        IsSuccess = true,
+                        AudioData = audioData,
+                        ContentType = response.Content.Headers.ContentType?.MediaType ?? "audio/mpeg",
+                        ErrorMessage = null,
+                        ErrorDetails = null
+                    };
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine($"ElevenLabs API 错误: {response.StatusCode} - {errorContent}");
+                    throw new TtsException(SupportedChannelType, 
+                        $"ElevenLabs API请求失败: {response.StatusCode}", errorContent);
+                }
             }
             catch (HttpRequestException ex)
             {
+                Debug.WriteLine($"ElevenLabs HTTP 请求失败: {ex.Message}");
                 throw new TtsException(SupportedChannelType, 
                     $"ElevenLabs网络请求失败: {ex.Message}", ex);
             }
-            catch (TaskCanceledException ex)
+            catch (Exception ex)
             {
+                Debug.WriteLine($"ElevenLabs TTS 请求失败: {ex.Message}");
                 throw new TtsException(SupportedChannelType, 
-                    "ElevenLabs请求超时", ex);
+                    $"ElevenLabs API请求失败: {ex.Message}", ex);
+            }
+        }
+
+        private void InitializeClient(TtsConfiguration config)
+        {
+            if (_elevenLabsClient == null || _currentApiKey != config.ApiKey)
+            {
+                if (string.IsNullOrEmpty(config.ApiKey))
+                {
+                    throw new TtsException(SupportedChannelType, "ElevenLabs API Key 不能为空");
+                }
+
+                // 释放旧客户端
+                _elevenLabsClient?.Dispose();
+
+                var auth = new ElevenLabsAuthentication(config.ApiKey);
+                _elevenLabsClient = new ElevenLabsClient(auth);
+                _currentApiKey = config.ApiKey;
+                
+                Debug.WriteLine("ElevenLabs 客户端初始化成功");
+                
+                // 异步获取并记录默认语音设置（不阻塞主流程）
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await GetVoiceDefaultSettingsInfoAsync(config);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"获取语音默认设置信息失败: {ex.Message}");
+                    }
+                });
             }
         }
 
         protected override void SetupHttpHeaders(TtsConfiguration config)
         {
-            base.SetupHttpHeaders(config);
-            
-            if (!string.IsNullOrEmpty(config.ApiKey))
-            {
-                _httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
-            }
-            
-            _httpClient.DefaultRequestHeaders.Add("Accept", "audio/mpeg");
+            // ElevenLabs-DotNet包会自动处理请求头设置
+            // 这里不需要手动设置
         }
 
         public override TtsValidationResult ValidateConfiguration(TtsConfiguration configuration)
         {
-            var result = base.ValidateConfiguration(configuration);
+            var result = new TtsValidationResult { IsValid = true };
 
-            if (result.IsValid)
+            // 基本验证
+            if (string.IsNullOrWhiteSpace(configuration.Name))
             {
-                // ElevenLabs特定验证
-                if (!configuration.ApiUrl.Contains("{voice_id}"))
-                {
-                    result.AddWarning("API URL应包含{voice_id}占位符");
-                }
+                result.AddError("配置名称不能为空");
+            }
 
-                // 验证语音ID格式（ElevenLabs使用特定格式的ID）
-                if (configuration.Voice.Length != 20)
+            if (string.IsNullOrWhiteSpace(configuration.ApiKey))
+            {
+                result.AddError("xi-api-key 不能为空");
+            }
+
+            if (string.IsNullOrWhiteSpace(configuration.Voice))
+            {
+                result.AddError("Voice ID 不能为空");
+            }
+            else if (configuration.Voice.Length != 20)
+            {
+                result.AddWarning("ElevenLabs Voice ID 通常为20位字符");
+            }
+
+            // 模型验证
+            if (!string.IsNullOrWhiteSpace(configuration.Model))
+            {
+                var supportedModels = new[] { 
+                    "eleven_multilingual_v2", "eleven_turbo_v2_5", "eleven_flash_v2_5", 
+                    "eleven_monolingual_v1", "eleven_multilingual_v1", "eleven_turbo_v2", 
+                    "eleven_multilingual_v2_turbo" 
+                };
+                
+                if (!supportedModels.Contains(configuration.Model))
                 {
-                    result.AddWarning("ElevenLabs语音ID通常为20字符长度");
+                    result.AddWarning($"模型 '{configuration.Model}' 可能不受支持");
                 }
             }
 
+            // 语速验证
+            if (configuration.Speed < 0.5 || configuration.Speed > 1.2)
+            {
+                result.AddWarning($"语速应在 0.5 到 1.2 之间，当前值: {configuration.Speed}");
+            }
+
             return result;
+        }
+
+        /// <summary>
+        /// 获取可用的语音列表
+        /// </summary>
+        public async Task<string[]> GetAvailableVoiceIdsAsync(TtsConfiguration config)
+        {
+            try
+            {
+                using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+                
+                var response = await httpClient.GetAsync("https://api.elevenlabs.io/v1/voices");
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonContent = await response.Content.ReadAsStringAsync();
+                    var voicesData = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+                    
+                    var voiceIds = new List<string>();
+                    if (voicesData.TryGetProperty("voices", out var voicesArray))
+                    {
+                        foreach (var voice in voicesArray.EnumerateArray())
+                        {
+                            if (voice.TryGetProperty("voice_id", out var voiceId))
+                            {
+                                voiceIds.Add(voiceId.GetString() ?? "");
+                            }
+                        }
+                    }
+                    
+                    Debug.WriteLine($"获取到 {voiceIds.Count} 个语音");
+                    return voiceIds.ToArray();
+                }
+                else
+                {
+                    Debug.WriteLine($"获取语音列表失败: {response.StatusCode}");
+                    return Array.Empty<string>();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取ElevenLabs语音列表失败: {ex.Message}");
+                throw new TtsException(SupportedChannelType, 
+                    $"获取语音列表失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 获取语音的默认设置（仅用于信息展示）
+        /// </summary>
+        public async Task<string> GetVoiceDefaultSettingsInfoAsync(TtsConfiguration config)
+        {
+            try
+            {
+                using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+                
+                var response = await httpClient.GetAsync($"https://api.elevenlabs.io/v1/voices/settings/default");
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonContent = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine($"ElevenLabs 默认语音设置: {jsonContent}");
+                    return jsonContent;
+                }
+                else
+                {
+                    Debug.WriteLine($"获取默认语音设置失败: {response.StatusCode}");
+                    return string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取默认语音设置异常: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        public override void Dispose()
+        {
+            _elevenLabsClient?.Dispose();
+            _elevenLabsClient = null;
+            _currentApiKey = null;
+            base.Dispose();
         }
     }
 }

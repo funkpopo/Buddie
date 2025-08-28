@@ -256,8 +256,8 @@ namespace Buddie.Database
                 // Insert new configuration
                 config.CreatedAt = DateTime.UtcNow;
                 command.CommandText = @"
-                    INSERT INTO TtsConfigurations (Name, ApiUrl, ApiKey, Model, Voice, Speed, IsStreamingEnabled, IsActive, CreatedAt, UpdatedAt)
-                    VALUES (@Name, @ApiUrl, @ApiKey, @Model, @Voice, @Speed, @IsStreamingEnabled, @IsActive, @CreatedAt, @UpdatedAt);
+                    INSERT INTO TtsConfigurations (Name, ApiUrl, ApiKey, Model, Voice, Speed, IsStreamingEnabled, IsActive, ChannelType, CreatedAt, UpdatedAt)
+                    VALUES (@Name, @ApiUrl, @ApiKey, @Model, @Voice, @Speed, @IsStreamingEnabled, @IsActive, @ChannelType, @CreatedAt, @UpdatedAt);
                     SELECT last_insert_rowid();";
             }
             else
@@ -266,7 +266,7 @@ namespace Buddie.Database
                 command.CommandText = @"
                     UPDATE TtsConfigurations 
                     SET Name = @Name, ApiUrl = @ApiUrl, ApiKey = @ApiKey, Model = @Model,
-                        Voice = @Voice, Speed = @Speed, IsStreamingEnabled = @IsStreamingEnabled, IsActive = @IsActive, UpdatedAt = @UpdatedAt
+                        Voice = @Voice, Speed = @Speed, IsStreamingEnabled = @IsStreamingEnabled, IsActive = @IsActive, ChannelType = @ChannelType, UpdatedAt = @UpdatedAt
                     WHERE Id = @Id;
                     SELECT @Id;";
                 command.Parameters.AddWithValue("@Id", config.Id);
@@ -280,6 +280,7 @@ namespace Buddie.Database
             command.Parameters.AddWithValue("@Speed", config.Speed);
             command.Parameters.AddWithValue("@IsStreamingEnabled", config.IsStreamingEnabled);
             command.Parameters.AddWithValue("@IsActive", config.IsActive);
+            command.Parameters.AddWithValue("@ChannelType", config.ChannelType ?? 0); // Default to OpenAI if null
             command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt == default ? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") : config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
             command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt == default ? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") : config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
 

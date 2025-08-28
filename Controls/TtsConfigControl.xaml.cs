@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -72,17 +73,36 @@ namespace Buddie.Controls
             var button = sender as Button;
             if (button?.DataContext is TtsConfiguration config)
             {
-                // 验证必填字段
-                if (string.IsNullOrWhiteSpace(config.Name) || 
-                    string.IsNullOrWhiteSpace(config.ApiUrl) || 
-                    string.IsNullOrWhiteSpace(config.Model) ||
-                    string.IsNullOrWhiteSpace(config.Voice))
+                // 动态验证必填字段
+                var missingFields = new List<string>();
+
+                if (string.IsNullOrWhiteSpace(config.Name))
+                    missingFields.Add("配置名称");
+
+                if (config.RequiresApiUrl && string.IsNullOrWhiteSpace(config.ApiUrl))
+                    missingFields.Add("API URL");
+
+                if (config.RequiresApiKey && string.IsNullOrWhiteSpace(config.ApiKey))
+                    missingFields.Add(config.ApiKeyLabel.TrimEnd(':'));
+
+                if (config.RequiresModel && string.IsNullOrWhiteSpace(config.Model))
+                    missingFields.Add(config.ModelLabel.TrimEnd(':'));
+
+                if (config.RequiresVoice && string.IsNullOrWhiteSpace(config.Voice))
+                    missingFields.Add(config.VoiceLabel.TrimEnd(':'));
+
+                if (missingFields.Count > 0)
                 {
-                    MessageBox.Show(
-                        "请填写完整的配置信息（配置名称、API URL、模型、语音为必填项）", 
-                        "验证错误", 
-                        MessageBoxButton.OK, 
-                        MessageBoxImage.Warning);
+                    var message = $"请填写以下必填项：\n• {string.Join("\n• ", missingFields)}";
+                    MessageBox.Show(message, "验证错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 渠道特定验证
+                var validationResult = ValidateChannelSpecificSettings(config);
+                if (!string.IsNullOrEmpty(validationResult))
+                {
+                    MessageBox.Show(validationResult, "配置验证", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -90,6 +110,37 @@ namespace Buddie.Controls
                 config.IsSaved = true;
                 ConfigurationUpdated?.Invoke(this, config);
             }
+        }
+
+        private string ValidateChannelSpecificSettings(TtsConfiguration config)
+        {
+            switch (config.ChannelType)
+            {
+                case TtsChannelType.ElevenLabs:
+                    if (!config.ApiUrl.Contains("{voice_id}"))
+                        return "ElevenLabs API URL 应包含 {voice_id} 占位符";
+                    
+                    if (config.Voice.Length != 20)
+                        return "ElevenLabs Voice ID 应为20位字符";
+                    
+                    break;
+
+                case TtsChannelType.Azure:
+                    if (!config.ApiUrl.Contains("{region}"))
+                        return "Azure API URL 应包含 {region} 占位符（例如：eastus）";
+                    
+                    break;
+
+                case TtsChannelType.OpenAI:
+                    if (!config.Voice.Equals("alloy") && !config.Voice.Equals("echo") && 
+                        !config.Voice.Equals("fable") && !config.Voice.Equals("onyx") && 
+                        !config.Voice.Equals("nova") && !config.Voice.Equals("shimmer"))
+                        return "请使用有效的 OpenAI 语音（alloy、echo、fable、onyx、nova、shimmer）";
+                    
+                    break;
+            }
+
+            return string.Empty;
         }
 
         private void CancelTtsConfig_Click(object sender, RoutedEventArgs e)
@@ -241,15 +292,11 @@ namespace Buddie.Controls
         private void ChannelType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             var comboBox = sender as ComboBox;
-            if (comboBox?.DataContext is TtsConfiguration config && comboBox.SelectedItem is ComboBoxItem selectedItem)
+            if (comboBox?.DataContext is TtsConfiguration config)
             {
-                // 获取选中的渠道类型
-                var channelTypeString = selectedItem.Tag?.ToString();
-                if (Enum.TryParse<TtsChannelType>(channelTypeString, out var channelType))
-                {
-                    // 设置渠道类型，这会触发TtsConfiguration中的UpdateDefaultsForChannel方法
-                    config.ChannelType = channelType;
-                }
+                // SelectedValuePath="Tag" 会自动处理绑定到ChannelType属性
+                // UpdateDefaultsForChannel方法会在属性setter中自动调用
+                System.Diagnostics.Debug.WriteLine($"TTS渠道类型已更改为: {config.ChannelType}");
             }
         }
     }
