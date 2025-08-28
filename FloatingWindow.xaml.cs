@@ -73,6 +73,9 @@ namespace Buddie
             
             // 初始化交互计时器
             InitializeInteractionTimer();
+            
+            // 初始化用户友好错误服务
+            UserFriendlyErrorService.Initialize(ErrorNotificationContainer);
         }
         
         private void FloatingWindow_SourceInitialized(object? sender, EventArgs e)

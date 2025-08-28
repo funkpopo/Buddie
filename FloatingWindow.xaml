@@ -24,6 +24,13 @@
     </Window.Resources>
     
     <Grid>
+        <!-- 错误通知容器 -->
+        <StackPanel x:Name="ErrorNotificationContainer"
+                   VerticalAlignment="Top"
+                   HorizontalAlignment="Center"
+                   Margin="0,10,0,0"
+                   Panel.ZIndex="1000"/>
+        
         <!-- 卡片控件 -->
         <controls:CardControl x:Name="cardControl"/>
         
