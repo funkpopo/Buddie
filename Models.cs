@@ -651,13 +651,10 @@ namespace Buddie
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"💾 开始保存TTS配置: {config.Name} (ID: {config.Id}, IsActive: {config.IsActive})");
                 var dbConfig = config.ToDbModel();
-                System.Diagnostics.Debug.WriteLine($"💾 转换为数据库模型: Name={dbConfig.Name}, IsActive={dbConfig.IsActive}");
                 var id = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
                 config.Id = id;
                 config.IsSaved = true;
-                System.Diagnostics.Debug.WriteLine($"✅ 成功保存TTS配置: {config.Name}, ID={id}, IsActive={config.IsActive}");
             }
             catch (Exception ex)
             {
@@ -708,8 +705,6 @@ namespace Buddie
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"🚀 开始激活TTS配置: {configToActivate.Name} (ID: {configToActivate.Id})");
-                
                 // 先取消激活所有其他TTS配置
                 var deactivatedConfigs = new List<TtsConfiguration>();
                 foreach (var config in TtsConfigurations)
@@ -718,20 +713,13 @@ namespace Buddie
                     {
                         config.IsActive = false;
                         deactivatedConfigs.Add(config);
-                        System.Diagnostics.Debug.WriteLine($"⏹️ 取消激活TTS配置: {config.Name} (ID: {config.Id})");
                     }
                 }
 
                 // 激活指定的配置
-                bool wasAlreadyActive = configToActivate.IsActive;
                 if (!configToActivate.IsActive)
                 {
                     configToActivate.IsActive = true;
-                    System.Diagnostics.Debug.WriteLine($"✅ 激活TTS配置: {configToActivate.Name} (ID: {configToActivate.Id})");
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine($"ℹ️ TTS配置已处于激活状态: {configToActivate.Name} (ID: {configToActivate.Id})");
                 }
 
                 // 立即保存所有状态变更到数据库
@@ -741,27 +729,12 @@ namespace Buddie
                     configsToSave.Add(configToActivate);
                 }
 
-                System.Diagnostics.Debug.WriteLine($"💾 准备保存 {configsToSave.Count} 个TTS配置的状态变更到数据库");
                 foreach (var config in configsToSave)
                 {
                     if (config.IsSaved && config.Id > 0)
                     {
                         await SaveTtsConfigurationAsync(config);
-                        System.Diagnostics.Debug.WriteLine($"💾 已保存TTS配置激活状态: {config.Name} (ID: {config.Id}) - IsActive: {config.IsActive}");
                     }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"⚠️ 跳过保存TTS配置: {config.Name} (IsSaved: {config.IsSaved}, ID: {config.Id})");
-                    }
-                }
-
-                if (deactivatedConfigs.Count > 0)
-                {
-                    System.Diagnostics.Debug.WriteLine($"🎯 成功激活TTS配置: {configToActivate.Name}，已取消激活 {deactivatedConfigs.Count} 个其他配置");
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine($"🎯 成功激活TTS配置: {configToActivate.Name}，无其他配置需要取消激活");
                 }
             }
             catch (Exception ex)
@@ -784,7 +757,6 @@ namespace Buddie
                 }
                 
                 TtsConfigurations.Remove(configToRemove);
-                System.Diagnostics.Debug.WriteLine($"Removed TTS configuration: {configToRemove.Name}");
             }
             catch (Exception ex)
             {

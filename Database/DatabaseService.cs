@@ -199,8 +199,8 @@ namespace Buddie.Database
             using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                var createdAtStr = reader.GetString(9);
-                var updatedAtStr = reader.GetString(10);
+                var createdAtStr = reader.GetString(8); // Fixed: CreatedAt is at position 8, not 9
+                var updatedAtStr = reader.GetString(9); // Fixed: UpdatedAt is at position 9, not 10
                 
                 // 处理可能的无效日期格式
                 DateTime createdAt = DateTime.UtcNow;
@@ -232,22 +232,19 @@ namespace Buddie.Database
                     Voice = reader.GetString(5),
                     Speed = reader.GetDouble(6),
                     IsStreamingEnabled = reader.GetBoolean(7),
-                    IsActive = reader.GetBoolean(8),
+                    IsActive = reader.GetBoolean(10), // Fixed: IsActive is at position 10, not 8
+                    ChannelType = reader.IsDBNull(11) ? null : reader.GetInt32(11), // Also read ChannelType at position 11
                     CreatedAt = createdAt,
                     UpdatedAt = updatedAt
                 };
                 configurations.Add(config);
-                System.Diagnostics.Debug.WriteLine($"[DB] Loaded TTS config from DB: {config.Name}, Id: {config.Id}");
             }
 
-            System.Diagnostics.Debug.WriteLine($"[DB] Total TTS configurations loaded: {configurations.Count}");
             return configurations;
         }
 
         public async Task<int> SaveTtsConfigurationAsync(DbTtsConfiguration config)
         {
-            System.Diagnostics.Debug.WriteLine($"[DB] Saving TTS config: {config.Name}, Id: {config.Id}, ApiKey: '{config.ApiKey ?? "null"}'");
-            
             config.UpdatedAt = DateTime.UtcNow;
 
             using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
@@ -289,7 +286,6 @@ namespace Buddie.Database
             var result = await command.ExecuteScalarAsync();
             var id = Convert.ToInt32(result);
             config.Id = id;
-            System.Diagnostics.Debug.WriteLine($"[DB] Successfully saved TTS config with ID: {id}");
             return id;
         }
 

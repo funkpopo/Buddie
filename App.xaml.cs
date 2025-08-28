@@ -11,28 +11,20 @@ namespace Buddie
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("Application starting up...");
-                
                 // Set up global exception handlers
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
                 DispatcherUnhandledException += App_DispatcherUnhandledException;
                 
                 // Initialize database
-                System.Diagnostics.Debug.WriteLine("Initializing database...");
                 DatabaseManager.InitializeDatabase();
-                System.Diagnostics.Debug.WriteLine("Database initialization completed");
 
                 // Create and show main window
                 var floatingWindow = new FloatingWindow();
-                System.Diagnostics.Debug.WriteLine("FloatingWindow created");
                 
                 // Load settings from database
-                System.Diagnostics.Debug.WriteLine("Loading settings from database...");
                 await floatingWindow.LoadSettingsFromDatabaseAsync();
-                System.Diagnostics.Debug.WriteLine("Settings loading completed");
                 
                 floatingWindow.Show();
-                System.Diagnostics.Debug.WriteLine("FloatingWindow shown");
             }
             catch (Exception ex)
             {
@@ -47,14 +39,21 @@ namespace Buddie
 
         protected override void OnExit(ExitEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("Application shutting down...");
+            // 最后一次保存应用程序设置
+            try
+            {
+                var mainWindow = Current.MainWindow as FloatingWindow;
+                mainWindow?.SaveSettingsBeforeExit();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ 应用程序退出时保存设置失败: {ex.Message}");
+            }
             
             // 清理TTS音频缓存
             try
             {
-                System.Diagnostics.Debug.WriteLine("Cleaning up TTS audio cache...");
                 DatabaseManager.CleanupTtsAudioCache();
-                System.Diagnostics.Debug.WriteLine("TTS audio cache cleanup completed");
             }
             catch (Exception ex)
             {

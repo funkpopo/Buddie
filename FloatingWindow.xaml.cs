@@ -150,7 +150,6 @@ namespace Buddie
                 try
                 {
                     // 新配置添加到集合中并保存到数据库
-                    System.Diagnostics.Debug.WriteLine($"TTS configuration added: {config.Name}");
                     // 配置已经通过TtsConfigControl.Initialize绑定到appSettings.TtsConfigurations
                     // 新添加的配置在用户点击保存按钮时会触发TtsConfigurationUpdated事件
                 }
@@ -165,7 +164,6 @@ namespace Buddie
                 {
                     // 当用户点击保存按钮后，保存单个配置
                     await appSettings.SaveTtsConfigurationAsync(config);
-                    System.Diagnostics.Debug.WriteLine($"TTS configuration saved successfully: {config.Name}");
                 }
                 catch (Exception ex)
                 {
@@ -278,7 +276,6 @@ namespace Buddie
             try
             {
                 await appSettings.SaveToDatabaseAsync();
-                System.Diagnostics.Debug.WriteLine("Settings saved before application exit");
             }
             catch (Exception ex)
             {
@@ -301,20 +298,22 @@ namespace Buddie
             this.Hide();
         }
 
-        protected override async void OnClosing(CancelEventArgs e)
+        protected override void OnClosing(CancelEventArgs e)
         {
             // 阻止窗口关闭，改为隐藏到托盘
             e.Cancel = true;
             HideWindow();
             
-            // 保存设置到数据库
+            // 保存设置到数据库 - 使用同步方式确保保存完成
             try
             {
-                await appSettings.SaveToDatabaseAsync();
+                var saveTask = appSettings.SaveToDatabaseAsync();
+                saveTask.Wait(); // 等待保存完成
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to save settings on closing: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"❌ 窗口关闭时保存设置失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
             }
         }
 
@@ -586,7 +585,6 @@ namespace Buddie
             {
                 // TODO: 实现对话记录保存逻辑
                 // 这里需要从DialogControl获取当前对话内容并保存到数据库
-                System.Diagnostics.Debug.WriteLine("Saving current conversation...");
                 await Task.CompletedTask;
             }
             catch (Exception ex)
@@ -604,9 +602,37 @@ namespace Buddie
             UpdateCardDisplay();
         }
 
+        /// <summary>
+        /// 应用程序退出前保存设置
+        /// </summary>
+        public void SaveSettingsBeforeExit()
+        {
+            try
+            {
+                var saveTask = appSettings.SaveToDatabaseAsync();
+                saveTask.Wait(TimeSpan.FromSeconds(5)); // 等待最多5秒
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SaveSettingsBeforeExit failed: {ex.Message}");
+                throw; // 重新抛出异常让调用者知道失败了
+            }
+        }
+
 
         protected override void OnClosed(EventArgs e)
         {
+            // 最后一次保存设置（防止强制关闭时丢失配置）
+            try
+            {
+                var saveTask = appSettings.SaveToDatabaseAsync();
+                saveTask.Wait(TimeSpan.FromSeconds(3)); // 最多等待3秒
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ 应用程序最终关闭时保存设置失败: {ex.Message}");
+            }
+            
             trayIcon?.Dispose();
             base.OnClosed(e);
         }
