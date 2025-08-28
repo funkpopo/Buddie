@@ -1,12 +1,21 @@
 using Microsoft.Data.Sqlite;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Buddie.Database
 {
-    public class DatabaseService
+    public class DatabaseService : IDisposable
     {
+        private readonly SqliteConnectionPool _connectionPool;
+        private bool _disposed;
+
+        public DatabaseService()
+        {
+            _connectionPool = SqliteConnectionPool.Instance;
+        }
         private static DateTime ParseDateTime(string dateTimeStr)
         {
             if (string.IsNullOrEmpty(dateTimeStr) || dateTimeStr == "0")
@@ -26,8 +35,8 @@ namespace Buddie.Database
 
         public async Task<DbAppSettings?> GetAppSettingsAsync()
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM AppSettings LIMIT 1";
@@ -53,8 +62,8 @@ namespace Buddie.Database
         {
             settings.UpdatedAt = DateTime.UtcNow;
 
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             if (settings.Id == 0)
@@ -93,8 +102,8 @@ namespace Buddie.Database
         {
             var configurations = new List<DbApiConfiguration>();
 
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM ApiConfigurations ORDER BY CreatedAt";
@@ -125,8 +134,8 @@ namespace Buddie.Database
         {
             config.UpdatedAt = DateTime.UtcNow;
 
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             if (config.Id == 0)
@@ -172,8 +181,8 @@ namespace Buddie.Database
 
         public async Task DeleteApiConfigurationAsync(int id)
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = "DELETE FROM ApiConfigurations WHERE Id = @Id";
@@ -190,8 +199,8 @@ namespace Buddie.Database
         {
             var configurations = new List<DbTtsConfiguration>();
 
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM TtsConfigurations ORDER BY CreatedAt";
@@ -247,8 +256,8 @@ namespace Buddie.Database
         {
             config.UpdatedAt = DateTime.UtcNow;
 
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             if (config.Id == 0)
@@ -292,8 +301,8 @@ namespace Buddie.Database
 
         public async Task DeleteTtsConfigurationAsync(int id)
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = "DELETE FROM TtsConfigurations WHERE Id = @Id";
@@ -310,8 +319,8 @@ namespace Buddie.Database
         {
             var conversations = new List<DbConversation>();
 
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
@@ -341,8 +350,8 @@ namespace Buddie.Database
         {
             conversation.UpdatedAt = DateTime.UtcNow;
 
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             if (conversation.Id == 0)
@@ -377,8 +386,8 @@ namespace Buddie.Database
 
         public async Task DeleteConversationAsync(int id)
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var transaction = connection.BeginTransaction();
             try
@@ -414,8 +423,8 @@ namespace Buddie.Database
         {
             var messages = new List<DbMessage>();
 
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM Messages WHERE ConversationId = @ConversationId ORDER BY CreatedAt";
@@ -442,8 +451,8 @@ namespace Buddie.Database
         {
             message.CreatedAt = DateTime.UtcNow;
 
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var transaction = connection.BeginTransaction();
             try
@@ -489,8 +498,8 @@ namespace Buddie.Database
 
         public async Task DeleteMessageAsync(int id)
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = "DELETE FROM Messages WHERE Id = @Id";
@@ -505,8 +514,8 @@ namespace Buddie.Database
 
         public async Task<DbTtsAudio?> GetTtsAudioAsync(string textHash)
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
@@ -537,8 +546,8 @@ namespace Buddie.Database
 
         public async Task SaveTtsAudioAsync(string textHash, byte[] audioData, string ttsConfigJson)
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
@@ -554,8 +563,8 @@ namespace Buddie.Database
 
         public async Task CleanupOldTtsAudioAsync(int daysToKeep = 7)
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
@@ -572,8 +581,8 @@ namespace Buddie.Database
         /// </summary>
         public async Task<(int count, long totalSizeBytes)> GetTtsCacheStatsAsync()
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
@@ -596,8 +605,8 @@ namespace Buddie.Database
         /// </summary>
         public async Task CleanupTtsCacheByLruAsync(int maxCount, long maxSizeBytes)
         {
-            using var connection = new SqliteConnection(DatabaseManager.ConnectionString);
-            await connection.OpenAsync();
+            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+            var connection = connectionWrapper.Connection;
 
             // 检查当前缓存状态
             var (currentCount, currentSize) = await GetTtsCacheStatsAsync();
@@ -664,6 +673,29 @@ namespace Buddie.Database
             {
                 System.Diagnostics.Debug.WriteLine($"TTS Cache cleanup failed: {ex.Message}");
                 throw;
+            }
+        }
+
+        #endregion
+
+        #region IDisposable
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Note: We don't dispose the connection pool here because it's a singleton
+                    // The connection pool will be disposed when the application shuts down
+                }
+                _disposed = true;
             }
         }
 
