@@ -146,7 +146,7 @@ namespace Buddie
                 }
             };
             
-            SettingsControl.TtsConfigurationAdded += async (s, config) => {
+            SettingsControl.TtsConfigurationAdded += (s, config) => {
                 try
                 {
                     // 新配置添加到集合中并保存到数据库

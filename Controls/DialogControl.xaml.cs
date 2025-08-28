@@ -1628,7 +1628,7 @@ namespace Buddie.Controls
                     System.Diagnostics.Debug.WriteLine("TTS API: 音频已保存到缓存");
                     
                     // 播放音频
-                    await PlayAudioFromBytes(ttsResponse.AudioData);
+                    await PlayAudioFromBytes(ttsResponse.AudioData, ttsResponse.ContentType);
                     System.Diagnostics.Debug.WriteLine("TTS API: 音频播放完成");
                 }
                 else
@@ -1650,7 +1650,7 @@ namespace Buddie.Controls
             return Convert.ToBase64String(bytes);
         }
 
-        private async Task PlayAudioFromBytes(byte[] audioBytes)
+        private async Task PlayAudioFromBytes(byte[] audioBytes, string? contentType = null)
         {
             try
             {
@@ -1663,8 +1663,8 @@ namespace Buddie.Controls
                 var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Buddie");
                 Directory.CreateDirectory(appDataPath);
                 
-                // 检查音频格式并使用适当的扩展名
-                string extension = GetAudioExtension(audioBytes);
+                // 根据ContentType或字节数据确定文件扩展名
+                string extension = GetAudioExtension(audioBytes, contentType);
                 var tempFile = Path.Combine(appDataPath, $"audio_{Guid.NewGuid()}{extension}");
                 await File.WriteAllBytesAsync(tempFile, audioBytes);
                 
@@ -1764,10 +1764,26 @@ namespace Buddie.Controls
             }
         }
         /// <summary>
-        /// 根据音频数据确定文件扩展名
+        /// 根据ContentType和音频数据确定文件扩展名
         /// </summary>
-        private string GetAudioExtension(byte[] audioBytes)
+        private string GetAudioExtension(byte[] audioBytes, string? contentType = null)
         {
+            // 首先尝试根据ContentType确定格式
+            if (!string.IsNullOrEmpty(contentType))
+            {
+                if (contentType.Contains("wav"))
+                {
+                    System.Diagnostics.Debug.WriteLine($"根据ContentType检测到WAV格式: {contentType}");
+                    return ".wav";
+                }
+                if (contentType.Contains("mp3") || contentType.Contains("mpeg"))
+                {
+                    System.Diagnostics.Debug.WriteLine($"根据ContentType检测到MP3格式: {contentType}");
+                    return ".mp3";
+                }
+            }
+            
+            // 如果ContentType不明确，则分析字节数据
             if (audioBytes.Length >= 12)
             {
                 var header = System.Text.Encoding.ASCII.GetString(audioBytes, 0, 4);
@@ -1776,7 +1792,7 @@ namespace Buddie.Controls
                     var format = System.Text.Encoding.ASCII.GetString(audioBytes, 8, 4);
                     if (format == "WAVE")
                     {
-                        System.Diagnostics.Debug.WriteLine("检测到WAV格式");
+                        System.Diagnostics.Debug.WriteLine("通过字节分析检测到WAV格式");
                         return ".wav";
                     }
                 }
@@ -1787,7 +1803,7 @@ namespace Buddie.Controls
                 var first3Bytes = System.Text.Encoding.ASCII.GetString(audioBytes, 0, 3);
                 if (first3Bytes == "ID3")
                 {
-                    System.Diagnostics.Debug.WriteLine("检测到MP3格式（ID3标签）");
+                    System.Diagnostics.Debug.WriteLine("通过字节分析检测到MP3格式（ID3标签）");
                     return ".mp3";
                 }
             }
@@ -1797,12 +1813,12 @@ namespace Buddie.Controls
                 // 检查MP3同步字节 (0xFF 0xFB/0xFA/0xF3/0xF2)
                 if (audioBytes[0] == 0xFF && (audioBytes[1] & 0xE0) == 0xE0)
                 {
-                    System.Diagnostics.Debug.WriteLine("检测到MP3格式（同步字节）");
+                    System.Diagnostics.Debug.WriteLine("通过字节分析检测到MP3格式（同步字节）");
                     return ".mp3";
                 }
             }
             
-            // 默认假设为MP3（许多TTS服务返回MP3）
+            // 默认假设为MP3（因为很多TTS服务实际上返回MP3）
             System.Diagnostics.Debug.WriteLine("未识别格式，默认为MP3");
             return ".mp3";
         }

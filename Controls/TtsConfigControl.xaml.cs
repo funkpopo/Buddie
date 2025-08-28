@@ -98,6 +98,8 @@ namespace Buddie.Controls
                     return;
                 }
 
+
+
                 // 渠道特定验证
                 var validationResult = ValidateChannelSpecificSettings(config);
                 if (!string.IsNullOrEmpty(validationResult))
@@ -111,6 +113,8 @@ namespace Buddie.Controls
                 ConfigurationUpdated?.Invoke(this, config);
             }
         }
+
+
 
         private string ValidateChannelSpecificSettings(TtsConfiguration config)
         {
@@ -130,6 +134,33 @@ namespace Buddie.Controls
                         !config.Voice.Equals("fable") && !config.Voice.Equals("onyx") && 
                         !config.Voice.Equals("nova") && !config.Voice.Equals("shimmer"))
                         return "请使用有效的 OpenAI 语音（alloy、echo、fable、onyx、nova、shimmer）";
+                    
+                    break;
+
+                case TtsChannelType.MiniMax:
+                    // MiniMax特定验证
+                    if (string.IsNullOrWhiteSpace(config.ApiUrl) || !config.ApiUrl.Contains("minimax"))
+                        return "请使用有效的 MiniMax API URL";
+                    
+                    if (config.Speed < 0.5 || config.Speed > 2.0)
+                        return "MiniMax TTS 语速范围为 0.5-2.0";
+                    
+                    // 异步验证MiniMax配置（可选）
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var (isValid, message) = await Buddie.Services.Tts.MiniMaxTtsValidator.ValidateConfigurationAsync(config);
+                            if (!isValid)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"MiniMax配置验证失败: {message}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"MiniMax配置验证异常: {ex.Message}");
+                        }
+                    });
                     
                     break;
             }
@@ -291,6 +322,37 @@ namespace Buddie.Controls
                 // SelectedValuePath="Tag" 会自动处理绑定到ChannelType属性
                 // UpdateDefaultsForChannel方法会在属性setter中自动调用
                 System.Diagnostics.Debug.WriteLine($"TTS渠道类型已更改为: {config.ChannelType}");
+                
+                // 确保模型和语音字段被更新为新渠道的默认值
+                // 这是额外的保险措施，防止UI绑定问题
+                var preset = TtsPresetChannels.GetPresetChannel(config.ChannelType);
+                
+                if (preset.SupportedModels.Length > 0)
+                {
+                    var newModel = preset.SupportedModels[0];
+                    if (config.Model != newModel)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"强制更新模型: {config.Model} -> {newModel}");
+                        config.Model = newModel;
+                    }
+                }
+                
+                if (preset.SupportedVoices.Length > 0)
+                {
+                    var newVoice = preset.SupportedVoices[0];
+                    if (config.Voice != newVoice)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"强制更新语音: {config.Voice} -> {newVoice}");
+                        config.Voice = newVoice;
+                    }
+                }
+                
+                // 更新API URL
+                if (!string.IsNullOrEmpty(preset.DefaultApiUrl) && config.ApiUrl != preset.DefaultApiUrl)
+                {
+                    System.Diagnostics.Debug.WriteLine($"强制更新API URL: {config.ApiUrl} -> {preset.DefaultApiUrl}");
+                    config.ApiUrl = preset.DefaultApiUrl;
+                }
             }
         }
     }

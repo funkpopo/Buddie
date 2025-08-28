@@ -227,8 +227,8 @@ namespace Buddie
 
         public TtsConfiguration()
         {
-            // 设置默认值基于渠道类型
-            UpdateDefaultsForChannel();
+            // 构造函数中不立即调用UpdateDefaultsForChannel，等待ChannelType设置后再调用
+            // 这样可以避免使用默认的ChannelType值（OpenAI）来设置默认值
         }
 
         public int Id
@@ -424,7 +424,7 @@ namespace Buddie
                 {
                     TtsChannelType.OpenAI => "例如: tts-1, tts-1-hd",
                     TtsChannelType.ElevenLabs => "例如: eleven_multilingual_v2, eleven_turbo_v2_5, eleven_flash_v2_5",
-                    TtsChannelType.MiniMax => "例如: speech-01, speech-01-240228",
+                    TtsChannelType.MiniMax => "例如: speech-01-hd, speech-02-hd, speech-2.5-hd-preview",
                     _ => "请输入支持的模型名称"
                 };
             }
@@ -466,13 +466,23 @@ namespace Buddie
         private void UpdateDefaultsForChannel()
         {
             var preset = TtsPresetChannels.GetPresetChannel(ChannelType);
+            
+            // 强制更新API URL
             if (!string.IsNullOrEmpty(preset.DefaultApiUrl))
                 ApiUrl = preset.DefaultApiUrl;
-            if (preset.SupportedModels.Length > 0 && string.IsNullOrEmpty(Model))
+            
+            // 强制更新模型为渠道的第一个支持模型
+            if (preset.SupportedModels.Length > 0)
                 Model = preset.SupportedModels[0];
-            if (preset.SupportedVoices.Length > 0 && string.IsNullOrEmpty(Voice))
+            
+            // 强制更新语音为渠道的第一个支持语音
+            if (preset.SupportedVoices.Length > 0)
                 Voice = preset.SupportedVoices[0];
+            
+            // 更新默认语速
             Speed = preset.DefaultSpeed;
+            
+            System.Diagnostics.Debug.WriteLine($"TTS渠道默认值已更新: {ChannelType} - 模型:{Model}, 语音:{Voice}, API URL:{ApiUrl}");
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -979,12 +989,22 @@ namespace Buddie
                 {
                     Name = "MiniMax TTS",
                     ChannelType = TtsChannelType.MiniMax,
-                    DefaultApiUrl = "https://api.minimax.chat/v1/text_to_speech",
-                    SupportedModels = new[] { "speech-01", "speech-01-240228" },
-                    SupportedVoices = new[] { "male-qn-qingse", "male-qn-jingying", "male-qn-badao", "male-qn-daxuesheng", "female-shaonv", "female-yujie", "female-chengshu", "female-tianmei", "presenter_male", "presenter_female", "audiobook_male_1", "audiobook_male_2", "audiobook_female_1", "audiobook_female_2" },
+                    DefaultApiUrl = "https://api.minimaxi.com/v1/t2a_v2",
+                    SupportedModels = new[] { "speech-1.0-hd", "speech-01", "speech-01-240228", "speech-01-turbo" },
+                    SupportedVoices = new[] { 
+                        // 默认语音
+                        "female-shaonv",
+                        // 通用语音
+                        "male-qn-qingse", "male-qn-jingying", "male-qn-badao", "male-qn-daxuesheng", 
+                        "female-yujie", "female-chengshu", "female-tianmei",
+                        // 演示语音
+                        "presenter_male", "presenter_female",
+                        // 有声书语音
+                        "audiobook_male_1", "audiobook_male_2", "audiobook_female_1", "audiobook_female_2"
+                    },
                     DefaultSpeed = 1.0,
                     MinSpeed = 0.5,
-                    MaxSpeed = 1.2,
+                    MaxSpeed = 2.0,
                     AuthHeaderFormat = "Bearer {0}",
                     RequestFormat = "minimax",
                     SupportsStreaming = false

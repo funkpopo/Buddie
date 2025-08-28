@@ -80,7 +80,6 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="100"/>
@@ -432,6 +431,8 @@
                                         </TextBlock>
                                     </Grid>
                                     
+
+                                    
                                     <!-- Activate TTS -->
                                     <TextBlock Grid.Row="7" Grid.Column="0"
                                                Text="激活TTS:"
@@ -459,7 +460,7 @@
                                               Unchecked="ActivateTts_Unchecked"/>
                                     
                                     <!-- 操作按钮 -->
-                                    <StackPanel Grid.Row="9" Grid.Column="1"
+                                    <StackPanel Grid.Row="8" Grid.Column="1"
                                                 Orientation="Horizontal"
                                                 HorizontalAlignment="Right"
                                                 Margin="0,10,10,0">

@@ -1,14 +1,20 @@
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace Buddie.Services.Tts
 {
     /// <summary>
     /// MiniMax TTS服务实现
+    /// 支持非流式语音合成，音频格式为WAV
+    /// API文档: https://platform.minimaxi.com/document/%E5%90%8C%E6%AD%A5%E8%AF%AD%E9%9F%B3%E5%90%88%E6%88%90
     /// </summary>
     public class MiniMaxTtsService : TtsServiceBase
     {
@@ -18,37 +24,28 @@ namespace Buddie.Services.Tts
         {
             var config = request.Configuration;
             
+            // 打印诊断信息
+            MiniMaxTtsValidator.PrintDiagnosticInfo(config);
+            
             // 设置请求头
             SetupHttpHeaders(config);
 
-            // 构建请求体
-            var requestBody = new
-            {
-                model = config.Model,
-                text = request.Text,
-                voice_id = config.Voice,
-                speed = config.Speed,
-                audio_format = "wav"
-            };
-
+            // 构建请求体，强制使用非流式和WAV格式
+            var requestBody = CreateRequestBody(request);
             var json = JsonSerializer.Serialize(requestBody);
-            Debug.WriteLine($"MiniMax 请求体: {json}");
+            
+            // 构建完整的API URL，包含GroupId参数
+            var apiUrl = BuildApiUrl(config);
+            
+            Debug.WriteLine($"MiniMax TTS 请求体: {json}");
+            Debug.WriteLine($"MiniMax 请求URL: {apiUrl}");
 
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             try
             {
-                var response = await _httpClient.PostAsync(config.ApiUrl, content);
-                var result = await ProcessHttpResponseAsync(response);
-
-                if (!result.IsSuccess)
-                {
-                    throw new TtsException(SupportedChannelType, 
-                        $"MiniMax TTS API请求失败: {result.ErrorMessage}", 
-                        result.ErrorDetails ?? "");
-                }
-
-                return result;
+                // 使用非流式处理
+                return await ProcessNonStreamingResponseAsync(config, content, apiUrl);
             }
             catch (HttpRequestException ex)
             {
@@ -62,14 +59,427 @@ namespace Buddie.Services.Tts
             }
         }
 
+        /// <summary>
+        /// 创建MiniMax API请求体，强制使用WAV格式和非流式
+        /// </summary>
+        private object CreateRequestBody(TtsRequest request)
+        {
+            var config = request.Configuration;
+            
+            // 清理和验证文本内容
+            var cleanText = CleanTextForTts(request.Text);
+            
+            // 确保文本不为空
+            if (string.IsNullOrWhiteSpace(cleanText))
+            {
+                throw new TtsException(SupportedChannelType, "文本内容不能为空");
+            }
+            
+            // 根据MiniMax API文档创建请求体，强制使用WAV格式和非流式
+            var requestBody = new Dictionary<string, object>
+            {
+                ["model"] = config.Model ?? "speech-01-hd",
+                ["text"] = cleanText,
+                ["stream"] = false, // 强制非流式
+                ["output_format"] = "hex", // 使用十六进制输出格式以获取WAV
+                ["language_boost"] = "auto",
+                ["voice_setting"] = new Dictionary<string, object>
+                {
+                    ["voice_id"] = config.Voice ?? "female-shaonv",
+                    ["speed"] = config.Speed,
+                    ["vol"] = 1,
+                    ["pitch"] = 0
+                },
+                ["audio_setting"] = new Dictionary<string, object>
+                {
+                    ["sample_rate"] = 32000,
+                    ["bitrate"] = 128000,
+                    ["format"] = "wav", // 强制使用WAV格式
+                    ["channel"] = 1
+                }
+            };
+
+            // 确保所有必需字段都不为空
+            Debug.WriteLine($"MiniMax 请求参数检查:");
+            Debug.WriteLine($"  model: '{requestBody["model"]}'");
+            Debug.WriteLine($"  text: '{requestBody["text"]}' (清理后长度: {cleanText?.Length ?? 0})");
+            Debug.WriteLine($"  voice_id: '{((Dictionary<string, object>)requestBody["voice_setting"])["voice_id"]}'");
+            Debug.WriteLine($"  speed: {((Dictionary<string, object>)requestBody["voice_setting"])["speed"]}");
+            Debug.WriteLine($"  format: '{((Dictionary<string, object>)requestBody["audio_setting"])["format"]}'");
+            Debug.WriteLine($"  output_format: '{requestBody["output_format"]}'");
+            Debug.WriteLine($"  stream: {requestBody["stream"]}");
+            
+            // 验证关键字段不为空
+            if (string.IsNullOrEmpty(requestBody["model"]?.ToString()))
+                Debug.WriteLine("警告: model字段为空");
+            if (string.IsNullOrEmpty(requestBody["text"]?.ToString()))
+                Debug.WriteLine("警告: text字段为空");
+            var voiceSetting = (Dictionary<string, object>)requestBody["voice_setting"];
+            if (string.IsNullOrEmpty(voiceSetting["voice_id"]?.ToString()))
+                Debug.WriteLine("警告: voice_id字段为空");
+
+            return requestBody;
+        }
+
+        /// <summary>
+        /// 构建完整的API URL，包含必要的查询参数
+        /// </summary>
+        private string BuildApiUrl(TtsConfiguration config)
+        {
+            var baseUrl = config.ApiUrl ?? "https://api.minimaxi.com/v1/t2a_v2";
+            
+            // 从API Key中提取GroupId，或使用默认值
+            // MiniMax的GroupId通常是API Key的一部分，或者可以从用户配置中获取
+            // 这里我们先使用一个占位符，实际使用时需要用户提供正确的GroupId
+            var groupId = ExtractGroupIdFromApiKey(config.ApiKey);
+            
+            return $"{baseUrl}?GroupId={groupId}";
+        }
+        
+        /// <summary>
+        /// 从API Key中提取GroupId，或返回默认值
+        /// </summary>
+        private string ExtractGroupIdFromApiKey(string? apiKey)
+        {
+            // 支持多种格式:
+            // 1. "API_KEY|GROUP_ID" - 推荐格式
+            // 2. "GROUP_ID:API_KEY" - 备选格式
+            // 3. 纯API_KEY - 尝试从API配置中获取GroupId
+            
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                // 格式1: API_KEY|GROUP_ID
+                if (apiKey.Contains("|"))
+                {
+                    var parts = apiKey.Split('|');
+                    if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[1]))
+                    {
+                        Debug.WriteLine($"从API Key中提取到GroupId: {parts[1].Trim()}");
+                        return parts[1].Trim();
+                    }
+                }
+                
+                // 格式2: GROUP_ID:API_KEY
+                if (apiKey.Contains(":"))
+                {
+                    var parts = apiKey.Split(':');
+                    if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[0]))
+                    {
+                        Debug.WriteLine($"从API Key中提取到GroupId: {parts[0].Trim()}");
+                        return parts[0].Trim();
+                    }
+                }
+            }
+            
+            // 如果无法提取GroupId，抛出更明确的错误
+            var errorMessage = "无法获取MiniMax GroupId。请在API Key中包含GroupId信息:\n" +
+                             "格式1: YOUR_API_KEY|YOUR_GROUP_ID\n" +
+                             "格式2: YOUR_GROUP_ID:YOUR_API_KEY\n" +
+                             "您可以在MiniMax控制台找到您的GroupId";
+            
+            Debug.WriteLine($"错误: {errorMessage}");
+            throw new TtsException(SupportedChannelType, errorMessage);
+        }
+
+        /// <summary>
+        /// 处理非流式响应
+        /// </summary>
+        private async Task<TtsResponse> ProcessNonStreamingResponseAsync(TtsConfiguration config, StringContent content, string apiUrl)
+        {
+            var response = await _httpClient.PostAsync(apiUrl, content);
+            
+            Debug.WriteLine($"MiniMax HTTP响应状态: {response.StatusCode} {response.ReasonPhrase}");
+            Debug.WriteLine($"MiniMax 响应头: {response.Headers}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var responseContent = await response.Content.ReadAsStringAsync();
+                
+                // 先检查响应内容是否为空或明显不是JSON
+                if (string.IsNullOrWhiteSpace(responseContent))
+                {
+                    return new TtsResponse
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "API返回空响应",
+                        ErrorDetails = "响应内容为空"
+                    };
+                }
+                
+                // 检查响应是否以JSON开头
+                var trimmedContent = responseContent.TrimStart();
+                if (!trimmedContent.StartsWith("{") && !trimmedContent.StartsWith("["))
+                {
+                    Debug.WriteLine($"MiniMax API返回非JSON响应: {responseContent}");
+                    
+                    // 截取前500字符用于错误显示
+                    var shortContent = responseContent.Length > 500 
+                        ? responseContent.Substring(0, 500) + "..." 
+                        : responseContent;
+                    
+                    return new TtsResponse
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = $"API返回非JSON格式响应: {shortContent}",
+                        ErrorDetails = responseContent
+                    };
+                }
+                
+                try
+                {
+                    Debug.WriteLine($"MiniMax API 响应内容: {responseContent}");
+                    
+                    using var document = JsonDocument.Parse(responseContent);
+                    var root = document.RootElement;
+                    
+                    // 检查是否有错误
+                    if (root.TryGetProperty("base_resp", out var baseResp))
+                    {
+                        if (baseResp.TryGetProperty("status_code", out var statusCode) && 
+                            statusCode.GetInt32() != 0)
+                        {
+                            var errorMsg = baseResp.TryGetProperty("status_msg", out var statusMsg) 
+                                ? statusMsg.GetString() : "未知错误";
+                            
+                            Debug.WriteLine($"MiniMax API 错误详情: status_code={statusCode.GetInt32()}, status_msg={errorMsg}");
+                            
+                            return new TtsResponse
+                            {
+                                IsSuccess = false,
+                                ErrorMessage = $"MiniMax API错误: {errorMsg}",
+                                ErrorDetails = responseContent
+                            };
+                        }
+                    }
+                    
+                    // 获取音频数据
+                    if (root.TryGetProperty("data", out var data) && 
+                        data.TryGetProperty("audio", out var audioElement))
+                    {
+                        var audioHex = audioElement.GetString();
+                        if (!string.IsNullOrEmpty(audioHex))
+                        {
+                            try
+                            {
+                                // MiniMax使用hex输出格式时返回十六进制编码的WAV音频数据
+                                Debug.WriteLine($"MiniMax返回的音频数据长度: {audioHex.Length} 字符");
+                                var audioData = ConvertHexToBytes(audioHex);
+                                
+                                // 验证是否为有效的WAV格式
+                                var actualFormat = DetectAudioFormat(audioData);
+                                Debug.WriteLine($"MiniMax返回的实际音频格式: {actualFormat}");
+                                
+                                if (actualFormat != "wav")
+                                {
+                                    Debug.WriteLine($"警告: 期望WAV格式，但检测到{actualFormat}格式");
+                                }
+                                
+                                // 返回WAV音频数据，确保NAudio可以直接播放
+                                return new TtsResponse
+                                {
+                                    IsSuccess = true,
+                                    AudioData = audioData,
+                                    ContentType = "audio/wav"
+                                };
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"解析音频数据失败: {ex.Message}");
+                                return new TtsResponse
+                                {
+                                    IsSuccess = false,
+                                    ErrorMessage = $"音频数据解析失败: {ex.Message}",
+                                    ErrorDetails = $"数据长度: {audioHex.Length}"
+                                };
+                            }
+                        }
+                    }
+                    
+                    return new TtsResponse
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "响应中未找到音频数据",
+                        ErrorDetails = responseContent
+                    };
+                }
+                catch (JsonException ex)
+                {
+                    return new TtsResponse
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = $"解析响应失败: {ex.Message}",
+                        ErrorDetails = responseContent
+                    };
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Debug.WriteLine($"MiniMax HTTP错误: {response.StatusCode}");
+                Debug.WriteLine($"错误响应内容: {errorContent}");
+                
+                return new TtsResponse
+                {
+                    IsSuccess = false,
+                    ErrorMessage = $"HTTP请求失败: {response.StatusCode} - {response.ReasonPhrase}",
+                    ErrorDetails = errorContent
+                };
+            }
+        }
+
+        /// <summary>
+        /// 检测音频数据的实际格式
+        /// </summary>
+        private string DetectAudioFormat(byte[] audioData)
+        {
+            if (audioData.Length >= 12)
+            {
+                var header = System.Text.Encoding.ASCII.GetString(audioData, 0, 4);
+                if (header == "RIFF")
+                {
+                    var format = System.Text.Encoding.ASCII.GetString(audioData, 8, 4);
+                    if (format == "WAVE")
+                    {
+                        return "wav";
+                    }
+                }
+            }
+            
+            if (audioData.Length >= 3)
+            {
+                var first3Bytes = System.Text.Encoding.ASCII.GetString(audioData, 0, 3);
+                if (first3Bytes == "ID3")
+                {
+                    return "mp3";
+                }
+            }
+            
+            if (audioData.Length >= 2)
+            {
+                // 检查MP3同步字节 (0xFF 0xFB/0xFA/0xF3/0xF2)
+                if (audioData[0] == 0xFF && (audioData[1] & 0xE0) == 0xE0)
+                {
+                    return "mp3";
+                }
+            }
+            
+            return "unknown";
+        }
+
+        /// <summary>
+        /// 将十六进制字符串转换为字节数组
+        /// </summary>
+        private byte[] ConvertHexToBytes(string hex)
+        {
+            try
+            {
+                // 移除可能的前缀和空格
+                hex = hex.Replace("0x", "").Replace(" ", "").Replace("\n", "").Replace("\r", "").Trim();
+                
+                if (string.IsNullOrEmpty(hex))
+                {
+                    throw new ArgumentException("十六进制字符串为空");
+                }
+                
+                if (hex.Length % 2 != 0)
+                {
+                    throw new ArgumentException($"十六进制字符串长度必须为偶数，当前长度: {hex.Length}");
+                }
+
+                var bytes = new byte[hex.Length / 2];
+                for (int i = 0; i < hex.Length; i += 2)
+                {
+                    bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
+                }
+                
+                Debug.WriteLine($"十六进制转换完成: {hex.Length} 字符 -> {bytes.Length} 字节");
+                return bytes;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"十六进制转换失败: {ex.Message}");
+                throw new ArgumentException($"十六进制转换失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 清理文本内容，去除可能导致API错误的字符
+        /// </summary>
+        private string CleanTextForTts(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+
+            var cleanText = text;
+            
+            // 替换换行符为空格
+            cleanText = cleanText.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+            
+            // 移除多余的空格
+            cleanText = Regex.Replace(cleanText, @"\s+", " ").Trim();
+            
+            // 限制长度（MiniMax可能有文本长度限制）
+            if (cleanText.Length > 1000)
+            {
+                cleanText = cleanText.Substring(0, 1000);
+                Debug.WriteLine($"文本被截断到1000字符");
+            }
+            
+            Debug.WriteLine($"原始文本: '{text}'");
+            Debug.WriteLine($"清理后文本: '{cleanText}'");
+            
+            return cleanText;
+        }
+
         protected override void SetupHttpHeaders(TtsConfiguration config)
         {
             base.SetupHttpHeaders(config);
             
+            // 清除可能存在的旧头
+            _httpClient.DefaultRequestHeaders.Remove("Authorization");
+            // 不要在这里设置Content-Type，它应该由StringContent自动处理
+            
             if (!string.IsNullOrEmpty(config.ApiKey))
             {
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+                // 从API Key中提取纯API Key部分（去除GroupId）
+                var pureApiKey = ExtractPureApiKey(config.ApiKey);
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {pureApiKey}");
+                Debug.WriteLine($"MiniMax 设置Authorization头: Bearer {pureApiKey.Substring(0, Math.Min(10, pureApiKey.Length))}...");
             }
+            else
+            {
+                Debug.WriteLine("MiniMax 警告: API Key为空");
+            }
+            
+            Debug.WriteLine("MiniMax 请求头设置完成");
+        }
+        
+        /// <summary>
+        /// 从完整的API Key字符串中提取纯API Key部分
+        /// </summary>
+        private string ExtractPureApiKey(string apiKey)
+        {
+            if (string.IsNullOrEmpty(apiKey))
+                return apiKey;
+                
+            // 格式1: API_KEY|GROUP_ID - 取第一部分
+            if (apiKey.Contains("|"))
+            {
+                return apiKey.Split('|')[0].Trim();
+            }
+            
+            // 格式2: GROUP_ID:API_KEY - 取第二部分
+            if (apiKey.Contains(":"))
+            {
+                var parts = apiKey.Split(':');
+                if (parts.Length >= 2)
+                {
+                    return parts[1].Trim();
+                }
+            }
+            
+            // 如果没有分隔符，假设整个字符串就是API Key
+            return apiKey.Trim();
         }
 
         public override TtsValidationResult ValidateConfiguration(TtsConfiguration configuration)
@@ -84,14 +494,33 @@ namespace Buddie.Services.Tts
                     result.AddError("MiniMax TTS需要指定模型");
                 }
 
+                // 验证速度范围 (0.5-2.0)
                 if (configuration.Speed < 0.5 || configuration.Speed > 2.0)
                 {
-                    result.AddWarning("MiniMax TTS推荐速度范围为0.5-2.0");
+                    result.AddError("MiniMax TTS速度范围为0.5-2.0");
+                }
+
+                // 验证API URL格式
+                if (!string.IsNullOrEmpty(configuration.ApiUrl) && 
+                    !configuration.ApiUrl.Contains("minimax"))
+                {
+                    result.AddWarning("API URL似乎不是MiniMax的地址");
+                }
+                
+                // 验证API Key和GroupId
+                if (!string.IsNullOrEmpty(configuration.ApiKey))
+                {
+                    if (!configuration.ApiKey.Contains("|") && !configuration.ApiKey.Contains(":"))
+                    {
+                        result.AddWarning("MiniMax需要GroupId。支持格式: YOUR_API_KEY|YOUR_GROUP_ID 或 YOUR_GROUP_ID:YOUR_API_KEY");
+                    }
                 }
             }
 
             return result;
         }
+
+
     }
 }
 
