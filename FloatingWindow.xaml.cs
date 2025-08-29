@@ -42,20 +42,20 @@ namespace Buddie
         const int WS_EX_TRANSPARENT = 0x00000020;
         const int WS_EX_LAYERED = 0x00080000;
         
-        private bool isClickThrough = false;
+        private bool _isClickThrough = false;
         #endregion
 
         private NotifyIcon? trayIcon;
-        private List<CardData> cards = new List<CardData>();
-        private int currentCardIndex = 0;
-        private AppSettings appSettings = new AppSettings();
-        private readonly List<System.Windows.Media.Color> usedCardColors = new List<System.Windows.Media.Color>();
-        private readonly Random colorRandom = new Random();
+        private readonly List<CardData> _cards = new List<CardData>();
+        private int _currentCardIndex = 0;
+        private readonly AppSettings _appSettings = new AppSettings();
+        private readonly List<System.Windows.Media.Color> _usedCardColors = new List<System.Windows.Media.Color>();
+        private readonly Random _colorRandom = new Random();
         
         // 用户交互状态管理
-        private bool isUserInteracting = false;
-        private System.Windows.Threading.DispatcherTimer? interactionTimer;
-        private readonly TimeSpan interactionDelay = TimeSpan.FromSeconds(2);
+        private bool _isUserInteracting = false;
+        private System.Windows.Threading.DispatcherTimer? _interactionTimer;
+        private readonly TimeSpan _interactionDelay = TimeSpan.FromSeconds(2);
 
         public FloatingWindow()
         {
@@ -102,25 +102,25 @@ namespace Buddie
                 SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle & ~WS_EX_TRANSPARENT);
             }
             
-            isClickThrough = enable;
+            _isClickThrough = enable;
         }
 
         private void InitializeControls()
         {
             // 初始化设置控件
-            SettingsControl.Initialize(appSettings);
-            SettingsControl.DataContext = appSettings;
+            SettingsControl.Initialize(_appSettings);
+            SettingsControl.DataContext = _appSettings;
             
             // 订阅设置控件事件
             SettingsControl.SettingsClosed += (s, e) => EnableClickThrough(false);
             SettingsControl.TopMostChanged += (s, value) => this.Topmost = value;
             SettingsControl.ShowInTaskbarChanged += (s, value) => this.ShowInTaskbar = value;
             SettingsControl.DarkThemeChanged += async (s, value) => {
-                appSettings.IsDarkTheme = value;
+                _appSettings.IsDarkTheme = value;
                 ApplyTheme();
                 // 自动保存主题设置到数据库
                 await ExceptionHandlingService.Database.ExecuteSafelyAsync(
-                    () => appSettings.SaveToDatabaseAsync(),
+                    () => _appSettings.SaveToDatabaseAsync(),
                     "保存主题设置");
             };
             SettingsControl.ResetSettingsRequested += (s, e) => ResetSettings();
@@ -131,7 +131,7 @@ namespace Buddie
             SettingsControl.ApiConfigurationChanged += async (s, e) => {
                 // 自动保存配置更改到数据库
                 await ExceptionHandlingService.Database.ExecuteSafelyAsync(
-                    () => appSettings.SaveToDatabaseAsync(),
+                    () => _appSettings.SaveToDatabaseAsync(),
                     "保存API配置");
                 
                 UpdateCardsFromApiConfigurations();
@@ -141,14 +141,14 @@ namespace Buddie
             // 订阅TTS配置事件
             SettingsControl.TtsConfigurationActivated += async (s, config) => {
                 await ExceptionHandlingService.Tts.ExecuteSafelyAsync(
-                    () => appSettings.ActivateTtsConfigurationAsync(config),
+                    () => _appSettings.ActivateTtsConfigurationAsync(config),
                     "激活TTS配置");
             };
             
             SettingsControl.TtsConfigurationAdded += (s, config) => {
                 ExceptionHandlingService.UI.ExecuteSafely(() => {
                     // 新配置添加到集合中并保存到数据库
-                    // 配置已经通过TtsConfigControl.Initialize绑定到appSettings.TtsConfigurations
+                    // 配置已经通过TtsConfigControl.Initialize绑定到_appSettings.TtsConfigurations
                     // 新添加的配置在用户点击保存按钮时会触发TtsConfigurationUpdated事件
                 }, "TTS配置添加");
             };
@@ -157,7 +157,7 @@ namespace Buddie
                 try
                 {
                     // 当用户点击保存按钮后，保存单个配置
-                    await appSettings.SaveTtsConfigurationAsync(config);
+                    await _appSettings.SaveTtsConfigurationAsync(config);
                 }
                 catch (Exception)
                 {
@@ -170,7 +170,7 @@ namespace Buddie
                 {
                     if (config.IsSaved && config.Id > 0)
                     {
-                        await appSettings.RemoveTtsConfigurationAsync(config);
+                        await _appSettings.RemoveTtsConfigurationAsync(config);
                     }
                 }
                 catch (Exception)
@@ -180,11 +180,11 @@ namespace Buddie
             };
             
             // 初始化对话控件
-            DialogControl.DataContext = appSettings;
+            DialogControl.DataContext = _appSettings;
             DialogControl.MessageSent += async (s, message) => {
-                if (currentCardIndex < cards.Count && cards[currentCardIndex].ApiConfiguration != null)
+                if (_currentCardIndex < _cards.Count && _cards[_currentCardIndex].ApiConfiguration != null)
                 {
-                    await DialogControl.SendMessageToApi(message, cards[currentCardIndex].ApiConfiguration!);
+                    await DialogControl.SendMessageToApi(message, _cards[_currentCardIndex].ApiConfiguration!);
                 }
                 else
                 {
@@ -221,9 +221,9 @@ namespace Buddie
             UpdateCardsFromApiConfigurations();
             
             // 如果没有API配置，添加一个默认示例卡片
-            if (cards.Count == 0)
+            if (_cards.Count == 0)
             {
-                cards.Add(new CardData
+                _cards.Add(new CardData
                 {
                     FrontText = "示例配置",
                     FrontSubText = "请先添加API配置",
@@ -276,7 +276,7 @@ namespace Buddie
             // 保存所有设置到数据库
             try
             {
-                await appSettings.SaveToDatabaseAsync();
+                await _appSettings.SaveToDatabaseAsync();
             }
             catch (Exception)
             {
@@ -308,7 +308,7 @@ namespace Buddie
             // 保存设置到数据库 - 使用同步方式确保保存完成
             try
             {
-                var saveTask = appSettings.SaveToDatabaseAsync();
+                var saveTask = _appSettings.SaveToDatabaseAsync();
                 saveTask.Wait(); // 等待保存完成
             }
             catch (Exception)
@@ -317,15 +317,15 @@ namespace Buddie
             }
         }
 
-        private bool isFlipped = false;
-        private bool isAnimating = false;
+        private bool _isFlipped = false;
+        private bool _isAnimating = false;
 
         private void LeftFlipButton_Click(object sender, System.Windows.RoutedEventArgs e)
         {
-            if (isFlipped)
+            if (_isFlipped)
             {
                 cardControl.FlipCard();
-                isFlipped = false;
+                _isFlipped = false;
             }
             else
             {
@@ -335,10 +335,10 @@ namespace Buddie
 
         private void RightFlipButton_Click(object sender, System.Windows.RoutedEventArgs e)
         {
-            if (isFlipped)
+            if (_isFlipped)
             {
                 cardControl.FlipCard();
-                isFlipped = false;
+                _isFlipped = false;
             }
             else
             {
@@ -348,33 +348,33 @@ namespace Buddie
 
         private void SwitchToNextCard()
         {
-            if (isAnimating || cards.Count <= 1)
+            if (_isAnimating || _cards.Count <= 1)
                 return;
                 
-            int nextIndex = (currentCardIndex + 1) % cards.Count;
+            int nextIndex = (_currentCardIndex + 1) % _cards.Count;
             SwitchToCard(nextIndex);
         }
 
         private void SwitchToPreviousCard()
         {
-            if (isAnimating || cards.Count <= 1)
+            if (_isAnimating || _cards.Count <= 1)
                 return;
                 
-            int prevIndex = (currentCardIndex - 1 + cards.Count) % cards.Count;
+            int prevIndex = (_currentCardIndex - 1 + _cards.Count) % _cards.Count;
             SwitchToCard(prevIndex);
         }
 
         private void SwitchToCard(int newIndex)
         {
-            if (newIndex == currentCardIndex || isAnimating)
+            if (newIndex == _currentCardIndex || _isAnimating)
                 return;
                 
-            currentCardIndex = newIndex;
-            isFlipped = false;
+            _currentCardIndex = newIndex;
+            _isFlipped = false;
             UpdateCardDisplay();
             
             // 检查新卡片是否有关联的API配置，如果有则自动拉起对话界面
-            if (currentCardIndex < cards.Count && cards[currentCardIndex].ApiConfiguration != null)
+            if (_currentCardIndex < _cards.Count && _cards[_currentCardIndex].ApiConfiguration != null)
             {
                 ShowDialogForCurrentCard();
             }
@@ -388,23 +388,23 @@ namespace Buddie
         
         private void UpdateCardDisplay()
         {
-            if (currentCardIndex < 0 || currentCardIndex >= cards.Count)
+            if (_currentCardIndex < 0 || _currentCardIndex >= _cards.Count)
                 return;
                 
-            var card = cards[currentCardIndex];
-            cardControl.UpdateDisplay(card, currentCardIndex + 1, cards.Count);
+            var card = _cards[_currentCardIndex];
+            cardControl.UpdateDisplay(card, _currentCardIndex + 1, _cards.Count);
         }
         
         // 根据API配置更新卡片
         private void UpdateCardsFromApiConfigurations()
         {
-            cards.Clear();
+            _cards.Clear();
             ResetCardColorSystem(); // 重置颜色系统以确保新卡片有不同的颜色
             
-            foreach (var apiConfig in appSettings.ApiConfigurations)
+            foreach (var apiConfig in _appSettings.ApiConfigurations)
             {
                 var colorPair = GetRandomColorPair();
-                cards.Add(new CardData
+                _cards.Add(new CardData
                 {
                     FrontText = apiConfig.Name,
                     FrontSubText = apiConfig.ModelName,
@@ -421,10 +421,10 @@ namespace Buddie
             }
             
             // 如果没有API配置，创建默认卡片
-            if (cards.Count == 0)
+            if (_cards.Count == 0)
             {
                 var colorPair = GetRandomColorPair();
-                cards.Add(new CardData
+                _cards.Add(new CardData
                 {
                     FrontText = "欢迎使用",
                     FrontSubText = "点击设置添加AI配置",
@@ -440,8 +440,8 @@ namespace Buddie
             }
             
             // 重置当前卡片索引
-            currentCardIndex = Math.Min(currentCardIndex, cards.Count - 1);
-            if (currentCardIndex < 0) currentCardIndex = 0;
+            _currentCardIndex = Math.Min(_currentCardIndex, _cards.Count - 1);
+            if (_currentCardIndex < 0) _currentCardIndex = 0;
         }
         
         // 获取随机颜色的辅助方法
@@ -458,18 +458,18 @@ namespace Buddie
             };
             
             // 过滤掉已使用的颜色
-            var unusedColors = availableColors.Where(c => !usedCardColors.Contains(c)).ToList();
+            var unusedColors = availableColors.Where(c => !_usedCardColors.Contains(c)).ToList();
             
             // 如果所有颜色都已使用，重置颜色列表
             if (unusedColors.Count == 0)
             {
-                usedCardColors.Clear();
+                _usedCardColors.Clear();
                 unusedColors = availableColors.ToList();
             }
             
             // 随机选择一个未使用的颜色
-            var selectedColor = unusedColors[colorRandom.Next(unusedColors.Count)];
-            usedCardColors.Add(selectedColor);
+            var selectedColor = unusedColors[_colorRandom.Next(unusedColors.Count)];
+            _usedCardColors.Add(selectedColor);
             
             return selectedColor;
         }
@@ -481,10 +481,10 @@ namespace Buddie
             var backColor = GetRandomColor();
             
             // 确保正面和背面颜色不同
-            while (backColor == frontColor && usedCardColors.Count > 1)
+            while (backColor == frontColor && _usedCardColors.Count > 1)
             {
                 // 从已用颜色中移除背面颜色，重新选择
-                usedCardColors.Remove(backColor);
+                _usedCardColors.Remove(backColor);
                 backColor = GetRandomColor();
             }
             
@@ -494,7 +494,7 @@ namespace Buddie
         // 重置卡片颜色系统
         private void ResetCardColorSystem()
         {
-            usedCardColors.Clear();
+            _usedCardColors.Clear();
         }
 
         // 重置设置
@@ -502,14 +502,14 @@ namespace Buddie
         {
             this.Topmost = true;
             this.ShowInTaskbar = true;
-            appSettings.IsDarkTheme = false;
+            _appSettings.IsDarkTheme = false;
             ApplyTheme();
         }
 
         // 应用主题
         private void ApplyTheme()
         {
-            bool isDarkTheme = appSettings.IsDarkTheme;
+            bool isDarkTheme = _appSettings.IsDarkTheme;
             
             if (isDarkTheme)
             {
@@ -544,16 +544,16 @@ namespace Buddie
         {
             try
             {
-                await appSettings.LoadFromDatabaseAsync();
+                await _appSettings.LoadFromDatabaseAsync();
                 
                 // 应用加载的设置
-                this.Topmost = appSettings.IsTopmost;
-                this.ShowInTaskbar = appSettings.ShowInTaskbar;
+                this.Topmost = _appSettings.IsTopmost;
+                this.ShowInTaskbar = _appSettings.ShowInTaskbar;
                 ApplyTheme();
                 
                 // 重新初始化配置控件，确保加载的配置显示出来
-                SettingsControl.RefreshApiConfigurations(appSettings.ApiConfigurations);
-                SettingsControl.RefreshTtsConfigurations(appSettings.TtsConfigurations);
+                SettingsControl.RefreshApiConfigurations(_appSettings.ApiConfigurations);
+                SettingsControl.RefreshTtsConfigurations(_appSettings.TtsConfigurations);
                 
                 // 更新卡片显示
                 UpdateCardsFromApiConfigurations();
@@ -597,10 +597,10 @@ namespace Buddie
         {
             try
             {
-                var saveTask = appSettings.SaveToDatabaseAsync();
+                var saveTask = _appSettings.SaveToDatabaseAsync();
                 saveTask.Wait(TimeSpan.FromSeconds(5)); // 等待最多5秒
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Handle save error silently
                 throw; // Re-throw for caller to handle
@@ -613,7 +613,7 @@ namespace Buddie
             // 最后一次保存设置（防止强制关闭时丢失配置）
             try
             {
-                var saveTask = appSettings.SaveToDatabaseAsync();
+                var saveTask = _appSettings.SaveToDatabaseAsync();
                 saveTask.Wait(TimeSpan.FromSeconds(3)); // 最多等待3秒
             }
             catch (Exception)
@@ -622,7 +622,7 @@ namespace Buddie
             }
             
             trayIcon?.Dispose();
-            interactionTimer?.Stop();
+            _interactionTimer?.Stop();
             base.OnClosed(e);
         }
         
@@ -633,11 +633,11 @@ namespace Buddie
         /// </summary>
         private void InitializeInteractionTimer()
         {
-            interactionTimer = new System.Windows.Threading.DispatcherTimer
+            _interactionTimer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = interactionDelay
+                Interval = _interactionDelay
             };
-            interactionTimer.Tick += InteractionTimer_Tick;
+            _interactionTimer.Tick += InteractionTimer_Tick;
         }
         
         /// <summary>
@@ -645,7 +645,7 @@ namespace Buddie
         /// </summary>
         private void InteractionTimer_Tick(object? sender, EventArgs e)
         {
-            interactionTimer?.Stop();
+            _interactionTimer?.Stop();
             SetUserInteracting(false);
         }
         
@@ -654,15 +654,15 @@ namespace Buddie
         /// </summary>
         private void SetUserInteracting(bool interacting)
         {
-            isUserInteracting = interacting;
+            _isUserInteracting = interacting;
             
             if (interacting)
             {
                 // 用户开始交互，立即设置为不透明
                 UpdateInterfaceOpacity(1.0);
                 // 重置计时器
-                interactionTimer?.Stop();
-                interactionTimer?.Start();
+                _interactionTimer?.Stop();
+                _interactionTimer?.Start();
             }
             else
             {
@@ -809,7 +809,7 @@ namespace Buddie
         private void UpdateInterfaceOpacity(double opacity)
         {
             // 如果用户正在交互，保持完全不透明
-            if (isUserInteracting && opacity < 1.0)
+            if (_isUserInteracting && opacity < 1.0)
             {
                 opacity = 1.0;
             }

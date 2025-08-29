@@ -20,8 +20,8 @@ namespace Buddie.Controls
         public event EventHandler? MouseLeft;
 
         // 界面状态跟踪
-        private bool isDialogOpen = false;
-        private bool isSettingsOpen = false;
+        private bool _isDialogOpen = false;
+        private bool _isSettingsOpen = false;
 
         public CardControl()
         {
@@ -76,6 +76,9 @@ namespace Buddie.Controls
             RightFlipButtonClicked?.Invoke(this, EventArgs.Empty);
         }
 
+        /// &lt;summary&gt;
+        /// 翻转卡片，切换正面和背面显示
+        /// &lt;/summary&gt;
         public void FlipCard()
         {
             var isFlipped = CardBack.Visibility == Visibility.Visible;
@@ -120,11 +123,21 @@ namespace Buddie.Controls
             CardRotateTransform.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty, rotationAnimation);
         }
 
+        /// &lt;summary&gt;
+        /// 更新卡片信息显示
+        /// &lt;/summary&gt;
+        /// &lt;param name="info"&gt;要显示的信息文本&lt;/param&gt;
         public void UpdateCardInfo(string info)
         {
             CardInfo.Text = info;
         }
 
+        /// &lt;summary&gt;
+        /// 更新卡片显示内容
+        /// &lt;/summary&gt;
+        /// &lt;param name="cardData"&gt;卡片数据&lt;/param&gt;
+        /// &lt;param name="currentIndex"&gt;当前卡片索引&lt;/param&gt;
+        /// &lt;param name="totalCount"&gt;卡片总数&lt;/param&gt;
         public void UpdateDisplay(CardData cardData, int currentIndex, int totalCount)
         {
             // Update card content
@@ -142,22 +155,30 @@ namespace Buddie.Controls
         }
 
         // 更新按钮状态显示
+        /// &lt;summary&gt;
+        /// 更新对话按钮状态
+        /// &lt;/summary&gt;
+        /// &lt;param name="isOpen"&gt;对话是否打开&lt;/param&gt;
         public void UpdateDialogButtonState(bool isOpen)
         {
-            isDialogOpen = isOpen;
+            _isDialogOpen = isOpen;
             UpdateButtonColors();
         }
 
+        /// &lt;summary&gt;
+        /// 更新设置按钮状态
+        /// &lt;/summary&gt;
+        /// &lt;param name="isOpen"&gt;设置是否打开&lt;/param&gt;
         public void UpdateSettingsButtonState(bool isOpen)
         {
-            isSettingsOpen = isOpen;
+            _isSettingsOpen = isOpen;
             UpdateButtonColors();
         }
 
         private void UpdateButtonColors()
         {
             // 对话按钮：展开时显示橘色
-            if (isDialogOpen)
+            if (_isDialogOpen)
             {
                 DialogButton.Background = System.Windows.Media.Brushes.Orange;
                 DialogButton.Foreground = System.Windows.Media.Brushes.White;
@@ -169,7 +190,7 @@ namespace Buddie.Controls
             }
 
             // 设置按钮：展开时显示蓝色
-            if (isSettingsOpen)
+            if (_isSettingsOpen)
             {
                 SettingsButton.Background = System.Windows.Media.Brushes.Blue;
                 SettingsButton.Foreground = System.Windows.Media.Brushes.White;

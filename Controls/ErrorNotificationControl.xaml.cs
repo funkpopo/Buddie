@@ -7,9 +7,9 @@ namespace Buddie.Controls
 {
     public partial class ErrorNotificationControl : UserControl
     {
-        private bool isDetailsVisible = false;
-        private Action? retryAction;
-        private DoubleAnimation? fadeAnimation;
+        private bool _isDetailsVisible = false;
+        private Action? _retryAction;
+        private DoubleAnimation? _fadeAnimation;
 
         public event EventHandler? Closed;
         public event EventHandler? ActionRequested;
@@ -40,7 +40,7 @@ namespace Buddie.Controls
             {
                 ActionButton.Content = actionText;
                 ActionButton.Visibility = Visibility.Visible;
-                retryAction = action;
+                _retryAction = action;
             }
             else
             {
@@ -103,7 +103,7 @@ namespace Buddie.Controls
         /// </summary>
         private void FadeIn()
         {
-            fadeAnimation = new DoubleAnimation
+            _fadeAnimation = new DoubleAnimation
             {
                 From = 0.0,
                 To = 1.0,
@@ -111,7 +111,7 @@ namespace Buddie.Controls
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
             };
 
-            NotificationBorder.BeginAnimation(UIElement.OpacityProperty, fadeAnimation);
+            NotificationBorder.BeginAnimation(UIElement.OpacityProperty, _fadeAnimation);
             
             // 3秒后自动淡出（除非用户交互）
             var timer = new System.Windows.Threading.DispatcherTimer();
@@ -119,7 +119,7 @@ namespace Buddie.Controls
             timer.Tick += (s, e) =>
             {
                 timer.Stop();
-                if (!isDetailsVisible) // 如果用户没有查看详情，则自动关闭
+                if (!_isDetailsVisible) // 如果用户没有查看详情，则自动关闭
                 {
                     FadeOut();
                 }
@@ -132,7 +132,7 @@ namespace Buddie.Controls
         /// </summary>
         private void FadeOut()
         {
-            fadeAnimation = new DoubleAnimation
+            _fadeAnimation = new DoubleAnimation
             {
                 From = 1.0,
                 To = 0.0,
@@ -140,13 +140,13 @@ namespace Buddie.Controls
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
             };
 
-            fadeAnimation.Completed += (s, e) =>
+            _fadeAnimation.Completed += (s, e) =>
             {
                 Visibility = Visibility.Collapsed;
                 Closed?.Invoke(this, EventArgs.Empty);
             };
 
-            NotificationBorder.BeginAnimation(UIElement.OpacityProperty, fadeAnimation);
+            NotificationBorder.BeginAnimation(UIElement.OpacityProperty, _fadeAnimation);
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
@@ -156,9 +156,9 @@ namespace Buddie.Controls
 
         private void DetailsButton_Click(object sender, RoutedEventArgs e)
         {
-            isDetailsVisible = !isDetailsVisible;
+            _isDetailsVisible = !_isDetailsVisible;
             
-            if (isDetailsVisible)
+            if (_isDetailsVisible)
             {
                 DetailsPanel.Visibility = Visibility.Visible;
                 DetailsButton.Content = "隐藏详情";
@@ -172,7 +172,7 @@ namespace Buddie.Controls
 
         private void ActionButton_Click(object sender, RoutedEventArgs e)
         {
-            retryAction?.Invoke();
+            _retryAction?.Invoke();
             ActionRequested?.Invoke(this, EventArgs.Empty);
             FadeOut();
         }

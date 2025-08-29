@@ -34,8 +34,8 @@ namespace Buddie.Controls
     public partial class DialogControl : System.Windows.Controls.UserControl
     {
         // NAudio-based audio player
-        private WaveOutEvent? currentAudioPlayer;
-        private AudioFileReader? currentAudioReader;
+        private WaveOutEvent? _currentAudioPlayer;
+        private AudioFileReader? _currentAudioReader;
 
         // UI virtualization - ObservableCollection for messages
         public ObservableCollection<MessageDisplayModel> Messages { get; private set; }
@@ -44,18 +44,18 @@ namespace Buddie.Controls
         public event EventHandler? DialogClosed;
         public event EventHandler<bool>? DialogVisibilityChanged;
         
-        private CancellationTokenSource? currentRequest;
-        private bool isSending = false;
-        private bool isSidebarVisible = false;
-        private List<string> conversationHistory = new List<string>();
-        private MarkdownPipeline markdownPipeline;
-        private DatabaseService databaseService = new DatabaseService();
-        private DbConversation? currentConversation;
-        private List<DbMessage> currentMessages = new List<DbMessage>();
+        private CancellationTokenSource? _currentRequest;
+        private bool _isSending = false;
+        private bool _isSidebarVisible = false;
+        private readonly List<string> _conversationHistory = new List<string>();
+        private readonly MarkdownPipeline _markdownPipeline;
+        private readonly DatabaseService _databaseService = new DatabaseService();
+        private DbConversation? _currentConversation;
+        private List<DbMessage> _currentMessages = new List<DbMessage>();
         
         // 截图相关字段
-        private byte[]? currentScreenshot;
-        private bool hasScreenshot = false;
+        private byte[]? _currentScreenshot;
+        private bool _hasScreenshot = false;
 
         public DialogControl()
         {
@@ -66,7 +66,7 @@ namespace Buddie.Controls
             DialogMessagesPanel.ItemsSource = Messages;
             
             // 初始化Markdown管道，启用常用的扩展
-            markdownPipeline = new MarkdownPipelineBuilder()
+            _markdownPipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
                 .Build();
             
@@ -102,12 +102,12 @@ namespace Buddie.Controls
 
         private void SendMessage_Click(object sender, RoutedEventArgs e)
         {
-            if (isSending)
+            if (_isSending)
             {
                 // 如果正在发送，执行中断操作
-                if (currentRequest != null)
+                if (_currentRequest != null)
                 {
-                    currentRequest.Cancel();
+                    _currentRequest.Cancel();
                     AddMessageBubble("对话已中断", false);
                 }
                 // 重置发送状态
@@ -118,22 +118,22 @@ namespace Buddie.Controls
             var message = DialogInput.Text.Trim();
             
             // 检查是否有内容需要发送（文字或图片）
-            if (!string.IsNullOrEmpty(message) || hasScreenshot)
+            if (!string.IsNullOrEmpty(message) || _hasScreenshot)
             {
                 // 如果有截图但没有文字，提供默认文字
-                if (string.IsNullOrEmpty(message) && hasScreenshot)
+                if (string.IsNullOrEmpty(message) && _hasScreenshot)
                 {
                     message = "请分析这张图片。";
                 }
                 
                 // 添加到历史记录
-                conversationHistory.Add(message);
+                _conversationHistory.Add(message);
                 
                 // 更新UI状态
                 SetSendingState(true);
                 
                 // 如果有截图，传递给发送事件处理器
-                if (hasScreenshot)
+                if (_hasScreenshot)
                 {
                     MessageSent?.Invoke(this, $"[MULTIMODAL]{message}");
                 }
@@ -145,10 +145,10 @@ namespace Buddie.Controls
                 DialogInput.Clear();
                 
                 // 发送后清理截图
-                if (hasScreenshot)
+                if (_hasScreenshot)
                 {
-                    currentScreenshot = null;
-                    hasScreenshot = false;
+                    _currentScreenshot = null;
+                    _hasScreenshot = false;
                     ScreenshotPreviewBorder.Visibility = Visibility.Collapsed;
                 }
             }
@@ -156,7 +156,7 @@ namespace Buddie.Controls
 
         private void SetSendingState(bool sending)
         {
-            isSending = sending;
+            _isSending = sending;
             if (sending)
             {
                 SendButton.Content = "中断";
@@ -166,16 +166,22 @@ namespace Buddie.Controls
             {
                 SendButton.Content = "发送";
                 SendButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
-                currentRequest?.Dispose();
-                currentRequest = null;
+                _currentRequest?.Dispose();
+                _currentRequest = null;
             }
         }
 
+        /// &lt;summary&gt;
+        /// 重置发送状态
+        /// &lt;/summary&gt;
         public void ResetSendingState()
         {
             SetSendingState(false);
         }
 
+        /// &lt;summary&gt;
+        /// 显示对话界面
+        /// &lt;/summary&gt;
         public void Show()
         {
             DialogInterface.Visibility = Visibility.Visible;
@@ -183,6 +189,9 @@ namespace Buddie.Controls
             DialogVisibilityChanged?.Invoke(this, true);
         }
 
+        /// &lt;summary&gt;
+        /// 切换对话界面显示状态
+        /// &lt;/summary&gt;
         public void Toggle()
         {
             if (IsVisible)
@@ -196,6 +205,9 @@ namespace Buddie.Controls
             }
         }
 
+        /// &lt;summary&gt;
+        /// 将控件置于最前面
+        /// &lt;/summary&gt;
         public void BringToFront()
         {
             // 通过重新设置Panel.ZIndex将控件置于最前面
@@ -212,6 +224,9 @@ namespace Buddie.Controls
             }
         }
 
+        /// &lt;summary&gt;
+        /// 隐藏对话界面
+        /// &lt;/summary&gt;
         public void Hide()
         {
             DialogInterface.Visibility = Visibility.Collapsed;
@@ -471,7 +486,7 @@ namespace Buddie.Controls
             var flowDocument = ExceptionHandlingService.ExecuteSafely(() =>
             {
                 // 将Markdown转换为HTML
-                var html = Markdown.ToHtml(markdownText, markdownPipeline);
+                var html = Markdown.ToHtml(markdownText, _markdownPipeline);
                 
                 // 将HTML转换为FlowDocument
                 return ConvertHtmlToFlowDocument(html);
@@ -806,9 +821,9 @@ namespace Buddie.Controls
 
         // Obsolete methods removed - UI virtualization with data binding handles theming automatically
         
-        private MessageDisplayModel? currentStreamingMessage;
-        private StringBuilder streamingContent = new StringBuilder();
-        private StringBuilder streamingReasoning = new StringBuilder();
+        private MessageDisplayModel? _currentStreamingMessage;
+        private readonly StringBuilder _streamingContent = new StringBuilder();
+        private readonly StringBuilder _streamingReasoning = new StringBuilder();
 
         public async Task SendMessageToApi(string message, OpenApiConfiguration apiConfig)
         {
@@ -821,7 +836,7 @@ namespace Buddie.Controls
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 // 创建新的取消令牌
-                currentRequest = new CancellationTokenSource();
+                _currentRequest = new CancellationTokenSource();
                 
                 using var httpClient = new HttpClient();
                 httpClient.Timeout = TimeSpan.FromMinutes(5);
@@ -829,10 +844,10 @@ namespace Buddie.Controls
 
                 object requestBody;
                 
-                if (isMultimodal && currentScreenshot != null && apiConfig.IsMultimodalEnabled)
+                if (isMultimodal && _currentScreenshot != null && apiConfig.IsMultimodalEnabled)
                 {
                     // 构建多模态消息
-                    var imageBase64 = ConvertImageToBase64(currentScreenshot);
+                    var imageBase64 = ConvertImageToBase64(_currentScreenshot);
                     
                     requestBody = new
                     {
@@ -879,10 +894,10 @@ namespace Buddie.Controls
                 }
                 else
                 {
-                    var response = await httpClient.PostAsync(apiConfig.ApiUrl, content, currentRequest?.Token ?? CancellationToken.None);
+                    var response = await httpClient.PostAsync(apiConfig.ApiUrl, content, _currentRequest?.Token ?? CancellationToken.None);
                     var responseText = await response.Content.ReadAsStringAsync();
                     
-                    currentRequest?.Token.ThrowIfCancellationRequested();
+                    _currentRequest?.Token.ThrowIfCancellationRequested();
 
                     if (response.IsSuccessStatusCode)
                     {
@@ -933,7 +948,7 @@ namespace Buddie.Controls
                     Content = requestContent
                 };
 
-                var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, currentRequest?.Token ?? CancellationToken.None);
+                var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, _currentRequest?.Token ?? CancellationToken.None);
                 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -950,7 +965,7 @@ namespace Buddie.Controls
                 string? line;
                 while ((line = await reader.ReadLineAsync()) != null)
                 {
-                    currentRequest?.Token.ThrowIfCancellationRequested();
+                    _currentRequest?.Token.ThrowIfCancellationRequested();
                     
                     if (line.StartsWith("data:"))
                     {
@@ -979,7 +994,7 @@ namespace Buddie.Controls
                                             var reasoning = reasoningProp.GetString();
                                             if (!string.IsNullOrEmpty(reasoning))
                                             {
-                                                streamingReasoning.Append(reasoning);
+                                                _streamingReasoning.Append(reasoning);
                                                 // 实时更新思维过程UI
                                                 Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
                                             }
@@ -991,7 +1006,7 @@ namespace Buddie.Controls
                                             var messageText = contentProp.GetString();
                                             if (!string.IsNullOrEmpty(messageText))
                                             {
-                                                streamingContent.Append(messageText);
+                                                _streamingContent.Append(messageText);
                                                 // 实时更新UI
                                                 Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
                                             }
@@ -1020,11 +1035,11 @@ namespace Buddie.Controls
 
         private void InitializeStreamingMessage()
         {
-            streamingContent.Clear();
-            streamingReasoning.Clear();
+            _streamingContent.Clear();
+            _streamingReasoning.Clear();
             
             // Create a new message model for streaming
-            currentStreamingMessage = new MessageDisplayModel
+            _currentStreamingMessage = new MessageDisplayModel
             {
                 Content = "",
                 IsUser = false,
@@ -1032,27 +1047,27 @@ namespace Buddie.Controls
                 Timestamp = DateTime.Now
             };
             
-            Messages.Add(currentStreamingMessage);
+            Messages.Add(_currentStreamingMessage);
             ScrollToBottom();
         }
 
         private void UpdateStreamingMessage()
         {
-            if (currentStreamingMessage == null) return;
+            if (_currentStreamingMessage == null) return;
             
             bool updated = false;
             
             // Update reasoning content if available
-            if (streamingReasoning.Length > 0)
+            if (_streamingReasoning.Length > 0)
             {
-                currentStreamingMessage.ReasoningContent = streamingReasoning.ToString();
+                _currentStreamingMessage.ReasoningContent = _streamingReasoning.ToString();
                 updated = true;
             }
             
             // Update actual content
-            if (streamingContent.Length > 0)
+            if (_streamingContent.Length > 0)
             {
-                currentStreamingMessage.Content = streamingContent.ToString();
+                _currentStreamingMessage.Content = _streamingContent.ToString();
                 updated = true;
             }
             
@@ -1157,14 +1172,14 @@ namespace Buddie.Controls
         
         private async void FinalizeStreamingMessage()
         {
-            if (currentStreamingMessage != null)
+            if (_currentStreamingMessage != null)
             {
-                var finalContent = streamingContent.ToString().Trim();
-                var finalReasoning = streamingReasoning.ToString().Trim();
+                var finalContent = _streamingContent.ToString().Trim();
+                var finalReasoning = _streamingReasoning.ToString().Trim();
                 
                 // Update the final message content
-                currentStreamingMessage.Content = finalContent;
-                currentStreamingMessage.ReasoningContent = string.IsNullOrEmpty(finalReasoning) ? null : finalReasoning;
+                _currentStreamingMessage.Content = finalContent;
+                _currentStreamingMessage.ReasoningContent = string.IsNullOrEmpty(finalReasoning) ? null : finalReasoning;
                 
                 // Auto-save AI reply message to database
                 if (!string.IsNullOrEmpty(finalContent))
@@ -1175,12 +1190,12 @@ namespace Buddie.Controls
                 // If no valid content was received, remove the message or update with placeholder
                 if (string.IsNullOrEmpty(finalContent) && string.IsNullOrEmpty(finalReasoning))
                 {
-                    Messages.Remove(currentStreamingMessage);
+                    Messages.Remove(_currentStreamingMessage);
                     AddMessageBubbleWithoutSave("AI没有返回有效内容", false);
                 }
                 
                 // Clear references
-                currentStreamingMessage = null;
+                _currentStreamingMessage = null;
                 
                 // Scroll to bottom to show complete content
                 ScrollToBottom();
@@ -1296,7 +1311,7 @@ namespace Buddie.Controls
                 });
 
                 // 先尝试从数据库获取缓存的音频
-                var cachedAudio = await databaseService.GetTtsAudioAsync(textHash);
+                var cachedAudio = await _databaseService.GetTtsAudioAsync(textHash);
                 if (cachedAudio != null)
                 {
                     System.Diagnostics.Debug.WriteLine("TTS API: 使用缓存音频");
@@ -1325,7 +1340,7 @@ namespace Buddie.Controls
                     System.Diagnostics.Debug.WriteLine($"TTS API: 收到音频数据，大小: {ttsResponse.AudioData.Length} bytes");
                     
                     // 保存到数据库缓存
-                    await databaseService.SaveTtsAudioAsync(textHash, ttsResponse.AudioData, ttsConfigJson);
+                    await _databaseService.SaveTtsAudioAsync(textHash, ttsResponse.AudioData, ttsConfigJson);
                     System.Diagnostics.Debug.WriteLine("TTS API: 音频已保存到缓存");
                     
                     // 触发缓存清理（使用AppSettings中的配置）
@@ -1336,7 +1351,7 @@ namespace Buddie.Controls
                         {
                             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
                             {
-                                await databaseService.CleanupTtsCacheAsync(
+                                await _databaseService.CleanupTtsCacheAsync(
                                     appSettings.TtsCacheCleanupDays,
                                     appSettings.MaxTtsCacheCount,
                                     appSettings.MaxTtsCacheSizeMB);
@@ -1394,11 +1409,11 @@ namespace Buddie.Controls
                 var success = await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
                 {
                     // 使用NAudio播放音频
-                    currentAudioReader = new AudioFileReader(tempFile);
-                    currentAudioPlayer = new WaveOutEvent();
+                    _currentAudioReader = new AudioFileReader(tempFile);
+                    _currentAudioPlayer = new WaveOutEvent();
                     
                     // 设置播放完成事件
-                    currentAudioPlayer.PlaybackStopped += async (sender, e) =>
+                    _currentAudioPlayer.PlaybackStopped += async (sender, e) =>
                     {
                         await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
                         {
@@ -1419,13 +1434,13 @@ namespace Buddie.Controls
                         });
                     };
                     
-                    currentAudioPlayer.Init(currentAudioReader);
-                    currentAudioPlayer.Play();
+                    _currentAudioPlayer.Init(_currentAudioReader);
+                    _currentAudioPlayer.Play();
                     
                     System.Diagnostics.Debug.WriteLine("NAudio开始播放");
                     
                     // 异步等待播放完成
-                    while (currentAudioPlayer?.PlaybackState == PlaybackState.Playing)
+                    while (_currentAudioPlayer?.PlaybackState == PlaybackState.Playing)
                     {
                         await Task.Delay(100);
                     }
@@ -1581,17 +1596,17 @@ namespace Buddie.Controls
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
                 // 释放音频资源
-                if (currentAudioPlayer != null)
+                if (_currentAudioPlayer != null)
                 {
-                    currentAudioPlayer.Stop();
-                    await Task.Run(() => currentAudioPlayer.Dispose());
-                    currentAudioPlayer = null;
+                    _currentAudioPlayer.Stop();
+                    await Task.Run(() => _currentAudioPlayer.Dispose());
+                    _currentAudioPlayer = null;
                 }
                 
-                if (currentAudioReader != null)
+                if (_currentAudioReader != null)
                 {
-                    await Task.Run(() => currentAudioReader.Dispose());
-                    currentAudioReader = null;
+                    await Task.Run(() => _currentAudioReader.Dispose());
+                    _currentAudioReader = null;
                 }
                 
                 // 清理临时文件
@@ -1648,13 +1663,13 @@ namespace Buddie.Controls
             await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
                 // 保存当前对话（如果有的话）
-                if (currentConversation != null)
+                if (_currentConversation != null)
                 {
                     await SaveCurrentConversation();
                 }
 
                 // 创建新对话（暂不保存，等到有用户输入时再保存）
-                currentConversation = new DbConversation
+                _currentConversation = new DbConversation
                 {
                     Title = $"对话 {DateTime.Now:MM-dd HH:mm}",
                     CreatedAt = DateTime.UtcNow,
@@ -1663,10 +1678,10 @@ namespace Buddie.Controls
                 };
 
                 // 清空当前消息和界面
-                currentMessages.Clear();
+                _currentMessages.Clear();
                 ClearDialog();
                 
-                System.Diagnostics.Debug.WriteLine($"Started new conversation: {currentConversation.Id}");
+                System.Diagnostics.Debug.WriteLine($"Started new conversation: {_currentConversation.Id}");
             }, "开始新对话");
         }
 
@@ -1678,19 +1693,19 @@ namespace Buddie.Controls
             await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
                 // 保存当前对话
-                if (currentConversation != null)
+                if (_currentConversation != null)
                 {
                     await SaveCurrentConversation();
                 }
 
                 // 加载指定对话
-                var conversations = await databaseService.GetConversationsAsync();
-                currentConversation = conversations.FirstOrDefault(c => c.Id == conversationId);
+                var conversations = await _databaseService.GetConversationsAsync();
+                _currentConversation = conversations.FirstOrDefault(c => c.Id == conversationId);
 
-                if (currentConversation != null)
+                if (_currentConversation != null)
                 {
                     // 加载对话消息
-                    currentMessages = await databaseService.GetMessagesAsync(conversationId);
+                    _currentMessages = await _databaseService.GetMessagesAsync(conversationId);
                     
                     // 重建对话界面
                     await RebuildConversationUI();
@@ -1705,10 +1720,10 @@ namespace Buddie.Controls
         {
             await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
-                if (currentConversation == null) return;
+                if (_currentConversation == null) return;
 
                 // 检查对话是否为空：没有任何用户输入内容
-                var hasUserContent = currentMessages.Any(m => m.IsUser && !string.IsNullOrWhiteSpace(m.Content));
+                var hasUserContent = _currentMessages.Any(m => m.IsUser && !string.IsNullOrWhiteSpace(m.Content));
                 if (!hasUserContent)
                 {
                     System.Diagnostics.Debug.WriteLine("Skipping save: conversation has no user content");
@@ -1716,32 +1731,32 @@ namespace Buddie.Controls
                 }
 
                 // 更新对话标题（使用第一条用户消息的前20个字符）
-                if (currentMessages.Count > 0)
+                if (_currentMessages.Count > 0)
                 {
-                    var firstUserMessage = currentMessages.FirstOrDefault(m => m.IsUser);
+                    var firstUserMessage = _currentMessages.FirstOrDefault(m => m.IsUser);
                     if (firstUserMessage != null && firstUserMessage.Content.Length > 0)
                     {
                         var title = firstUserMessage.Content.Length > 20 
                             ? firstUserMessage.Content.Substring(0, 20) + "..."
                             : firstUserMessage.Content;
-                        currentConversation.Title = title;
+                        _currentConversation.Title = title;
                     }
                 }
 
-                currentConversation.UpdatedAt = DateTime.UtcNow;
+                _currentConversation.UpdatedAt = DateTime.UtcNow;
                 
                 // 如果是首次保存（Id为0），则插入新记录并获取ID
-                if (currentConversation.Id == 0)
+                if (_currentConversation.Id == 0)
                 {
-                    var conversationId = await databaseService.SaveConversationAsync(currentConversation);
-                    currentConversation.Id = conversationId;
-                    System.Diagnostics.Debug.WriteLine($"First save of conversation: {currentConversation.Id}");
+                    var conversationId = await _databaseService.SaveConversationAsync(_currentConversation);
+                    _currentConversation.Id = conversationId;
+                    System.Diagnostics.Debug.WriteLine($"First save of conversation: {_currentConversation.Id}");
                 }
                 else
                 {
                     // 更新已存在的对话
-                    await databaseService.SaveConversationAsync(currentConversation);
-                    System.Diagnostics.Debug.WriteLine($"Updated conversation: {currentConversation.Id}");
+                    await _databaseService.SaveConversationAsync(_currentConversation);
+                    System.Diagnostics.Debug.WriteLine($"Updated conversation: {_currentConversation.Id}");
                 }
             }, "保存当前对话");
         }
@@ -1753,15 +1768,15 @@ namespace Buddie.Controls
         {
             await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
-                if (currentConversation == null)
+                if (_currentConversation == null)
                 {
                     await StartNewConversation();
                 }
 
-                if (currentConversation != null)
+                if (_currentConversation != null)
                 {
                     // 如果是用户消息且对话还未保存，则先保存对话
-                    if (isUser && currentConversation.Id == 0)
+                    if (isUser && _currentConversation.Id == 0)
                     {
                         // 先将用户消息添加到临时列表，以便SaveCurrentConversation能检测到有用户内容
                         var tempMessage = new DbMessage
@@ -1770,27 +1785,27 @@ namespace Buddie.Controls
                             IsUser = isUser,
                             CreatedAt = DateTime.UtcNow
                         };
-                        currentMessages.Add(tempMessage);
+                        _currentMessages.Add(tempMessage);
                         
                         // 现在保存对话（会检查是否有用户内容）
                         await SaveCurrentConversation();
                         
                         // 移除临时消息，稍后会重新添加带有正确ConversationId的消息
-                        currentMessages.Remove(tempMessage);
+                        _currentMessages.Remove(tempMessage);
                     }
                     
                     var message = new DbMessage
                     {
-                        ConversationId = currentConversation.Id,
+                        ConversationId = _currentConversation.Id,
                         Content = content,
                         IsUser = isUser,
                         ReasoningContent = reasoningContent,
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    var messageId = await databaseService.SaveMessageAsync(message);
+                    var messageId = await _databaseService.SaveMessageAsync(message);
                     message.Id = messageId;
-                    currentMessages.Add(message);
+                    _currentMessages.Add(message);
                 }
             }, "保存消息");
         }
@@ -1804,7 +1819,7 @@ namespace Buddie.Controls
             {
                 Messages.Clear();
 
-                foreach (var message in currentMessages.OrderBy(m => m.CreatedAt))
+                foreach (var message in _currentMessages.OrderBy(m => m.CreatedAt))
                 {
                     var messageModel = new MessageDisplayModel
                     {
@@ -1841,10 +1856,10 @@ namespace Buddie.Controls
         {
             await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
-                await databaseService.DeleteConversationAsync(conversationId);
+                await _databaseService.DeleteConversationAsync(conversationId);
                 
                 // 如果删除的是当前对话，开始新对话
-                if (currentConversation?.Id == conversationId)
+                if (_currentConversation?.Id == conversationId)
                 {
                     await StartNewConversation();
                 }
@@ -1857,7 +1872,7 @@ namespace Buddie.Controls
         public async Task<List<DbConversation>> GetAllConversations()
         {
             return await ExceptionHandlingService.Database.ExecuteSafelyAsync(
-                () => databaseService.GetConversationsAsync(),
+                () => _databaseService.GetConversationsAsync(),
                 new List<DbConversation>(),
                 "获取对话列表");
         }
@@ -1871,7 +1886,7 @@ namespace Buddie.Controls
         /// </summary>
         private async Task ToggleSidebar()
         {
-            if (isSidebarVisible)
+            if (_isSidebarVisible)
             {
                 await HideSidebar();
             }
@@ -1888,7 +1903,7 @@ namespace Buddie.Controls
         {
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                isSidebarVisible = true;
+                _isSidebarVisible = true;
                 
                 // 设置侧边栏宽度
                 SidebarColumn.Width = new GridLength(150);
@@ -1910,7 +1925,7 @@ namespace Buddie.Controls
         {
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                isSidebarVisible = false;
+                _isSidebarVisible = false;
                 
                 // 隐藏侧边栏
                 SidebarColumn.Width = new GridLength(0);
@@ -2028,8 +2043,8 @@ namespace Buddie.Controls
                 var screenshotBytes = await CaptureScreenAsync();
                 if (screenshotBytes != null)
                 {
-                    currentScreenshot = screenshotBytes;
-                    hasScreenshot = true;
+                    _currentScreenshot = screenshotBytes;
+                    _hasScreenshot = true;
                     
                     // 显示预览
                     ShowScreenshotPreview(screenshotBytes);
@@ -2046,8 +2061,8 @@ namespace Buddie.Controls
         /// </summary>
         private void RemoveScreenshotButton_Click(object sender, RoutedEventArgs e)
         {
-            currentScreenshot = null;
-            hasScreenshot = false;
+            _currentScreenshot = null;
+            _hasScreenshot = false;
             ScreenshotPreviewBorder.Visibility = Visibility.Collapsed;
         }
 
@@ -2061,7 +2076,9 @@ namespace Buddie.Controls
                 return ExceptionHandlingService.ExecuteSafely(() =>
                 {
                     // 获取主屏幕尺寸
-                    var screenBounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
+                    var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
+                    if (primaryScreen == null) return null;
+                    var screenBounds = primaryScreen.Bounds;
                     
                     // 创建位图
                     using var bitmap = new System.Drawing.Bitmap(screenBounds.Width, screenBounds.Height);
