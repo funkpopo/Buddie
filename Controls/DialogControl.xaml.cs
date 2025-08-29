@@ -827,109 +827,26 @@ namespace Buddie.Controls
 
         public async Task SendMessageToApi(string message, OpenApiConfiguration apiConfig)
         {
-            // 检查是否是多模态消息
-            bool isMultimodal = message.StartsWith("[MULTIMODAL]");
-            string actualMessage = isMultimodal ? message.Substring("[MULTIMODAL]".Length) : message;
+            // 解析消息类型
+            var (isMultimodal, actualMessage) = ParseMessage(message);
             
+            // 显示用户消息
             AddMessageBubble(actualMessage, true);
 
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                // 创建新的取消令牌
+                // 初始化请求
                 _currentRequest = new CancellationTokenSource();
                 
-                using var httpClient = new HttpClient();
-                httpClient.Timeout = TimeSpan.FromMinutes(5);
-                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiConfig.ApiKey}");
-
-                object requestBody;
+                // 创建HTTP客户端
+                using var httpClient = CreateHttpClient(apiConfig);
                 
-                if (isMultimodal && _currentScreenshot != null && apiConfig.IsMultimodalEnabled)
-                {
-                    // 构建多模态消息
-                    var imageBase64 = ConvertImageToBase64(_currentScreenshot);
-                    
-                    requestBody = new
-                    {
-                        model = apiConfig.ModelName,
-                        messages = new[]
-                        {
-                            new
-                            {
-                                role = "user",
-                                content = new object[]
-                                {
-                                    new { type = "text", text = actualMessage },
-                                    new 
-                                    { 
-                                        type = "image_url", 
-                                        image_url = new { url = $"data:image/png;base64,{imageBase64}" }
-                                    }
-                                }
-                            }
-                        },
-                        stream = apiConfig.IsStreamingEnabled
-                    };
-                }
-                else
-                {
-                    // 普通文本消息
-                    requestBody = new
-                    {
-                        model = apiConfig.ModelName,
-                        messages = new[]
-                        {
-                            new { role = "user", content = actualMessage }
-                        },
-                        stream = apiConfig.IsStreamingEnabled
-                    };
-                }
-
-                var json = JsonSerializer.Serialize(requestBody);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                if (apiConfig.IsStreamingEnabled)
-                {
-                    await ProcessStreamingResponse(httpClient, apiConfig.ApiUrl, content);
-                }
-                else
-                {
-                    var response = await httpClient.PostAsync(apiConfig.ApiUrl, content, _currentRequest?.Token ?? CancellationToken.None);
-                    var responseText = await response.Content.ReadAsStringAsync();
-                    
-                    _currentRequest?.Token.ThrowIfCancellationRequested();
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var messageContent = ExceptionHandlingService.ExecuteSafely(() =>
-                        {
-                            var jsonDoc = JsonDocument.Parse(responseText);
-                            var choices = jsonDoc.RootElement.GetProperty("choices");
-                            if (choices.GetArrayLength() > 0)
-                            {
-                                return choices[0].GetProperty("message").GetProperty("content").GetString() ?? "无响应内容";
-                            }
-                            else
-                            {
-                                return "API响应格式错误";
-                            }
-                        },
-                        ExceptionHandlingService.HandlingStrategy.LogOnly,
-                        $"API返回了无效的JSON格式: {responseText}",
-                        new ExceptionHandlingService.ExceptionContext
-                        {
-                            Component = "DialogControl",
-                            Operation = "解析API响应"
-                        });
-                        
-                        AddMessageBubble(messageContent, false);
-                    }
-                    else
-                    {
-                        AddMessageBubble($"API请求失败: {response.StatusCode}", false);
-                    }
-                }
-
+                // 构建请求内容
+                var requestContent = BuildRequestContent(actualMessage, isMultimodal, apiConfig);
+                
+                // 处理API响应
+                await ProcessApiResponse(httpClient, apiConfig, requestContent);
+                
                 // 恢复发送状态
                 SetSendingState(false);
             }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
@@ -938,17 +855,165 @@ namespace Buddie.Controls
                 Operation = "发送API请求"
             });
         }
+        
+        /// <summary>
+        /// 解析消息以确定类型和实际内容
+        /// </summary>
+        private (bool isMultimodal, string actualMessage) ParseMessage(string message)
+        {
+            bool isMultimodal = message.StartsWith("[MULTIMODAL]");
+            string actualMessage = isMultimodal ? message.Substring("[MULTIMODAL]".Length) : message;
+            return (isMultimodal, actualMessage);
+        }
+        
+        /// <summary>
+        /// 创建配置好的HTTP客户端
+        /// </summary>
+        private HttpClient CreateHttpClient(OpenApiConfiguration apiConfig)
+        {
+            var httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(5)
+            };
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiConfig.ApiKey}");
+            return httpClient;
+        }
+        
+        /// <summary>
+        /// 构建API请求内容
+        /// </summary>
+        private StringContent BuildRequestContent(string actualMessage, bool isMultimodal, OpenApiConfiguration apiConfig)
+        {
+            object requestBody;
+            
+            if (isMultimodal && _currentScreenshot != null && apiConfig.IsMultimodalEnabled)
+            {
+                requestBody = BuildMultimodalRequestBody(actualMessage, apiConfig);
+            }
+            else
+            {
+                requestBody = BuildTextRequestBody(actualMessage, apiConfig);
+            }
+            
+            var json = JsonSerializer.Serialize(requestBody);
+            return new StringContent(json, Encoding.UTF8, "application/json");
+        }
+        
+        /// <summary>
+        /// 构建多模态请求体
+        /// </summary>
+        private object BuildMultimodalRequestBody(string actualMessage, OpenApiConfiguration apiConfig)
+        {
+            var imageBase64 = ConvertImageToBase64(_currentScreenshot ?? Array.Empty<byte>());
+            
+            return new
+            {
+                model = apiConfig.ModelName,
+                messages = new[]
+                {
+                    new
+                    {
+                        role = "user",
+                        content = new object[]
+                        {
+                            new { type = "text", text = actualMessage },
+                            new 
+                            { 
+                                type = "image_url", 
+                                image_url = new { url = $"data:image/png;base64,{imageBase64}" }
+                            }
+                        }
+                    }
+                },
+                stream = apiConfig.IsStreamingEnabled
+            };
+        }
+        
+        /// <summary>
+        /// 构建文本请求体
+        /// </summary>
+        private object BuildTextRequestBody(string actualMessage, OpenApiConfiguration apiConfig)
+        {
+            return new
+            {
+                model = apiConfig.ModelName,
+                messages = new[]
+                {
+                    new { role = "user", content = actualMessage }
+                },
+                stream = apiConfig.IsStreamingEnabled
+            };
+        }
+        
+        /// <summary>
+        /// 处理API响应
+        /// </summary>
+        private async Task ProcessApiResponse(HttpClient httpClient, OpenApiConfiguration apiConfig, StringContent requestContent)
+        {
+            if (apiConfig.IsStreamingEnabled)
+            {
+                await ProcessStreamingResponse(httpClient, apiConfig.ApiUrl, requestContent);
+            }
+            else
+            {
+                await ProcessNonStreamingResponse(httpClient, apiConfig.ApiUrl, requestContent);
+            }
+        }
+        
+        /// <summary>
+        /// 处理非流式响应
+        /// </summary>
+        private async Task ProcessNonStreamingResponse(HttpClient httpClient, string apiUrl, StringContent requestContent)
+        {
+            var response = await httpClient.PostAsync(apiUrl, requestContent, _currentRequest?.Token ?? CancellationToken.None);
+            var responseText = await response.Content.ReadAsStringAsync();
+            
+            _currentRequest?.Token.ThrowIfCancellationRequested();
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var messageContent = ParseApiResponse(responseText);
+                AddMessageBubble(messageContent, false);
+            }
+            else
+            {
+                AddMessageBubble($"API请求失败: {response.StatusCode}", false);
+            }
+        }
+        
+        /// <summary>
+        /// 解析API响应内容
+        /// </summary>
+        private string ParseApiResponse(string responseText)
+        {
+            return ExceptionHandlingService.ExecuteSafely(() =>
+            {
+                var jsonDoc = JsonDocument.Parse(responseText);
+                var choices = jsonDoc.RootElement.GetProperty("choices");
+                if (choices.GetArrayLength() > 0)
+                {
+                    return choices[0].GetProperty("message").GetProperty("content").GetString() ?? "无响应内容";
+                }
+                else
+                {
+                    return "API响应格式错误";
+                }
+            },
+            ExceptionHandlingService.HandlingStrategy.LogOnly,
+            $"API返回了无效的JSON格式: {responseText}",
+            new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "解析API响应"
+            });
+        }
 
         private async Task ProcessStreamingResponse(HttpClient httpClient, string apiUrl, StringContent requestContent)
         {
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
-                {
-                    Content = requestContent
-                };
-
-                var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, _currentRequest?.Token ?? CancellationToken.None);
+                // 发送HTTP请求
+                var response = await SendStreamingRequest(httpClient, apiUrl, requestContent);
                 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -959,70 +1024,8 @@ namespace Buddie.Controls
                 // 初始化流式消息显示
                 InitializeStreamingMessage();
 
-                using var stream = await response.Content.ReadAsStreamAsync();
-                using var reader = new System.IO.StreamReader(stream);
-                
-                string? line;
-                while ((line = await reader.ReadLineAsync()) != null)
-                {
-                    _currentRequest?.Token.ThrowIfCancellationRequested();
-                    
-                    if (line.StartsWith("data:"))
-                    {
-                        var jsonData = line.Substring(5).Trim();
-                        
-                        if (jsonData == "[DONE]")
-                        {
-                            break;
-                        }
-                        
-                        if (!string.IsNullOrEmpty(jsonData))
-                        {
-                            ExceptionHandlingService.ExecuteSafely(() =>
-                            {
-                                var jsonDoc = JsonDocument.Parse(jsonData);
-                                var choices = jsonDoc.RootElement.GetProperty("choices");
-                                
-                                if (choices.GetArrayLength() > 0)
-                                {
-                                    var choice = choices[0];
-                                    if (choice.TryGetProperty("delta", out var delta))
-                                    {
-                                        // 处理思维内容
-                                        if (delta.TryGetProperty("reasoning_content", out var reasoningProp))
-                                        {
-                                            var reasoning = reasoningProp.GetString();
-                                            if (!string.IsNullOrEmpty(reasoning))
-                                            {
-                                                _streamingReasoning.Append(reasoning);
-                                                // 实时更新思维过程UI
-                                                Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
-                                            }
-                                        }
-                                        
-                                        // 处理实际内容
-                                        if (delta.TryGetProperty("content", out var contentProp))
-                                        {
-                                            var messageText = contentProp.GetString();
-                                            if (!string.IsNullOrEmpty(messageText))
-                                            {
-                                                _streamingContent.Append(messageText);
-                                                // 实时更新UI
-                                                Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            ExceptionHandlingService.HandlingStrategy.LogOnly,
-                            new ExceptionHandlingService.ExceptionContext
-                            {
-                                Component = "DialogControl",
-                                Operation = "解析流式JSON数据"
-                            });
-                        }
-                    }
-                }
+                // 处理流式数据
+                await ProcessStreamData(response);
                 
                 // 完成流式输出
                 await Dispatcher.InvokeAsync(() => FinalizeStreamingMessage());
@@ -1031,6 +1034,113 @@ namespace Buddie.Controls
                 Component = "DialogControl", 
                 Operation = "处理流式响应"
             });
+        }
+        
+        /// <summary>
+        /// 发送流式请求
+        /// </summary>
+        private async Task<HttpResponseMessage> SendStreamingRequest(HttpClient httpClient, string apiUrl, StringContent requestContent)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+            {
+                Content = requestContent
+            };
+            
+            return await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, 
+                _currentRequest?.Token ?? CancellationToken.None);
+        }
+        
+        /// <summary>
+        /// 处理流式数据
+        /// </summary>
+        private async Task ProcessStreamData(HttpResponseMessage response)
+        {
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new System.IO.StreamReader(stream);
+            
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                _currentRequest?.Token.ThrowIfCancellationRequested();
+                
+                if (line.StartsWith("data:"))
+                {
+                    ProcessStreamDataLine(line);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 处理单行流式数据
+        /// </summary>
+        private void ProcessStreamDataLine(string line)
+        {
+            var jsonData = line.Substring(5).Trim();
+            
+            if (jsonData == "[DONE]")
+            {
+                return;
+            }
+            
+            if (!string.IsNullOrEmpty(jsonData))
+            {
+                ParseAndUpdateStreamingContent(jsonData);
+            }
+        }
+        
+        /// <summary>
+        /// 解析并更新流式内容
+        /// </summary>
+        private void ParseAndUpdateStreamingContent(string jsonData)
+        {
+            ExceptionHandlingService.ExecuteSafely(() =>
+            {
+                var jsonDoc = JsonDocument.Parse(jsonData);
+                var choices = jsonDoc.RootElement.GetProperty("choices");
+                
+                if (choices.GetArrayLength() > 0)
+                {
+                    var choice = choices[0];
+                    if (choice.TryGetProperty("delta", out var delta))
+                    {
+                        ProcessDeltaContent(delta);
+                    }
+                }
+            },
+            ExceptionHandlingService.HandlingStrategy.LogOnly,
+            new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "解析流式JSON数据"
+            });
+        }
+        
+        /// <summary>
+        /// 处理增量内容
+        /// </summary>
+        private void ProcessDeltaContent(JsonElement delta)
+        {
+            // 处理思维内容
+            if (delta.TryGetProperty("reasoning_content", out var reasoningProp))
+            {
+                var reasoning = reasoningProp.GetString();
+                if (!string.IsNullOrEmpty(reasoning))
+                {
+                    _streamingReasoning.Append(reasoning);
+                    Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
+                }
+            }
+            
+            // 处理实际内容
+            if (delta.TryGetProperty("content", out var contentProp))
+            {
+                var messageText = contentProp.GetString();
+                if (!string.IsNullOrEmpty(messageText))
+                {
+                    _streamingContent.Append(messageText);
+                    Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
+                }
+            }
         }
 
         private void InitializeStreamingMessage()
