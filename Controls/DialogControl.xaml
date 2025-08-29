@@ -13,8 +13,6 @@
             <DataTemplate x:Key="MessageBubbleTemplate">
                 <Border x:Name="MessageBubble"
                         CornerRadius="18"
-                        Margin="10,5,50,5"
-                        HorizontalAlignment="Left"
                         Effect="{StaticResource CardShadow}">
                     <Border.Style>
                         <Style TargetType="Border">
@@ -434,7 +432,8 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Grid>
+                                <Grid HorizontalAlignment="Stretch"
+                                      Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
                                     <!-- Message with reasoning -->
                                     <StackPanel x:Name="MessageContainer">
                                         <StackPanel.Style>
@@ -449,9 +448,20 @@
                                         </StackPanel.Style>
                                         
                                         <!-- Reasoning content container -->
-                                        <StackPanel Margin="10,5,50,5"
-                                                   HorizontalAlignment="Left"
-                                                   MaxWidth="350">
+                                        <StackPanel MaxWidth="350">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Margin" Value="10,5,50,5"/>
+                                                    <Setter Property="HorizontalAlignment" Value="Left"/>
+                                                    <Style.Triggers>
+                                                        <!-- 用户消息的推理内容靠右显示 -->
+                                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                                            <Setter Property="Margin" Value="50,5,10,5"/>
+                                                            <Setter Property="HorizontalAlignment" Value="Right"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
                                             <!-- 思维过程展开器 -->
                                             <Expander Header="💭 思维过程"
                                                      IsExpanded="False"
