@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Threading.Tasks;
 using Buddie.Database;
+using System.Windows.Documents;
 
 namespace Buddie
 {
@@ -15,6 +16,8 @@ namespace Buddie
         private bool _isUser;
         private string? _reasoningContent;
         private DateTime _timestamp;
+        private bool _isMarkdownContent;
+        private FlowDocument? _renderedDocument;
 
         public string Content
         {
@@ -38,6 +41,18 @@ namespace Buddie
         {
             get => _timestamp;
             set => SetProperty(ref _timestamp, value);
+        }
+
+        public bool IsMarkdownContent
+        {
+            get => _isMarkdownContent;
+            set => SetProperty(ref _isMarkdownContent, value);
+        }
+
+        public FlowDocument? RenderedDocument
+        {
+            get => _renderedDocument;
+            set => SetProperty(ref _renderedDocument, value);
         }
 
         public bool HasReasoning => !string.IsNullOrEmpty(ReasoningContent);

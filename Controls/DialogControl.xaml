@@ -43,7 +43,8 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
-                        <!-- 消息内容 -->
+                        <!-- 消息内容 - 根据是否为Markdown内容选择显示控件 -->
+                        <!-- TextBlock for non-Markdown content -->
                         <TextBlock Grid.Row="0"
                                    Text="{Binding Content}"
                                    Padding="12,8,12,8"
@@ -54,7 +55,12 @@
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="Black"/>
+                                    <Setter Property="Visibility" Value="Visible"/>
                                     <Style.Triggers>
+                                        <!-- 隐藏TextBlock当内容为Markdown时 -->
+                                        <DataTrigger Binding="{Binding IsMarkdownContent}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
                                         <!-- 用户消息文字 -->
                                         <DataTrigger Binding="{Binding IsUser}" Value="True">
                                             <Setter Property="Foreground" Value="White"/>
@@ -71,6 +77,43 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+                        
+                        <!-- RichTextBox for Markdown content -->
+                        <RichTextBox Grid.Row="0"
+                                     local:DialogControl.BindableDocument="{Binding RenderedDocument}"
+                                     Padding="12,8,12,8"
+                                     MaxWidth="300"
+                                     FontSize="13"
+                                     IsReadOnly="True"
+                                     BorderThickness="0"
+                                     VerticalScrollBarVisibility="Disabled"
+                                     HorizontalScrollBarVisibility="Disabled">
+                            <RichTextBox.Style>
+                                <Style TargetType="RichTextBox">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Foreground" Value="Black"/>
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <!-- 显示RichTextBox当内容为Markdown时 -->
+                                        <DataTrigger Binding="{Binding IsMarkdownContent}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <!-- 用户消息文字 -->
+                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+                                        <!-- 深色主题下的AI消息文字 -->
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsUser}" Value="False"/>
+                                                <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </RichTextBox.Style>
+                        </RichTextBox>
                         
                         <!-- 用户消息按钮区域 -->
                         <StackPanel Grid.Row="1"

@@ -57,6 +57,32 @@ namespace Buddie.Controls
         private byte[]? _currentScreenshot;
         private bool _hasScreenshot = false;
 
+        // 附加属性用于绑定FlowDocument到RichTextBox
+        public static readonly DependencyProperty BindableDocumentProperty =
+            DependencyProperty.RegisterAttached(
+                "BindableDocument",
+                typeof(FlowDocument),
+                typeof(DialogControl),
+                new PropertyMetadata(null, OnBindableDocumentChanged));
+
+        public static FlowDocument GetBindableDocument(DependencyObject obj)
+        {
+            return (FlowDocument)obj.GetValue(BindableDocumentProperty);
+        }
+
+        public static void SetBindableDocument(DependencyObject obj, FlowDocument value)
+        {
+            obj.SetValue(BindableDocumentProperty, value);
+        }
+
+        private static void OnBindableDocumentChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is System.Windows.Controls.RichTextBox richTextBox && e.NewValue is FlowDocument newDocument)
+            {
+                richTextBox.Document = newDocument;
+            }
+        }
+
         public DialogControl()
         {
             InitializeComponent();
@@ -266,6 +292,13 @@ namespace Buddie.Controls
                 Timestamp = DateTime.Now
             };
             
+            // 检查AI回复是否包含Markdown内容
+            if (!isUser && ContainsMarkdown(message))
+            {
+                messageModel.IsMarkdownContent = true;
+                messageModel.RenderedDocument = ConvertMarkdownToFlowDocument(message);
+            }
+            
             Messages.Add(messageModel);
             ScrollToBottom();
             
@@ -469,21 +502,12 @@ namespace Buddie.Controls
                    text.Contains("[") && text.Contains("]("); // 链接
         }
 
-        private System.Windows.Controls.RichTextBox CreateMarkdownRichTextBox(string markdownText)
+        /// <summary>
+        /// 将Markdown内容转换为FlowDocument用于数据绑定
+        /// </summary>
+        private FlowDocument ConvertMarkdownToFlowDocument(string markdownText)
         {
-            var richTextBox = new System.Windows.Controls.RichTextBox
-            {
-                Padding = new Thickness(12, 8, 12, 8),
-                MaxWidth = 320,
-                FontSize = 13,
-                IsReadOnly = true,
-                IsDocumentEnabled = true,
-                BorderThickness = new Thickness(0),
-                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
-            };
-
-            var flowDocument = ExceptionHandlingService.ExecuteSafely(() =>
+            return ExceptionHandlingService.ExecuteSafely(() =>
             {
                 // 将Markdown转换为HTML
                 var html = Markdown.ToHtml(markdownText, _markdownPipeline);
@@ -498,97 +522,314 @@ namespace Buddie.Controls
                 Component = "DialogControl",
                 Operation = "Markdown转换"
             });
-            
-            richTextBox.Document = flowDocument;
+        }
 
+        private System.Windows.Controls.RichTextBox CreateMarkdownRichTextBox(string markdownText)
+        {
+            var richTextBox = new System.Windows.Controls.RichTextBox
+            {
+                Padding = new Thickness(12, 8, 12, 8),
+                MaxWidth = 320,
+                FontSize = 13,
+                IsReadOnly = true,
+                IsDocumentEnabled = true,
+                BorderThickness = new Thickness(0),
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
+
+            richTextBox.Document = ConvertMarkdownToFlowDocument(markdownText);
             return richTextBox;
         }
 
         private FlowDocument ConvertHtmlToFlowDocument(string html)
         {
-            var flowDocument = new FlowDocument();
-            var paragraph = new Paragraph();
-
-            // 简单的HTML到FlowDocument转换
-            // 这是一个基本实现，可以根据需要扩展
-            var lines = html.Split('\n');
-            
-            foreach (var line in lines)
+            var flowDocument = new FlowDocument
             {
-                var trimmedLine = line.Trim();
-                if (string.IsNullOrEmpty(trimmedLine))
-                    continue;
+                FontSize = 13,
+                LineHeight = 18,
+                PagePadding = new Thickness(0)
+            };
 
+            // 预处理HTML，处理段落标签
+            html = ProcessHtmlParagraphs(html);
+            
+            var lines = html.Split(new[] { '\n', '\r' }, StringSplitOptions.None);
+            Paragraph currentParagraph = null;
+            bool inCodeBlock = false;
+            bool inList = false;
+            var codeBlockContent = new StringBuilder();
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                var trimmedLine = line.Trim();
+
+                // 处理代码块
+                if (trimmedLine.StartsWith("<pre>") || trimmedLine.Contains("<pre>"))
+                {
+                    FinalizeParagraph(flowDocument, ref currentParagraph);
+                    inCodeBlock = true;
+                    codeBlockContent.Clear();
+                    continue;
+                }
+                else if (trimmedLine.StartsWith("</pre>") || trimmedLine.Contains("</pre>"))
+                {
+                    if (inCodeBlock && codeBlockContent.Length > 0)
+                    {
+                        CreateCodeBlock(flowDocument, codeBlockContent.ToString());
+                    }
+                    inCodeBlock = false;
+                    codeBlockContent.Clear();
+                    continue;
+                }
+                else if (inCodeBlock)
+                {
+                    // 在代码块中，保留原始格式
+                    var codeText = System.Text.RegularExpressions.Regex.Replace(line, "<[^>]*>", "");
+                    if (codeBlockContent.Length > 0)
+                        codeBlockContent.AppendLine();
+                    codeBlockContent.Append(codeText);
+                    continue;
+                }
+
+                // 处理空行 - 创建段落分隔
+                if (string.IsNullOrWhiteSpace(trimmedLine))
+                {
+                    FinalizeParagraph(flowDocument, ref currentParagraph);
+                    inList = false;
+                    continue;
+                }
+
+                // 处理标题
                 if (trimmedLine.StartsWith("<h"))
                 {
-                    // 处理标题
-                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
-                    var headingRun = new Run(text)
+                    FinalizeParagraph(flowDocument, ref currentParagraph);
+                    CreateHeading(flowDocument, trimmedLine);
+                    inList = false;
+                    continue;
+                }
+
+                // 处理列表项
+                if (trimmedLine.StartsWith("<li>"))
+                {
+                    if (!inList)
                     {
-                        FontWeight = FontWeights.Bold,
-                        FontSize = 16
-                    };
-                    paragraph.Inlines.Add(headingRun);
-                    paragraph.Inlines.Add(new LineBreak());
+                        FinalizeParagraph(flowDocument, ref currentParagraph);
+                        inList = true;
+                    }
+                    CreateListItem(flowDocument, trimmedLine);
+                    continue;
                 }
-                else if (trimmedLine.StartsWith("<code>") || trimmedLine.Contains("<code>"))
+                else if (inList && !trimmedLine.StartsWith("<li>"))
                 {
-                    // 处理代码
-                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
-                    var codeRun = new Run(text)
+                    inList = false;
+                }
+
+                // 处理普通内容
+                if (currentParagraph == null)
+                {
+                    currentParagraph = new Paragraph { Margin = new Thickness(0, 2, 0, 2) };
+                }
+
+                ProcessTextLine(currentParagraph, trimmedLine);
+                
+                // 如果不是最后一行，且下一行不为空，添加软换行
+                if (i < lines.Length - 1 && !string.IsNullOrWhiteSpace(lines[i + 1]?.Trim()))
+                {
+                    var nextTrimmed = lines[i + 1].Trim();
+                    if (!nextTrimmed.StartsWith("<h") && !nextTrimmed.StartsWith("<li>") && 
+                        !nextTrimmed.StartsWith("<pre>") && !nextTrimmed.StartsWith("</pre>"))
                     {
-                        FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace"),
-                        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 245, 245))
-                    };
-                    paragraph.Inlines.Add(codeRun);
-                }
-                else if (trimmedLine.StartsWith("<pre>"))
-                {
-                    // 处理代码块
-                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
-                    var codeBlockRun = new Run(text)
-                    {
-                        FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace"),
-                        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 245, 245))
-                    };
-                    paragraph.Inlines.Add(codeBlockRun);
-                    paragraph.Inlines.Add(new LineBreak());
-                }
-                else if (trimmedLine.Contains("<strong>") || trimmedLine.Contains("<b>"))
-                {
-                    // 处理粗体文本
-                    ProcessInlineFormatting(paragraph, trimmedLine, "strong", FontWeights.Bold);
-                }
-                else if (trimmedLine.Contains("<em>") || trimmedLine.Contains("<i>"))
-                {
-                    // 处理斜体文本
-                    ProcessInlineFormatting(paragraph, trimmedLine, "em", FontWeights.Normal, FontStyles.Italic);
-                }
-                else if (trimmedLine.StartsWith("<li>"))
-                {
-                    // 处理列表项
-                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
-                    paragraph.Inlines.Add(new Run("• " + text));
-                    paragraph.Inlines.Add(new LineBreak());
-                }
-                else if (trimmedLine.StartsWith("<p>") || !trimmedLine.StartsWith("<"))
-                {
-                    // 处理普通段落
-                    var text = System.Text.RegularExpressions.Regex.Replace(trimmedLine, "<[^>]*>", "");
-                    if (!string.IsNullOrEmpty(text))
-                    {
-                        paragraph.Inlines.Add(new Run(text));
-                        paragraph.Inlines.Add(new LineBreak());
+                        currentParagraph.Inlines.Add(new LineBreak());
                     }
                 }
             }
 
-            if (paragraph.Inlines.Count > 0)
-            {
-                flowDocument.Blocks.Add(paragraph);
-            }
+            // 完成最后的段落
+            FinalizeParagraph(flowDocument, ref currentParagraph);
 
             return flowDocument;
+        }
+
+        private string ProcessHtmlParagraphs(string html)
+        {
+            // 将<p>标签转换为双换行符，</p>标签移除
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"<p[^>]*>", "\n\n");
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"</p>", "");
+            
+            // 清理多余的换行符
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"\n{3,}", "\n\n");
+            
+            return html;
+        }
+
+        private void FinalizeParagraph(FlowDocument flowDocument, ref Paragraph currentParagraph)
+        {
+            if (currentParagraph != null && currentParagraph.Inlines.Count > 0)
+            {
+                flowDocument.Blocks.Add(currentParagraph);
+                currentParagraph = null;
+            }
+        }
+
+        private void CreateCodeBlock(FlowDocument flowDocument, string codeContent)
+        {
+            var codeRun = new Run(codeContent)
+            {
+                FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace")
+            };
+
+            var codeBlock = new Paragraph(codeRun)
+            {
+                FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace"),
+                Padding = new Thickness(12),
+                Margin = new Thickness(0, 4, 0, 8),
+                BorderThickness = new Thickness(1)
+            };
+
+            // 根据当前主题设置样式
+            var appSettings = DataContext as AppSettings;
+            if (appSettings?.IsDarkTheme == true)
+            {
+                codeBlock.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(40, 40, 40));
+                codeBlock.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(80, 80, 80));
+                codeRun.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(220, 220, 220));
+            }
+            else
+            {
+                codeBlock.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(248, 248, 248));
+                codeBlock.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(225, 225, 225));
+                codeRun.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(33, 37, 41));
+            }
+
+            flowDocument.Blocks.Add(codeBlock);
+        }
+
+        private void CreateHeading(FlowDocument flowDocument, string headingHtml)
+        {
+            var text = System.Text.RegularExpressions.Regex.Replace(headingHtml, "<[^>]*>", "");
+            var headingSize = headingHtml.StartsWith("<h1") ? 18 : 
+                             headingHtml.StartsWith("<h2") ? 16 : 
+                             headingHtml.StartsWith("<h3") ? 14 : 13;
+            
+            var headingParagraph = new Paragraph(new Run(text))
+            {
+                FontWeight = FontWeights.Bold,
+                FontSize = headingSize,
+                Margin = new Thickness(0, 8, 0, 4)
+            };
+            flowDocument.Blocks.Add(headingParagraph);
+        }
+
+        private void CreateListItem(FlowDocument flowDocument, string listItemHtml)
+        {
+            var text = System.Text.RegularExpressions.Regex.Replace(listItemHtml, "<[^>]*>", "");
+            var listItem = new Paragraph(new Run("• " + text))
+            {
+                Margin = new Thickness(16, 1, 0, 1)
+            };
+            flowDocument.Blocks.Add(listItem);
+        }
+
+        private void ProcessTextLine(Paragraph paragraph, string html)
+        {
+            // 处理混合格式的文本行
+            if (html.Contains("<strong>") || html.Contains("<b>") || 
+                html.Contains("<em>") || html.Contains("<i>") || 
+                html.Contains("<code>"))
+            {
+                ProcessComplexInlineFormatting(paragraph, html);
+            }
+            else
+            {
+                // 普通文本
+                var text = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]*>", "");
+                if (!string.IsNullOrEmpty(text))
+                {
+                    paragraph.Inlines.Add(new Run(text));
+                }
+            }
+        }
+
+        private void ProcessComplexInlineFormatting(Paragraph paragraph, string html)
+        {
+            // 移除段落标签
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"</?p[^>]*>", "");
+            
+            var segments = new List<(string text, bool isBold, bool isItalic, bool isCode)>();
+            var currentIndex = 0;
+            
+            // 使用正则表达式找到所有格式化标签
+            var formatPattern = @"<(strong|b|em|i|code)>(.*?)</\1>";
+            var matches = System.Text.RegularExpressions.Regex.Matches(html, formatPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            
+            foreach (System.Text.RegularExpressions.Match match in matches)
+            {
+                // 添加标签前的普通文本
+                if (match.Index > currentIndex)
+                {
+                    var beforeText = html.Substring(currentIndex, match.Index - currentIndex);
+                    beforeText = System.Text.RegularExpressions.Regex.Replace(beforeText, "<[^>]*>", "");
+                    if (!string.IsNullOrEmpty(beforeText))
+                    {
+                        segments.Add((beforeText, false, false, false));
+                    }
+                }
+                
+                // 确定格式类型
+                var tag = match.Groups[1].Value.ToLower();
+                var content = match.Groups[2].Value;
+                bool isBold = tag == "strong" || tag == "b";
+                bool isItalic = tag == "em" || tag == "i";
+                bool isCode = tag == "code";
+                
+                segments.Add((content, isBold, isItalic, isCode));
+                currentIndex = match.Index + match.Length;
+            }
+            
+            // 添加剩余的文本
+            if (currentIndex < html.Length)
+            {
+                var remainingText = html.Substring(currentIndex);
+                remainingText = System.Text.RegularExpressions.Regex.Replace(remainingText, "<[^>]*>", "");
+                if (!string.IsNullOrEmpty(remainingText))
+                {
+                    segments.Add((remainingText, false, false, false));
+                }
+            }
+            
+            // 创建Run元素
+            foreach (var segment in segments)
+            {
+                if (string.IsNullOrEmpty(segment.text)) continue;
+                
+                var run = new Run(segment.text);
+                
+                if (segment.isBold)
+                    run.FontWeight = FontWeights.Bold;
+                if (segment.isItalic)
+                    run.FontStyle = FontStyles.Italic;
+                if (segment.isCode)
+                {
+                    run.FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace");
+                    
+                    // 根据当前主题设置内联代码样式
+                    var appSettings = DataContext as AppSettings;
+                    if (appSettings?.IsDarkTheme == true)
+                    {
+                        run.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(50, 50, 50));
+                        run.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 121, 198));
+                    }
+                    else
+                    {
+                        run.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(240, 240, 240));
+                        run.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(199, 37, 78));
+                    }
+                }
+                
+                paragraph.Inlines.Add(run);
+            }
         }
 
         private void ProcessInlineFormatting(Paragraph paragraph, string html, string tag, FontWeight fontWeight, System.Windows.FontStyle fontStyle = default)
@@ -1290,6 +1531,13 @@ namespace Buddie.Controls
                 // Update the final message content
                 _currentStreamingMessage.Content = finalContent;
                 _currentStreamingMessage.ReasoningContent = string.IsNullOrEmpty(finalReasoning) ? null : finalReasoning;
+                
+                // 检查AI回复是否包含Markdown内容并转换
+                if (ContainsMarkdown(finalContent))
+                {
+                    _currentStreamingMessage.IsMarkdownContent = true;
+                    _currentStreamingMessage.RenderedDocument = ConvertMarkdownToFlowDocument(finalContent);
+                }
                 
                 // Auto-save AI reply message to database
                 if (!string.IsNullOrEmpty(finalContent))
