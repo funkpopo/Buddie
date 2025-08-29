@@ -555,7 +555,7 @@ namespace Buddie.Controls
             html = ProcessHtmlParagraphs(html);
             
             var lines = html.Split(new[] { '\n', '\r' }, StringSplitOptions.None);
-            Paragraph currentParagraph = null;
+            Paragraph? currentParagraph = null;
             bool inCodeBlock = false;
             bool inList = false;
             var codeBlockContent = new StringBuilder();
@@ -664,7 +664,7 @@ namespace Buddie.Controls
             return html;
         }
 
-        private void FinalizeParagraph(FlowDocument flowDocument, ref Paragraph currentParagraph)
+        private void FinalizeParagraph(FlowDocument flowDocument, ref Paragraph? currentParagraph)
         {
             if (currentParagraph != null && currentParagraph.Inlines.Count > 0)
             {
