@@ -149,7 +149,7 @@ namespace Buddie.Controls
                 {
                     _currentScreenshot = null;
                     _hasScreenshot = false;
-                    ScreenshotPreviewBorder.Visibility = Visibility.Collapsed;
+                    ScreenshotPreviewContainer.Visibility = Visibility.Collapsed;
                 }
             }
         }
@@ -2133,7 +2133,7 @@ namespace Buddie.Controls
         #region 截图功能
 
         /// <summary>
-        /// 截图按钮点击事件
+        /// 截图按钮点击事件 - 简化版本
         /// </summary>
         private async void ScreenshotButton_Click(object sender, RoutedEventArgs e)
         {
@@ -2145,12 +2145,16 @@ namespace Buddie.Controls
                 
                 if (activeConfig == null || !activeConfig.IsMultimodalEnabled)
                 {
-                    System.Windows.MessageBox.Show("当前API配置未启用多模态功能，请先在设置中启用多模态。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    System.Windows.MessageBox.Show(
+                        "当前API配置未启用多模态功能，请先在设置中启用多模态。", 
+                        "提示", 
+                        System.Windows.MessageBoxButton.OK, 
+                        System.Windows.MessageBoxImage.Information);
                     return;
                 }
-
-                // 执行截图
-                var screenshotBytes = await CaptureScreenAsync();
+                
+                // 直接使用简单的全屏截图
+                var screenshotBytes = await CaptureFullScreenAsync();
                 if (screenshotBytes != null)
                 {
                     _currentScreenshot = screenshotBytes;
@@ -2165,15 +2169,71 @@ namespace Buddie.Controls
                 Operation = "截图操作"
             });
         }
+        
+        /// <summary>
+        /// 全屏截图
+        /// </summary>
+        private async Task<byte[]?> CaptureFullScreenAsync()
+        {
+            // 隐藏主窗口
+            var mainWindow = Window.GetWindow(this);
+            if (mainWindow != null)
+            {
+                mainWindow.WindowState = WindowState.Minimized;
+                await Task.Delay(300); // 等待窗口最小化
+            }
+
+            byte[]? result = null;
+            try
+            {
+                result = await Task.Run(() =>
+                {
+                    return ExceptionHandlingService.ExecuteSafely(() =>
+                    {
+                        // 获取主屏幕尺寸
+                        var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
+                        if (primaryScreen == null) return null;
+                        var screenBounds = primaryScreen.Bounds;
+                        
+                        // 创建位图
+                        using var bitmap = new System.Drawing.Bitmap(screenBounds.Width, screenBounds.Height);
+                        using var graphics = System.Drawing.Graphics.FromImage(bitmap);
+                        
+                        // 截取屏幕
+                        graphics.CopyFromScreen(screenBounds.X, screenBounds.Y, 0, 0, screenBounds.Size);
+                        
+                        // 转换为字节数组
+                        using var memoryStream = new MemoryStream();
+                        bitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
+                        return memoryStream.ToArray();
+                    }, ExceptionHandlingService.HandlingStrategy.LogOnly, (byte[]?)null, new ExceptionHandlingService.ExceptionContext
+                    {
+                        Component = "DialogControl",
+                        Operation = "屏幕截取"
+                    });
+                });
+            }
+            finally
+            {
+                // 恢复主窗口
+                if (mainWindow != null)
+                {
+                    mainWindow.WindowState = WindowState.Normal;
+                    mainWindow.Activate();
+                }
+            }
+            
+            return result;
+        }
 
         /// <summary>
         /// 删除截图按钮点击事件
         /// </summary>
-        private void RemoveScreenshotButton_Click(object sender, RoutedEventArgs e)
+        private void RemoveScreenshot_Click(object sender, RoutedEventArgs e)
         {
             _currentScreenshot = null;
             _hasScreenshot = false;
-            ScreenshotPreviewBorder.Visibility = Visibility.Collapsed;
+            ScreenshotPreviewContainer.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>
@@ -2222,17 +2282,69 @@ namespace Buddie.Controls
                 bitmapImage.BeginInit();
                 bitmapImage.StreamSource = memoryStream;
                 bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.DecodePixelWidth = 300; // 限制缩略图宽度
                 bitmapImage.EndInit();
                 bitmapImage.Freeze();
                 
                 // 设置预览图片
-                ScreenshotPreview.Source = bitmapImage;
-                ScreenshotPreviewBorder.Visibility = Visibility.Visible;
+                ScreenshotThumbnail.Source = bitmapImage;
+                ScreenshotPreviewContainer.Visibility = Visibility.Visible;
+                
+                // 更新信息文本
+                var sizeKB = screenshotBytes.Length / 1024;
+                ScreenshotInfo.Text = $"大小: {sizeKB} KB";
             }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, context: new ExceptionHandlingService.ExceptionContext
             {
                 Component = "DialogControl",
                 Operation = "显示截图预览"
             });
+        }
+        
+        /// <summary>
+        /// 点击缩略图查看大图
+        /// </summary>
+        private void ScreenshotThumbnail_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (_currentScreenshot != null)
+            {
+                ExceptionHandlingService.ExecuteSafely(() =>
+                {
+                    // 创建全尺寸图片
+                    using var memoryStream = new MemoryStream(_currentScreenshot);
+                    var fullImage = new BitmapImage();
+                    fullImage.BeginInit();
+                    fullImage.StreamSource = memoryStream;
+                    fullImage.CacheOption = BitmapCacheOption.OnLoad;
+                    fullImage.EndInit();
+                    fullImage.Freeze();
+                    
+                    // 创建新窗口显示大图
+                    var imageWindow = new Window
+                    {
+                        Title = "截图预览",
+                        Width = 800,
+                        Height = 600,
+                        WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                        Background = new SolidColorBrush(Colors.Black),
+                        Content = new ScrollViewer
+                        {
+                            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                            Content = new System.Windows.Controls.Image
+                            {
+                                Source = fullImage,
+                                Stretch = Stretch.Uniform
+                            }
+                        }
+                    };
+                    
+                    imageWindow.ShowDialog();
+                }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, context: new ExceptionHandlingService.ExceptionContext
+                {
+                    Component = "DialogControl",
+                    Operation = "显示截图大图"
+                });
+            }
         }
 
         /// <summary>
