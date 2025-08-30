@@ -56,6 +56,9 @@ namespace Buddie.Controls
         // 截图相关字段
         private byte[]? _currentScreenshot;
         private bool _hasScreenshot = false;
+        
+        // 当前API配置
+        private OpenApiConfiguration? _currentApiConfiguration;
 
         // 附加属性用于绑定FlowDocument到RichTextBox
         public static readonly DependencyProperty BindableDocumentProperty =
@@ -260,6 +263,46 @@ namespace Buddie.Controls
         }
 
         public new bool IsVisible => DialogInterface.Visibility == Visibility.Visible;
+
+        /// <summary>
+        /// 设置当前API配置并更新UI
+        /// </summary>
+        /// <param name="apiConfiguration">API配置</param>
+        public void SetCurrentApiConfiguration(OpenApiConfiguration? apiConfiguration)
+        {
+            _currentApiConfiguration = apiConfiguration;
+            UpdateScreenshotButtonVisibility();
+        }
+        
+        /// <summary>
+        /// 根据当前API配置更新截图按钮的显示状态
+        /// </summary>
+        private void UpdateScreenshotButtonVisibility()
+        {
+            if (_currentApiConfiguration != null && _currentApiConfiguration.IsMultimodalEnabled)
+            {
+                ScreenshotButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                ScreenshotButton.Visibility = Visibility.Collapsed;
+                // 如果隐藏按钮时还有截图，清除截图
+                if (_hasScreenshot)
+                {
+                    ClearScreenshot();
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 清除截图
+        /// </summary>
+        private void ClearScreenshot()
+        {
+            _currentScreenshot = null;
+            _hasScreenshot = false;
+            ScreenshotPreviewContainer.Visibility = Visibility.Collapsed;
+        }
 
         /// <summary>
         /// 设置对话界面透明度
@@ -2479,9 +2522,7 @@ namespace Buddie.Controls
         /// </summary>
         private void RemoveScreenshot_Click(object sender, RoutedEventArgs e)
         {
-            _currentScreenshot = null;
-            _hasScreenshot = false;
-            ScreenshotPreviewContainer.Visibility = Visibility.Collapsed;
+            ClearScreenshot();
         }
 
         /// <summary>

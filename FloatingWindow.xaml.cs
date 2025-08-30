@@ -383,6 +383,11 @@ namespace Buddie
         // 为当前卡片显示对话界面
         private void ShowDialogForCurrentCard()
         {
+            // 传递当前卡片的API配置给DialogControl
+            if (_currentCardIndex >= 0 && _currentCardIndex < _cards.Count)
+            {
+                DialogControl.SetCurrentApiConfiguration(_cards[_currentCardIndex].ApiConfiguration);
+            }
             DialogControl.Toggle();
         }
         
@@ -393,6 +398,9 @@ namespace Buddie
                 
             var card = _cards[_currentCardIndex];
             cardControl.UpdateDisplay(card, _currentCardIndex + 1, _cards.Count);
+            
+            // 更新DialogControl的API配置
+            DialogControl.SetCurrentApiConfiguration(card.ApiConfiguration);
         }
         
         // 根据API配置更新卡片
