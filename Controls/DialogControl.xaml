@@ -1,7 +1,8 @@
 <UserControl x:Class="Buddie.Controls.DialogControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:Buddie.Controls">
+             xmlns:local="clr-namespace:Buddie.Controls"
+             xmlns:buddie="clr-namespace:Buddie">
     
     <UserControl.Resources>
         <ResourceDictionary>
@@ -41,11 +42,46 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
+                        
+                        <!-- 图片内容区域 -->
+                        <Border Grid.Row="0"
+                               CornerRadius="8"
+                               Margin="8,8,8,4"
+                               BorderThickness="1"
+                               MaxWidth="250">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Setter Property="BorderBrush" Value="#DDDDDD"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasImage}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                            <Setter Property="BorderBrush" Value="#555555"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Image x:Name="MessageImage"
+                                   MaxHeight="200"
+                                   Stretch="Uniform"
+                                   ToolTip="图片内容">
+                                <Image.Source>
+                                    <Binding Path="ImageData">
+                                        <Binding.Converter>
+                                            <buddie:ImageConverter/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </Image.Source>
+                            </Image>
+                        </Border>
                         
                         <!-- 消息内容 - 根据是否为Markdown内容选择显示控件 -->
                         <!-- TextBlock for non-Markdown content -->
-                        <TextBlock Grid.Row="0"
+                        <TextBlock Grid.Row="1"
                                    Text="{Binding Content}"
                                    Padding="12,8,12,8"
                                    TextWrapping="Wrap"
@@ -79,7 +115,7 @@
                         </TextBlock>
                         
                         <!-- RichTextBox for Markdown content -->
-                        <RichTextBox Grid.Row="0"
+                        <RichTextBox Grid.Row="1"
                                      local:DialogControl.BindableDocument="{Binding RenderedDocument}"
                                      Padding="12,8,12,8"
                                      MaxWidth="300"
@@ -116,7 +152,7 @@
                         </RichTextBox>
                         
                         <!-- 用户消息按钮区域 -->
-                        <StackPanel Grid.Row="1"
+                        <StackPanel Grid.Row="2"
                                    Orientation="Horizontal"
                                    HorizontalAlignment="Left"
                                    Margin="8,0,0,5">
@@ -144,7 +180,7 @@
                         </StackPanel>
                         
                         <!-- AI消息按钮区域 -->
-                        <StackPanel Grid.Row="1"
+                        <StackPanel Grid.Row="2"
                                    Orientation="Horizontal"
                                    HorizontalAlignment="Right"
                                    Margin="0,0,8,5">

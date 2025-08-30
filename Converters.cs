@@ -3,6 +3,8 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using System.IO;
+using System.Windows.Media.Imaging;
 
 namespace Buddie
 {
@@ -182,6 +184,43 @@ namespace Buddie
                 }
             }
             return Brushes.Black;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// 将字节数组转换为BitmapImage的转换器
+    /// </summary>
+    public class ImageConverter : IValueConverter
+    {
+        public static readonly ImageConverter Instance = new ImageConverter();
+
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is byte[] imageData && imageData.Length > 0)
+            {
+                try
+                {
+                    using var memoryStream = new MemoryStream(imageData);
+                    var bitmapImage = new BitmapImage();
+                    bitmapImage.BeginInit();
+                    bitmapImage.StreamSource = memoryStream;
+                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmapImage.EndInit();
+                    bitmapImage.Freeze();
+                    return bitmapImage;
+                }
+                catch
+                {
+                    // 如果转换失败，返回null
+                    return null;
+                }
+            }
+            return null;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

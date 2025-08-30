@@ -28,6 +28,7 @@ using System.Windows.Forms;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Buddie.Services.ExceptionHandling;
+using Buddie.Services;
 
 namespace Buddie.Controls
 {
@@ -580,11 +581,18 @@ namespace Buddie.Controls
 
         public async void AddMessageBubble(string message, bool isUser = true)
         {
+            await AddMessageBubble(message, isUser, null);
+        }
+
+        public async Task AddMessageBubble(string message, bool isUser, byte[]? imageData)
+        {
             var messageModel = new MessageDisplayModel
             {
                 Content = message,
                 IsUser = isUser,
-                Timestamp = DateTime.Now
+                Timestamp = DateTime.Now,
+                ImageData = imageData,
+                HasImage = imageData != null && imageData.Length > 0
             };
             
             // 检查AI回复是否包含Markdown内容
@@ -598,7 +606,7 @@ namespace Buddie.Controls
             ScrollToBottom();
             
             // 自动保存消息到数据库
-            await SaveMessage(message, isUser);
+            await SaveMessage(message, isUser, imageData: imageData);
         }
 
         private Border CreateMessageBubble(string message, bool isUser)
@@ -1363,11 +1371,24 @@ namespace Buddie.Controls
 
         public async Task SendMessageToApi(string message, OpenApiConfiguration apiConfig)
         {
-            // 解析消息类型
-            var (isMultimodal, actualMessage) = ParseMessage(message);
+            // 检查是否应该发送多模态消息
+            // 条件：1. 有截图数据 2. API配置支持多模态 3. 渠道支持多模态
+            bool hasScreenshot = _hasScreenshot && _currentScreenshot != null;
+            bool configSupportsMultimodal = apiConfig.IsMultimodalEnabled;
+            bool channelSupportsMultimodal = MultimodalApiService.SupportsMultimodal(apiConfig.ChannelType);
             
-            // 显示用户消息
-            AddMessageBubble(actualMessage, true);
+            bool isMultimodal = hasScreenshot && configSupportsMultimodal && channelSupportsMultimodal;
+            
+            // 调试信息
+            System.Diagnostics.Debug.WriteLine($"多模态检测: 有截图={hasScreenshot}, 配置支持={configSupportsMultimodal}, 渠道支持={channelSupportsMultimodal}, 最终结果={isMultimodal}");
+            if (hasScreenshot)
+            {
+                System.Diagnostics.Debug.WriteLine($"截图大小: {_currentScreenshot?.Length ?? 0} bytes");
+            }
+            
+            // 显示用户消息（包含图片信息）
+            byte[]? imageForDisplay = isMultimodal ? _currentScreenshot : null;
+            await AddMessageBubble(message, true, imageForDisplay);
 
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
@@ -1378,10 +1399,16 @@ namespace Buddie.Controls
                 using var httpClient = CreateHttpClient(apiConfig);
                 
                 // 构建请求内容
-                var requestContent = BuildRequestContent(actualMessage, isMultimodal, apiConfig);
+                var requestContent = BuildRequestContent(message, isMultimodal, apiConfig);
                 
                 // 处理API响应
                 await ProcessApiResponse(httpClient, apiConfig, requestContent);
+                
+                // 清除当前截图（如果有）
+                if (isMultimodal && _currentScreenshot != null)
+                {
+                    ClearScreenshot();
+                }
                 
                 // 恢复发送状态
                 SetSendingState(false);
@@ -1392,15 +1419,7 @@ namespace Buddie.Controls
             });
         }
         
-        /// <summary>
-        /// 解析消息以确定类型和实际内容
-        /// </summary>
-        private (bool isMultimodal, string actualMessage) ParseMessage(string message)
-        {
-            bool isMultimodal = message.StartsWith("[MULTIMODAL]");
-            string actualMessage = isMultimodal ? message.Substring("[MULTIMODAL]".Length) : message;
-            return (isMultimodal, actualMessage);
-        }
+
         
         /// <summary>
         /// 创建配置好的HTTP客户端
@@ -1411,7 +1430,24 @@ namespace Buddie.Controls
             {
                 Timeout = TimeSpan.FromMinutes(5)
             };
-            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiConfig.ApiKey}");
+            
+            // 根据渠道类型设置不同的认证头
+            switch (apiConfig.ChannelType)
+            {
+                case ChannelType.GoogleGemini:
+                    // Gemini使用key参数而非Authorization头
+                    // 在URL中处理
+                    break;
+                case ChannelType.AnthropicClaude:
+                    httpClient.DefaultRequestHeaders.Add("x-api-key", apiConfig.ApiKey);
+                    httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+                    break;
+                default:
+                    // OpenAI格式：包括OpenAI、智谱GLM、通义千问、硅基流动等
+                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiConfig.ApiKey}");
+                    break;
+            }
+            
             return httpClient;
         }
         
@@ -1422,84 +1458,57 @@ namespace Buddie.Controls
         {
             object requestBody;
             
-            if (isMultimodal && _currentScreenshot != null && apiConfig.IsMultimodalEnabled)
+            if (isMultimodal && _currentScreenshot != null)
             {
-                requestBody = BuildMultimodalRequestBody(actualMessage, apiConfig);
+                var imageBase64 = ConvertImageToBase64(_currentScreenshot);
+                System.Diagnostics.Debug.WriteLine($"构建多模态请求，图片Base64长度: {imageBase64.Length}");
+                requestBody = MultimodalApiService.BuildMultimodalRequest(actualMessage, imageBase64, apiConfig);
             }
             else
             {
-                requestBody = BuildTextRequestBody(actualMessage, apiConfig);
+                requestBody = MultimodalApiService.BuildTextRequest(actualMessage, apiConfig);
             }
             
             var json = JsonSerializer.Serialize(requestBody);
             return new StringContent(json, Encoding.UTF8, "application/json");
         }
         
-        /// <summary>
-        /// 构建多模态请求体
-        /// </summary>
-        private object BuildMultimodalRequestBody(string actualMessage, OpenApiConfiguration apiConfig)
-        {
-            var imageBase64 = ConvertImageToBase64(_currentScreenshot ?? Array.Empty<byte>());
-            
-            return new
-            {
-                model = apiConfig.ModelName,
-                messages = new[]
-                {
-                    new
-                    {
-                        role = "user",
-                        content = new object[]
-                        {
-                            new { type = "text", text = actualMessage },
-                            new 
-                            { 
-                                type = "image_url", 
-                                image_url = new { url = $"data:image/png;base64,{imageBase64}" }
-                            }
-                        }
-                    }
-                },
-                stream = apiConfig.IsStreamingEnabled
-            };
-        }
-        
-        /// <summary>
-        /// 构建文本请求体
-        /// </summary>
-        private object BuildTextRequestBody(string actualMessage, OpenApiConfiguration apiConfig)
-        {
-            return new
-            {
-                model = apiConfig.ModelName,
-                messages = new[]
-                {
-                    new { role = "user", content = actualMessage }
-                },
-                stream = apiConfig.IsStreamingEnabled
-            };
-        }
+
         
         /// <summary>
         /// 处理API响应
         /// </summary>
         private async Task ProcessApiResponse(HttpClient httpClient, OpenApiConfiguration apiConfig, StringContent requestContent)
         {
+            // 构建最终的API URL（对于Gemini需要添加key参数）
+            var finalApiUrl = BuildFinalApiUrl(apiConfig);
+            
             if (apiConfig.IsStreamingEnabled)
             {
-                await ProcessStreamingResponse(httpClient, apiConfig.ApiUrl, requestContent);
+                await ProcessStreamingResponse(httpClient, finalApiUrl, requestContent, apiConfig);
             }
             else
             {
-                await ProcessNonStreamingResponse(httpClient, apiConfig.ApiUrl, requestContent);
+                await ProcessNonStreamingResponse(httpClient, finalApiUrl, requestContent, apiConfig);
             }
+        }
+
+        /// <summary>
+        /// 构建最终的API URL
+        /// </summary>
+        private string BuildFinalApiUrl(OpenApiConfiguration apiConfig)
+        {
+            return apiConfig.ChannelType switch
+            {
+                ChannelType.GoogleGemini => $"{apiConfig.ApiUrl}?key={apiConfig.ApiKey}",
+                _ => apiConfig.ApiUrl
+            };
         }
         
         /// <summary>
         /// 处理非流式响应
         /// </summary>
-        private async Task ProcessNonStreamingResponse(HttpClient httpClient, string apiUrl, StringContent requestContent)
+        private async Task ProcessNonStreamingResponse(HttpClient httpClient, string apiUrl, StringContent requestContent, OpenApiConfiguration apiConfig)
         {
             var response = await httpClient.PostAsync(apiUrl, requestContent, _currentRequest?.Token ?? CancellationToken.None);
             var responseText = await response.Content.ReadAsStringAsync();
@@ -1508,7 +1517,7 @@ namespace Buddie.Controls
             
             if (response.IsSuccessStatusCode)
             {
-                var messageContent = ParseApiResponse(responseText);
+                var messageContent = ParseApiResponse(responseText, apiConfig);
                 AddMessageBubble(messageContent, false);
             }
             else
@@ -1520,31 +1529,12 @@ namespace Buddie.Controls
         /// <summary>
         /// 解析API响应内容
         /// </summary>
-        private string ParseApiResponse(string responseText)
+        private string ParseApiResponse(string responseText, OpenApiConfiguration apiConfig)
         {
-            return ExceptionHandlingService.ExecuteSafely(() =>
-            {
-                var jsonDoc = JsonDocument.Parse(responseText);
-                var choices = jsonDoc.RootElement.GetProperty("choices");
-                if (choices.GetArrayLength() > 0)
-                {
-                    return choices[0].GetProperty("message").GetProperty("content").GetString() ?? "无响应内容";
-                }
-                else
-                {
-                    return "API响应格式错误";
-                }
-            },
-            ExceptionHandlingService.HandlingStrategy.LogOnly,
-            $"API返回了无效的JSON格式: {responseText}",
-            new ExceptionHandlingService.ExceptionContext
-            {
-                Component = "DialogControl",
-                Operation = "解析API响应"
-            });
+            return ApiResponseService.ParseNonStreamingResponse(responseText, apiConfig.ChannelType);
         }
 
-        private async Task ProcessStreamingResponse(HttpClient httpClient, string apiUrl, StringContent requestContent)
+        private async Task ProcessStreamingResponse(HttpClient httpClient, string apiUrl, StringContent requestContent, OpenApiConfiguration apiConfig)
         {
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
@@ -1561,7 +1551,7 @@ namespace Buddie.Controls
                 InitializeStreamingMessage();
 
                 // 处理流式数据
-                await ProcessStreamData(response);
+                await ProcessStreamData(response, apiConfig.ChannelType);
                 
                 // 完成流式输出
                 await Dispatcher.InvokeAsync(() => FinalizeStreamingMessage());
@@ -1589,7 +1579,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 处理流式数据
         /// </summary>
-        private async Task ProcessStreamData(HttpResponseMessage response)
+        private async Task ProcessStreamData(HttpResponseMessage response, ChannelType channelType)
         {
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new System.IO.StreamReader(stream);
@@ -1601,7 +1591,7 @@ namespace Buddie.Controls
                 
                 if (line.StartsWith("data:"))
                 {
-                    ProcessStreamDataLine(line);
+                    ProcessStreamDataLine(line, channelType);
                 }
             }
         }
@@ -1609,7 +1599,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 处理单行流式数据
         /// </summary>
-        private void ProcessStreamDataLine(string line)
+        private void ProcessStreamDataLine(string line, ChannelType channelType)
         {
             var jsonData = line.Substring(5).Trim();
             
@@ -1620,62 +1610,37 @@ namespace Buddie.Controls
             
             if (!string.IsNullOrEmpty(jsonData))
             {
-                ParseAndUpdateStreamingContent(jsonData);
+                ParseAndUpdateStreamingContent(jsonData, channelType);
             }
         }
         
         /// <summary>
         /// 解析并更新流式内容
         /// </summary>
-        private void ParseAndUpdateStreamingContent(string jsonData)
+        private void ParseAndUpdateStreamingContent(string jsonData, ChannelType channelType)
         {
-            ExceptionHandlingService.ExecuteSafely(() =>
-            {
-                var jsonDoc = JsonDocument.Parse(jsonData);
-                var choices = jsonDoc.RootElement.GetProperty("choices");
-                
-                if (choices.GetArrayLength() > 0)
-                {
-                    var choice = choices[0];
-                    if (choice.TryGetProperty("delta", out var delta))
-                    {
-                        ProcessDeltaContent(delta);
-                    }
-                }
-            },
-            ExceptionHandlingService.HandlingStrategy.LogOnly,
-            new ExceptionHandlingService.ExceptionContext
-            {
-                Component = "DialogControl",
-                Operation = "解析流式JSON数据"
-            });
+            ProcessDeltaContent(jsonData, channelType);
         }
         
         /// <summary>
         /// 处理增量内容
         /// </summary>
-        private void ProcessDeltaContent(JsonElement delta)
+        private void ProcessDeltaContent(string jsonData, ChannelType channelType)
         {
+            var (content, reasoning) = ApiResponseService.ParseStreamingDelta(jsonData, channelType);
+            
             // 处理思维内容
-            if (delta.TryGetProperty("reasoning_content", out var reasoningProp))
+            if (!string.IsNullOrEmpty(reasoning))
             {
-                var reasoning = reasoningProp.GetString();
-                if (!string.IsNullOrEmpty(reasoning))
-                {
-                    _streamingReasoning.Append(reasoning);
-                    Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
-                }
+                _streamingReasoning.Append(reasoning);
+                Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
             }
             
             // 处理实际内容
-            if (delta.TryGetProperty("content", out var contentProp))
+            if (!string.IsNullOrEmpty(content))
             {
-                var messageText = contentProp.GetString();
-                if (!string.IsNullOrEmpty(messageText))
-                {
-                    _streamingContent.Append(messageText);
-                    Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
-                }
+                _streamingContent.Append(content);
+                Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
             }
         }
 
@@ -2417,7 +2382,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 保存消息到数据库
         /// </summary>
-        public async Task SaveMessage(string content, bool isUser, string? reasoningContent = null)
+        public async Task SaveMessage(string content, bool isUser, string? reasoningContent = null, byte[]? imageData = null)
         {
             await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
@@ -2436,7 +2401,9 @@ namespace Buddie.Controls
                         {
                             Content = content,
                             IsUser = isUser,
-                            CreatedAt = DateTime.UtcNow
+                            CreatedAt = DateTime.UtcNow,
+                            ImageData = imageData,
+                            ImageContentType = imageData != null ? "image/png" : null
                         };
                         _currentMessages.Add(tempMessage);
                         
@@ -2453,7 +2420,9 @@ namespace Buddie.Controls
                         Content = content,
                         IsUser = isUser,
                         ReasoningContent = reasoningContent,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        ImageData = imageData,
+                        ImageContentType = imageData != null ? "image/png" : null
                     };
 
                     var messageId = await _databaseService.SaveMessageAsync(message);
@@ -2479,7 +2448,9 @@ namespace Buddie.Controls
                         Content = message.Content,
                         IsUser = message.IsUser,
                         ReasoningContent = message.ReasoningContent,
-                        Timestamp = message.CreatedAt
+                        Timestamp = message.CreatedAt,
+                        ImageData = message.ImageData,
+                        HasImage = message.HasImage
                     };
                     
                     Messages.Add(messageModel);

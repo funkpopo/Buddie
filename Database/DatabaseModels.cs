@@ -271,6 +271,8 @@ namespace Buddie.Database
         private bool _isUser = true;
         private string? _reasoningContent;
         private DateTime _createdAt = DateTime.UtcNow;
+        private byte[]? _imageData;
+        private string? _imageContentType;
 
         public int Id
         {
@@ -307,6 +309,20 @@ namespace Buddie.Database
             get => _createdAt;
             set => SetProperty(ref _createdAt, value);
         }
+
+        public byte[]? ImageData
+        {
+            get => _imageData;
+            set => SetProperty(ref _imageData, value);
+        }
+
+        public string? ImageContentType
+        {
+            get => _imageContentType;
+            set => SetProperty(ref _imageContentType, value);
+        }
+
+        public bool HasImage => ImageData != null && ImageData.Length > 0;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 

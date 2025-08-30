@@ -566,7 +566,7 @@
                                     </StackPanel>
                                     
                                     <!-- 测试状态 -->
-                                    <StackPanel Grid.Row="5" Grid.Column="0"
+                                    <StackPanel Grid.Row="6" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,15">
                                         <TextBlock Text="测试状态: "
@@ -648,7 +648,7 @@
                                     
                                     <!-- 操作按钮 -->
                                     <StackPanel Grid.Row="0" Grid.Column="1"
-                                                Grid.RowSpan="5"
+                                                Grid.RowSpan="6"
                                                 VerticalAlignment="Center">
                                         <!-- 第一行：测试和编辑按钮 -->
                                         <StackPanel Orientation="Horizontal"

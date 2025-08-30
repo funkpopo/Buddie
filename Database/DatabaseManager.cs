@@ -253,6 +253,42 @@ namespace Buddie.Database
                     command.ExecuteNonQuery();
                     Debug.WriteLine("Added ChannelType column to TtsConfigurations table");
                 }
+
+                // 检查Messages表是否有图片相关列
+                command.CommandText = "PRAGMA table_info(Messages)";
+                using var messagesReader = command.ExecuteReader();
+                
+                bool hasImageDataColumn = false;
+                bool hasImageContentTypeColumn = false;
+                while (messagesReader.Read())
+                {
+                    string columnName = messagesReader.GetString(1);
+                    if (columnName == "ImageData")
+                    {
+                        hasImageDataColumn = true;
+                    }
+                    else if (columnName == "ImageContentType")
+                    {
+                        hasImageContentTypeColumn = true;
+                    }
+                }
+                messagesReader.Close();
+                
+                // 添加图片数据列
+                if (!hasImageDataColumn)
+                {
+                    command.CommandText = "ALTER TABLE Messages ADD COLUMN ImageData BLOB";
+                    command.ExecuteNonQuery();
+                    Debug.WriteLine("Added ImageData column to Messages table");
+                }
+                
+                // 添加图片内容类型列
+                if (!hasImageContentTypeColumn)
+                {
+                    command.CommandText = "ALTER TABLE Messages ADD COLUMN ImageContentType TEXT";
+                    command.ExecuteNonQuery();
+                    Debug.WriteLine("Added ImageContentType column to Messages table");
+                }
             }, "数据库架构迁移");
         }
 

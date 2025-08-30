@@ -432,7 +432,7 @@ namespace Buddie.Database
             var connection = connectionWrapper.Connection;
 
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT * FROM Messages WHERE ConversationId = @ConversationId ORDER BY CreatedAt";
+            command.CommandText = "SELECT Id, ConversationId, Content, IsUser, ReasoningContent, CreatedAt, ImageData, ImageContentType FROM Messages WHERE ConversationId = @ConversationId ORDER BY CreatedAt";
             command.Parameters.AddWithValue("@ConversationId", conversationId);
 
             using var reader = await command.ExecuteReaderAsync();
@@ -445,7 +445,9 @@ namespace Buddie.Database
                     Content = reader.GetString(2),
                     IsUser = reader.GetBoolean(3),
                     ReasoningContent = reader.IsDBNull(4) ? null : reader.GetString(4),
-                    CreatedAt = ParseDateTime(reader.GetString(5))
+                    CreatedAt = ParseDateTime(reader.GetString(5)),
+                    ImageData = reader.IsDBNull(6) ? null : (byte[])reader["ImageData"],
+                    ImageContentType = reader.IsDBNull(7) ? null : reader.GetString(7)
                 });
             }
 
@@ -468,8 +470,8 @@ namespace Buddie.Database
                     using var insertCommand = connection.CreateCommand();
                     insertCommand.Transaction = transaction;
                     insertCommand.CommandText = @"
-                        INSERT INTO Messages (ConversationId, Content, IsUser, ReasoningContent, CreatedAt)
-                        VALUES (@ConversationId, @Content, @IsUser, @ReasoningContent, @CreatedAt);
+                        INSERT INTO Messages (ConversationId, Content, IsUser, ReasoningContent, CreatedAt, ImageData, ImageContentType)
+                        VALUES (@ConversationId, @Content, @IsUser, @ReasoningContent, @CreatedAt, @ImageData, @ImageContentType);
                         SELECT last_insert_rowid();";
 
                     insertCommand.Parameters.AddWithValue("@ConversationId", message.ConversationId);
@@ -477,6 +479,8 @@ namespace Buddie.Database
                     insertCommand.Parameters.AddWithValue("@IsUser", message.IsUser);
                     insertCommand.Parameters.AddWithValue("@ReasoningContent", (object?)message.ReasoningContent ?? DBNull.Value);
                     insertCommand.Parameters.AddWithValue("@CreatedAt", message.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+                    insertCommand.Parameters.AddWithValue("@ImageData", (object?)message.ImageData ?? DBNull.Value);
+                    insertCommand.Parameters.AddWithValue("@ImageContentType", (object?)message.ImageContentType ?? DBNull.Value);
 
                     var result = await insertCommand.ExecuteScalarAsync();
                     var messageId = Convert.ToInt32(result);

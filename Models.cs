@@ -18,6 +18,8 @@ namespace Buddie
         private DateTime _timestamp;
         private bool _isMarkdownContent;
         private FlowDocument? _renderedDocument;
+        private byte[]? _imageData;
+        private bool _hasImage;
 
         public string Content
         {
@@ -53,6 +55,18 @@ namespace Buddie
         {
             get => _renderedDocument;
             set => SetProperty(ref _renderedDocument, value);
+        }
+
+        public byte[]? ImageData
+        {
+            get => _imageData;
+            set => SetProperty(ref _imageData, value);
+        }
+
+        public bool HasImage
+        {
+            get => _hasImage;
+            set => SetProperty(ref _hasImage, value);
         }
 
         public bool HasReasoning => !string.IsNullOrEmpty(ReasoningContent);
