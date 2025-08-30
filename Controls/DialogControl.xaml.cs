@@ -60,6 +60,258 @@ namespace Buddie.Controls
         // 当前API配置
         private OpenApiConfiguration? _currentApiConfiguration;
 
+        #region Windows API for Multi-Monitor Support
+        
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+        
+        [DllImport("user32.dll")]
+        private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+        
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+        
+        private const uint MONITOR_DEFAULTTONEAREST = 2;
+        private const uint GW_OWNER = 4;
+        
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        private struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
+        }
+        
+        #endregion
+
+        #region Screen Detection Methods
+        
+        /// <summary>
+        /// 获取当前应用窗口所在的屏幕边界
+        /// </summary>
+        /// <returns>屏幕边界矩形，如果失败则返回主屏幕边界</returns>
+        private Rectangle GetCurrentWindowScreen()
+        {
+            try
+            {
+                var mainWindow = Window.GetWindow(this);
+                if (mainWindow != null)
+                {
+                    // 方法1：使用WPF窗口位置直接检测
+                    var windowBounds = GetWindowScreenByPosition(mainWindow);
+                    if (windowBounds.Width > 0 && windowBounds.Height > 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"DialogControl: 通过窗口位置检测到屏幕 = {windowBounds}");
+                        return windowBounds;
+                    }
+
+                    // 方法2：使用Windows API检测（备用方法）
+                    if (mainWindow.IsLoaded)
+                    {
+                        var windowInteropHelper = new System.Windows.Interop.WindowInteropHelper(mainWindow);
+                        var hwnd = windowInteropHelper.EnsureHandle();
+                        
+                        System.Diagnostics.Debug.WriteLine($"DialogControl: 窗口句柄 = {hwnd}");
+                        
+                        if (hwnd != IntPtr.Zero)
+                        {
+                            var hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                            System.Diagnostics.Debug.WriteLine($"DialogControl: 监视器句柄 = {hMonitor}");
+                            
+                            if (hMonitor != IntPtr.Zero)
+                            {
+                                var monitorInfo = new MONITORINFO();
+                                monitorInfo.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                                
+                                if (GetMonitorInfo(hMonitor, ref monitorInfo))
+                                {
+                                    var screenBounds = new Rectangle(
+                                        monitorInfo.rcMonitor.Left,
+                                        monitorInfo.rcMonitor.Top,
+                                        monitorInfo.rcMonitor.Right - monitorInfo.rcMonitor.Left,
+                                        monitorInfo.rcMonitor.Bottom - monitorInfo.rcMonitor.Top
+                                    );
+                                    
+                                    System.Diagnostics.Debug.WriteLine($"DialogControl: 通过Windows API检测到屏幕 = {screenBounds}");
+                                    
+                                    if (screenBounds.Width > 0 && screenBounds.Height > 0)
+                                    {
+                                        return screenBounds;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("DialogControl: 窗口尚未加载完成，使用主屏幕");
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("DialogControl: 无法获取主窗口");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"DialogControl: 获取当前窗口屏幕时出错 = {ex.Message}");
+                ExceptionHandlingService.ExecuteSafely(() => 
+                {
+                    throw ex;
+                }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
+                {
+                    Component = "DialogControl",
+                    Operation = "获取当前窗口屏幕"
+                });
+            }
+
+            // 如果检测失败，回退到主屏幕
+            System.Diagnostics.Debug.WriteLine("DialogControl: 回退到主屏幕");
+            return GetPrimaryScreenBounds();
+        }
+        
+        /// <summary>
+        /// 通过窗口位置检测屏幕边界
+        /// </summary>
+        private Rectangle GetWindowScreenByPosition(Window window)
+        {
+            try
+            {
+                // 获取窗口的中心点
+                var windowLeft = window.Left;
+                var windowTop = window.Top;
+                var windowWidth = window.ActualWidth;
+                var windowHeight = window.ActualHeight;
+                
+                // 如果窗口尺寸无效，使用窗口左上角
+                if (windowWidth <= 0 || windowHeight <= 0)
+                {
+                    windowWidth = 100;
+                    windowHeight = 100;
+                }
+                
+                var centerX = (int)(windowLeft + windowWidth / 2);
+                var centerY = (int)(windowTop + windowHeight / 2);
+                
+                System.Diagnostics.Debug.WriteLine($"DialogControl: 窗口位置 = ({windowLeft}, {windowTop}), 尺寸 = ({windowWidth}, {windowHeight}), 中心点 = ({centerX}, {centerY})");
+                
+                // 查找包含窗口中心点的屏幕
+                foreach (var screen in System.Windows.Forms.Screen.AllScreens)
+                {
+                    System.Diagnostics.Debug.WriteLine($"DialogControl: 检查屏幕 {screen.DeviceName} = {screen.Bounds}");
+                    
+                    if (screen.Bounds.Contains(centerX, centerY))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"DialogControl: 找到匹配的屏幕 {screen.DeviceName} = {screen.Bounds}");
+                        return screen.Bounds;
+                    }
+                }
+                
+                // 如果中心点不在任何屏幕上，查找距离最近的屏幕
+                var nearestScreen = System.Windows.Forms.Screen.AllScreens
+                    .OrderBy(s => GetDistanceToScreen(centerX, centerY, s.Bounds))
+                    .FirstOrDefault();
+                    
+                if (nearestScreen != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"DialogControl: 使用最近的屏幕 {nearestScreen.DeviceName} = {nearestScreen.Bounds}");
+                    return nearestScreen.Bounds;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"DialogControl: 通过窗口位置检测屏幕时出错 = {ex.Message}");
+            }
+            
+            return new Rectangle();
+        }
+        
+        /// <summary>
+        /// 计算点到屏幕边界的距离
+        /// </summary>
+        private double GetDistanceToScreen(int x, int y, Rectangle screenBounds)
+        {
+            var centerX = screenBounds.X + screenBounds.Width / 2;
+            var centerY = screenBounds.Y + screenBounds.Height / 2;
+            return Math.Sqrt(Math.Pow(x - centerX, 2) + Math.Pow(y - centerY, 2));
+        }
+        
+        /// <summary>
+        /// 获取主屏幕边界
+        /// </summary>
+        private Rectangle GetPrimaryScreenBounds()
+        {
+            var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
+            return primaryScreen?.Bounds ?? new Rectangle(0, 0, 1920, 1080);
+        }
+        
+        /// <summary>
+        /// 获取指定屏幕的System.Windows.Forms.Screen对象
+        /// </summary>
+        /// <param name="screenBounds">屏幕边界</param>
+        /// <returns>匹配的Screen对象，如果没找到则返回主屏幕</returns>
+        private System.Windows.Forms.Screen GetScreenByBounds(Rectangle screenBounds)
+        {
+            try
+            {
+                // 查找匹配边界的屏幕
+                foreach (var screen in System.Windows.Forms.Screen.AllScreens)
+                {
+                    if (screen.Bounds.Equals(screenBounds))
+                    {
+                        return screen;
+                    }
+                }
+                
+                // 如果没有完全匹配的，找包含屏幕中心点的屏幕
+                var centerX = screenBounds.X + screenBounds.Width / 2;
+                var centerY = screenBounds.Y + screenBounds.Height / 2;
+                var centerPoint = new System.Drawing.Point(centerX, centerY);
+                
+                foreach (var screen in System.Windows.Forms.Screen.AllScreens)
+                {
+                    if (screen.Bounds.Contains(centerPoint))
+                    {
+                        return screen;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // 使用ExceptionHandlingService处理异常
+                ExceptionHandlingService.ExecuteSafely(() => 
+                {
+                    throw ex; // 重新抛出以便正确处理
+                }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
+                {
+                    Component = "DialogControl",
+                    Operation = "根据边界查找屏幕"
+                });
+            }
+
+            // 回退到主屏幕
+            var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
+            if (primaryScreen != null) return primaryScreen;
+            
+            var allScreens = System.Windows.Forms.Screen.AllScreens;
+            if (allScreens.Length > 0) return allScreens[0];
+            
+            // 这种情况理论上不应该发生，但为了安全起见
+            throw new InvalidOperationException("系统中没有检测到任何屏幕");
+        }
+        
+        #endregion
+
         // 附加属性用于绑定FlowDocument到RichTextBox
         public static readonly DependencyProperty BindableDocumentProperty =
             DependencyProperty.RegisterAttached(
@@ -2466,6 +2718,13 @@ namespace Buddie.Controls
         /// </summary>
         private async Task<byte[]?> CaptureFullScreenAsync()
         {
+            // 在UI线程上获取屏幕边界信息
+            Rectangle screenBounds = Rectangle.Empty;
+            await Dispatcher.InvokeAsync(() =>
+            {
+                screenBounds = GetCurrentWindowScreen();
+            });
+
             // 隐藏主窗口
             var mainWindow = Window.GetWindow(this);
             if (mainWindow != null)
@@ -2481,16 +2740,14 @@ namespace Buddie.Controls
                 {
                     return ExceptionHandlingService.ExecuteSafely(() =>
                     {
-                        // 获取主屏幕尺寸
-                        var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
-                        if (primaryScreen == null) return null;
-                        var screenBounds = primaryScreen.Bounds;
+                        // 使用预先获取的屏幕边界
+                        System.Diagnostics.Debug.WriteLine($"DialogControl: 使用屏幕边界进行截图 = {screenBounds}");
                         
                         // 创建位图
                         using var bitmap = new System.Drawing.Bitmap(screenBounds.Width, screenBounds.Height);
                         using var graphics = System.Drawing.Graphics.FromImage(bitmap);
                         
-                        // 截取屏幕
+                        // 截取屏幕 - 使用正确的屏幕坐标
                         graphics.CopyFromScreen(screenBounds.X, screenBounds.Y, 0, 0, screenBounds.Size);
                         
                         // 转换为字节数组
@@ -2530,20 +2787,25 @@ namespace Buddie.Controls
         /// </summary>
         private async Task<byte[]?> CaptureScreenAsync()
         {
+            // 在UI线程上获取屏幕边界信息
+            Rectangle screenBounds = Rectangle.Empty;
+            await Dispatcher.InvokeAsync(() =>
+            {
+                screenBounds = GetCurrentWindowScreen();
+            });
+
             return await Task.Run(() =>
             {
                 return ExceptionHandlingService.ExecuteSafely(() =>
                 {
-                    // 获取主屏幕尺寸
-                    var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
-                    if (primaryScreen == null) return null;
-                    var screenBounds = primaryScreen.Bounds;
+                    // 使用预先获取的屏幕边界
+                    System.Diagnostics.Debug.WriteLine($"DialogControl: CaptureScreenAsync使用屏幕边界 = {screenBounds}");
                     
                     // 创建位图
                     using var bitmap = new System.Drawing.Bitmap(screenBounds.Width, screenBounds.Height);
                     using var graphics = System.Drawing.Graphics.FromImage(bitmap);
                     
-                    // 截取屏幕
+                    // 截取屏幕 - 使用正确的屏幕坐标
                     graphics.CopyFromScreen(screenBounds.X, screenBounds.Y, 0, 0, screenBounds.Size);
                     
                     // 转换为字节数组
