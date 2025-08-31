@@ -58,6 +58,10 @@ namespace Buddie.Controls
         private byte[]? _currentScreenshot;
         private bool _hasScreenshot = false;
         
+        // 本地图片相关字段
+        private byte[]? _currentLocalImage;
+        private bool _hasLocalImage = false;
+        
         // 当前API配置
         private OpenApiConfiguration? _currentApiConfiguration;
 
@@ -400,12 +404,19 @@ namespace Buddie.Controls
             var message = DialogInput.Text.Trim();
             
             // 检查是否有内容需要发送（文字或图片）
-            if (!string.IsNullOrEmpty(message) || _hasScreenshot)
+            if (!string.IsNullOrEmpty(message) || _hasScreenshot || _hasLocalImage)
             {
-                // 如果有截图但没有文字，提供默认文字
-                if (string.IsNullOrEmpty(message) && _hasScreenshot)
+                // 如果有截图或本地图片但没有文字，提供默认文字
+                if (string.IsNullOrEmpty(message))
                 {
-                    message = "请分析这张图片。";
+                    if (_hasScreenshot)
+                    {
+                        message = "请分析这张截图。";
+                    }
+                    else if (_hasLocalImage)
+                    {
+                        message = "请分析这张图片。";
+                    }
                 }
                 
                 // 添加到历史记录
@@ -414,8 +425,8 @@ namespace Buddie.Controls
                 // 更新UI状态
                 SetSendingState(true);
                 
-                // 如果有截图，传递给发送事件处理器
-                if (_hasScreenshot)
+                // 如果有截图或本地图片，传递给发送事件处理器
+                if (_hasScreenshot || _hasLocalImage)
                 {
                     MessageSent?.Invoke(this, $"[MULTIMODAL]{message}");
                 }
@@ -426,11 +437,13 @@ namespace Buddie.Controls
                 
                 DialogInput.Clear();
                 
-                // 发送后清理截图
-                if (_hasScreenshot)
+                // 发送后清理截图和本地图片
+                if (_hasScreenshot || _hasLocalImage)
                 {
                     _currentScreenshot = null;
                     _hasScreenshot = false;
+                    _currentLocalImage = null;
+                    _hasLocalImage = false;
                     ScreenshotPreviewContainer.Visibility = Visibility.Collapsed;
                 }
             }
@@ -528,19 +541,21 @@ namespace Buddie.Controls
         }
         
         /// <summary>
-        /// 根据当前API配置更新截图按钮的显示状态
+        /// 根据当前API配置更新截图按钮和图片上传按钮的显示状态
         /// </summary>
         private void UpdateScreenshotButtonVisibility()
         {
             if (_currentApiConfiguration != null && _currentApiConfiguration.IsMultimodalEnabled)
             {
                 ScreenshotButton.Visibility = Visibility.Visible;
+                ImageUploadButton.Visibility = Visibility.Visible;
             }
             else
             {
                 ScreenshotButton.Visibility = Visibility.Collapsed;
-                // 如果隐藏按钮时还有截图，清除截图
-                if (_hasScreenshot)
+                ImageUploadButton.Visibility = Visibility.Collapsed;
+                // 如果隐藏按钮时还有截图或本地图片，清除它们
+                if (_hasScreenshot || _hasLocalImage)
                 {
                     ClearScreenshot();
                 }
@@ -554,6 +569,8 @@ namespace Buddie.Controls
         {
             _currentScreenshot = null;
             _hasScreenshot = false;
+            _currentLocalImage = null;
+            _hasLocalImage = false;
             ScreenshotPreviewContainer.Visibility = Visibility.Collapsed;
         }
 
@@ -1372,22 +1389,29 @@ namespace Buddie.Controls
         public async Task SendMessageToApi(string message, OpenApiConfiguration apiConfig)
         {
             // 检查是否应该发送多模态消息
-            // 条件：1. 有截图数据 2. API配置支持多模态 3. 渠道支持多模态
+            // 条件：1. 有截图或本地图片数据 2. API配置支持多模态 3. 渠道支持多模态
             bool hasScreenshot = _hasScreenshot && _currentScreenshot != null;
+            bool hasLocalImage = _hasLocalImage && _currentLocalImage != null;
+            bool hasImage = hasScreenshot || hasLocalImage;
             bool configSupportsMultimodal = apiConfig.IsMultimodalEnabled;
             bool channelSupportsMultimodal = MultimodalApiService.SupportsMultimodal(apiConfig.ChannelType);
             
-            bool isMultimodal = hasScreenshot && configSupportsMultimodal && channelSupportsMultimodal;
+            bool isMultimodal = hasImage && configSupportsMultimodal && channelSupportsMultimodal;
             
             // 调试信息
-            System.Diagnostics.Debug.WriteLine($"多模态检测: 有截图={hasScreenshot}, 配置支持={configSupportsMultimodal}, 渠道支持={channelSupportsMultimodal}, 最终结果={isMultimodal}");
-            if (hasScreenshot)
+            System.Diagnostics.Debug.WriteLine($"多模态检测: 有截图={hasScreenshot}, 有本地图片={hasLocalImage}, 配置支持={configSupportsMultimodal}, 渠道支持={channelSupportsMultimodal}, 最终结果={isMultimodal}");
+            if (hasImage)
             {
-                System.Diagnostics.Debug.WriteLine($"截图大小: {_currentScreenshot?.Length ?? 0} bytes");
+                var imageData = hasScreenshot ? _currentScreenshot : _currentLocalImage;
+                System.Diagnostics.Debug.WriteLine($"图片大小: {imageData?.Length ?? 0} bytes");
             }
             
             // 显示用户消息（包含图片信息）
-            byte[]? imageForDisplay = isMultimodal ? _currentScreenshot : null;
+            byte[]? imageForDisplay = null;
+            if (isMultimodal)
+            {
+                imageForDisplay = hasScreenshot ? _currentScreenshot : _currentLocalImage;
+            }
             await AddMessageBubble(message, true, imageForDisplay);
 
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
@@ -1404,8 +1428,8 @@ namespace Buddie.Controls
                 // 处理API响应
                 await ProcessApiResponse(httpClient, apiConfig, requestContent);
                 
-                // 清除当前截图（如果有）
-                if (isMultimodal && _currentScreenshot != null)
+                // 清除当前截图或本地图片（如果有）
+                if (isMultimodal && (_currentScreenshot != null || _currentLocalImage != null))
                 {
                     ClearScreenshot();
                 }
@@ -1458,11 +1482,30 @@ namespace Buddie.Controls
         {
             object requestBody;
             
-            if (isMultimodal && _currentScreenshot != null)
+            if (isMultimodal)
             {
-                var imageBase64 = ConvertImageToBase64(_currentScreenshot);
-                System.Diagnostics.Debug.WriteLine($"构建多模态请求，图片Base64长度: {imageBase64.Length}");
-                requestBody = MultimodalApiService.BuildMultimodalRequest(actualMessage, imageBase64, apiConfig);
+                // 获取图片数据（优先截图，其次本地图片）
+                byte[]? imageData = null;
+                if (_hasScreenshot && _currentScreenshot != null)
+                {
+                    imageData = _currentScreenshot;
+                }
+                else if (_hasLocalImage && _currentLocalImage != null)
+                {
+                    imageData = _currentLocalImage;
+                }
+                
+                if (imageData != null)
+                {
+                    var imageBase64 = ConvertImageToBase64(imageData);
+                    System.Diagnostics.Debug.WriteLine($"构建多模态请求，图片Base64长度: {imageBase64.Length}");
+                    requestBody = MultimodalApiService.BuildMultimodalRequest(actualMessage, imageBase64, apiConfig);
+                }
+                else
+                {
+                    // 如果没有图片数据，回退到普通文本请求
+                    requestBody = MultimodalApiService.BuildTextRequest(actualMessage, apiConfig);
+                }
             }
             else
             {
@@ -2647,6 +2690,111 @@ namespace Buddie.Controls
         #region 截图功能
 
         /// <summary>
+        /// 图片上传按钮点击事件
+        /// </summary>
+        private async void ImageUploadButton_Click(object sender, RoutedEventArgs e)
+        {
+            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
+            {
+                // 检查是否支持多模态
+                var appSettings = DataContext as AppSettings;
+                var activeConfig = appSettings?.ApiConfigurations.FirstOrDefault();
+                
+                if (activeConfig == null || !activeConfig.IsMultimodalEnabled)
+                {
+                    System.Windows.MessageBox.Show(
+                        "当前API配置未启用多模态功能，请先在设置中启用多模态。", 
+                        "提示", 
+                        System.Windows.MessageBoxButton.OK, 
+                        System.Windows.MessageBoxImage.Information);
+                    return;
+                }
+                
+                // 打开文件选择对话框
+                var openFileDialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = "选择图片",
+                    Filter = "图片文件|*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp|所有文件|*.*",
+                    Multiselect = false
+                };
+                
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    var filePath = openFileDialog.FileName;
+                    
+                    // 读取图片文件
+                    var imageBytes = await File.ReadAllBytesAsync(filePath);
+                    
+                    // 检查文件大小（限制为10MB）
+                    if (imageBytes.Length > 10 * 1024 * 1024)
+                    {
+                        System.Windows.MessageBox.Show(
+                            "图片文件大小不能超过10MB", 
+                            "文件过大", 
+                            System.Windows.MessageBoxButton.OK, 
+                            System.Windows.MessageBoxImage.Warning);
+                        return;
+                    }
+                    
+                    _currentLocalImage = imageBytes;
+                    _hasLocalImage = true;
+                    
+                    // 清除之前的截图（如果有）
+                    if (_hasScreenshot)
+                    {
+                        _currentScreenshot = null;
+                        _hasScreenshot = false;
+                    }
+                    
+                    // 显示图片预览
+                    ShowLocalImagePreview(imageBytes);
+                }
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "选择本地图片"
+            });
+        }
+        
+        /// <summary>
+        /// 显示本地图片预览
+        /// </summary>
+        private void ShowLocalImagePreview(byte[] imageBytes)
+        {
+            ExceptionHandlingService.ExecuteSafely(() =>
+            {
+                // 转换字节数组为BitmapImage
+                var bitmapImage = new BitmapImage();
+                using (var stream = new MemoryStream(imageBytes))
+                {
+                    bitmapImage.BeginInit();
+                    bitmapImage.StreamSource = stream;
+                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmapImage.EndInit();
+                    bitmapImage.Freeze();
+                }
+                
+                // 显示预览UI
+                if (ScreenshotPreviewContainer != null && ScreenshotThumbnail != null)
+                {
+                    ScreenshotThumbnail.Source = bitmapImage;
+                    ScreenshotPreviewContainer.Visibility = Visibility.Visible;
+                    
+                    // 更新信息文本
+                    if (ScreenshotInfo != null)
+                    {
+                        var fileSize = imageBytes.Length / 1024.0;
+                        ScreenshotInfo.Text = $"图片大小: {fileSize:F1} KB";
+                    }
+                }
+            }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, context: new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "显示本地图片预览"
+            });
+        }
+
+        /// <summary>
         /// 截图按钮点击事件 - 简化版本
         /// </summary>
         private async void ScreenshotButton_Click(object sender, RoutedEventArgs e)
@@ -2673,6 +2821,13 @@ namespace Buddie.Controls
                 {
                     _currentScreenshot = screenshotBytes;
                     _hasScreenshot = true;
+                    
+                    // 清除之前的本地图片（如果有）
+                    if (_hasLocalImage)
+                    {
+                        _currentLocalImage = null;
+                        _hasLocalImage = false;
+                    }
                     
                     // 显示预览
                     ShowScreenshotPreview(screenshotBytes);

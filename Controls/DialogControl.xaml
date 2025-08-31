@@ -738,6 +738,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="80"/>
                         </Grid.ColumnDefinitions>
                         
@@ -784,9 +785,51 @@
                             </TextBox>
                         </Border>
                         
+                        <!-- 图片上传按钮 -->
+                        <Button x:Name="ImageUploadButton"
+                                Grid.Column="1"
+                                Content="🖼️"
+                                Width="40"
+                                Height="40"
+                                BorderThickness="0"
+                                Click="ImageUploadButton_Click"
+                                Cursor="Hand"
+                                FontSize="16"
+                                Margin="0,0,5,0"
+                                ToolTip="上传图片">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Background" Value="#5B9BD5"/>
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="10"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}">
+                                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                                      VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#4A89CC"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter Property="Background" Value="#3A79BC"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        
                         <!-- 截图按钮 -->
                         <Button x:Name="ScreenshotButton"
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 Content="📷"
                                 Width="40"
                                 Height="40"
@@ -828,7 +871,7 @@
                         </Button>
                         
                         <Button x:Name="SendButton"
-                                Grid.Column="2"
+                                Grid.Column="3"
                                 Content="发送"
                                 BorderThickness="0"
                                 Click="SendMessage_Click"
