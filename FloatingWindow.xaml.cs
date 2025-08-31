@@ -13,6 +13,8 @@ using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
+using Buddie.Services;
+using Buddie.Tests;
 
 namespace Buddie
 {
@@ -49,8 +51,7 @@ namespace Buddie
         private readonly List<CardData> _cards = new List<CardData>();
         private int _currentCardIndex = 0;
         private readonly AppSettings _appSettings = new AppSettings();
-        private readonly List<System.Windows.Media.Color> _usedCardColors = new List<System.Windows.Media.Color>();
-        private readonly Random _colorRandom = new Random();
+        private readonly CardColorManager _colorManager = new CardColorManager();
         
         // 用户交互状态管理
         private bool _isUserInteracting = false;
@@ -67,6 +68,9 @@ namespace Buddie
             
             // 应用初始主题
             ApplyTheme();
+            
+            // 测试颜色管理器功能
+            TestColorManager();
             
             // 设置窗口加载完成后启用点击穿透
             this.SourceInitialized += FloatingWindow_SourceInitialized;
@@ -352,7 +356,7 @@ namespace Buddie
                 return;
                 
             int nextIndex = (_currentCardIndex + 1) % _cards.Count;
-            SwitchToCard(nextIndex);
+            SwitchToCardWithAnimation(nextIndex, 1); // 1表示向右翻动
         }
 
         private void SwitchToPreviousCard()
@@ -361,7 +365,37 @@ namespace Buddie
                 return;
                 
             int prevIndex = (_currentCardIndex - 1 + _cards.Count) % _cards.Count;
-            SwitchToCard(prevIndex);
+            SwitchToCardWithAnimation(prevIndex, -1); // -1表示向左翻动
+        }
+
+        /// <summary>
+        /// 带动画的卡片切换
+        /// </summary>
+        /// <param name="newIndex">新卡片索引</param>
+        /// <param name="direction">动画方向：1为向右，-1为向左</param>
+        private void SwitchToCardWithAnimation(int newIndex, int direction)
+        {
+            if (newIndex == _currentCardIndex || _isAnimating || newIndex < 0 || newIndex >= _cards.Count)
+                return;
+
+            _isAnimating = true;
+            _isFlipped = false;
+            
+            var newCard = _cards[newIndex];
+            
+            // 执行翻动动画
+            cardControl.SwitchWithFlipAnimation(newCard, newIndex + 1, _cards.Count, direction, () =>
+            {
+                // 动画完成后更新当前索引
+                _currentCardIndex = newIndex;
+                _isAnimating = false;
+                
+                // 仅更新DialogControl的API配置，不自动打开对话界面
+                if (_currentCardIndex < _cards.Count && _cards[_currentCardIndex].ApiConfiguration != null)
+                {
+                    DialogControl.SetCurrentApiConfiguration(_cards[_currentCardIndex].ApiConfiguration);
+                }
+            });
         }
 
         private void SwitchToCard(int newIndex)
@@ -373,10 +407,10 @@ namespace Buddie
             _isFlipped = false;
             UpdateCardDisplay();
             
-            // 检查新卡片是否有关联的API配置，如果有则自动拉起对话界面
+            // 仅更新DialogControl的API配置，不自动打开对话界面
             if (_currentCardIndex < _cards.Count && _cards[_currentCardIndex].ApiConfiguration != null)
             {
-                ShowDialogForCurrentCard();
+                DialogControl.SetCurrentApiConfiguration(_cards[_currentCardIndex].ApiConfiguration);
             }
         }
         
@@ -407,43 +441,43 @@ namespace Buddie
         private void UpdateCardsFromApiConfigurations()
         {
             _cards.Clear();
-            ResetCardColorSystem(); // 重置颜色系统以确保新卡片有不同的颜色
+            _colorManager.ResetAll(); // 重置颜色系统以确保新卡片有不同的颜色
             
-            foreach (var apiConfig in _appSettings.ApiConfigurations)
+            if (_appSettings.ApiConfigurations.Count > 0)
             {
-                var colorPair = GetRandomColorPair();
-                _cards.Add(new CardData
+                // 批量获取具有明显色差的颜色对
+                var colorPairs = _colorManager.GetMultipleColorPairs(_appSettings.ApiConfigurations.Count);
+                
+                for (int i = 0; i < _appSettings.ApiConfigurations.Count; i++)
                 {
-                    FrontText = apiConfig.Name,
-                    FrontSubText = apiConfig.ModelName,
-                    BackText = "API配置",
-                    BackSubText = $"URL: {apiConfig.ApiUrl}",
-                    FrontBackground = new LinearGradientBrush(
-                        colorPair.frontColor, Colors.White, new System.Windows.Point(0, 0), new System.Windows.Point(1, 1)
-                    ),
-                    BackBackground = new LinearGradientBrush(
-                        colorPair.backColor, Colors.White, new System.Windows.Point(0, 0), new System.Windows.Point(1, 1)
-                    ),
-                    ApiConfiguration = apiConfig  // 关联API配置
-                });
+                    var apiConfig = _appSettings.ApiConfigurations[i];
+                    var colorPair = colorPairs[i];
+                    
+                    _cards.Add(new CardData
+                    {
+                        FrontText = apiConfig.Name,
+                        FrontSubText = apiConfig.ModelName,
+                        BackText = "API配置",
+                        BackSubText = $"URL: {apiConfig.ApiUrl}",
+                        FrontBackground = _colorManager.CreateGradientBrush(colorPair.frontColor),
+                        BackBackground = _colorManager.CreateGradientBrush(colorPair.backColor),
+                        ApiConfiguration = apiConfig  // 关联API配置
+                    });
+                }
             }
             
             // 如果没有API配置，创建默认卡片
             if (_cards.Count == 0)
             {
-                var colorPair = GetRandomColorPair();
+                var colorPair = _colorManager.GetColorPair();
                 _cards.Add(new CardData
                 {
                     FrontText = "欢迎使用",
                     FrontSubText = "点击设置添加AI配置",
                     BackText = "配置提示",
                     BackSubText = "在设置中添加OpenAI API配置后即可开始对话",
-                    FrontBackground = new LinearGradientBrush(
-                        colorPair.frontColor, Colors.White, new System.Windows.Point(0, 0), new System.Windows.Point(1, 1)
-                    ),
-                    BackBackground = new LinearGradientBrush(
-                        colorPair.backColor, Colors.White, new System.Windows.Point(0, 0), new System.Windows.Point(1, 1)
-                    )
+                    FrontBackground = _colorManager.CreateGradientBrush(colorPair.frontColor),
+                    BackBackground = _colorManager.CreateGradientBrush(colorPair.backColor)
                 });
             }
             
@@ -452,59 +486,30 @@ namespace Buddie
             if (_currentCardIndex < 0) _currentCardIndex = 0;
         }
         
-        // 获取随机颜色的辅助方法
-        private System.Windows.Media.Color GetRandomColor()
+        /// <summary>
+        /// 测试颜色管理器功能
+        /// </summary>
+        private void TestColorManager()
         {
-            var availableColors = new[] { 
-                Colors.LightBlue, Colors.LightGreen, Colors.LightCoral, 
-                Colors.Plum, Colors.LightSalmon, Colors.LightSeaGreen,
-                Colors.Orange, Colors.Gold, Colors.LightPink, Colors.LightCyan,
-                Colors.Lavender, Colors.LightYellow, Colors.PaleGreen,
-                Colors.Wheat, Colors.SkyBlue, Colors.MediumOrchid,
-                Colors.LightSteelBlue, Colors.PeachPuff, Colors.Khaki,
-                Colors.Thistle, Colors.PowderBlue, Colors.MistyRose
-            };
-            
-            // 过滤掉已使用的颜色
-            var unusedColors = availableColors.Where(c => !_usedCardColors.Contains(c)).ToList();
-            
-            // 如果所有颜色都已使用，重置颜色列表
-            if (unusedColors.Count == 0)
+            try
             {
-                _usedCardColors.Clear();
-                unusedColors = availableColors.ToList();
+                var testResults = CardColorManagerTests.RunAllTests();
+                System.Diagnostics.Debug.WriteLine("=== 颜色管理器测试结果 ===");
+                System.Diagnostics.Debug.WriteLine(testResults);
+                System.Diagnostics.Debug.WriteLine("=========================");
+                
+                // 在调试模式下显示测试结果
+                #if DEBUG
+                Console.WriteLine("颜色管理器测试结果:");
+                Console.WriteLine(testResults);
+                #endif
             }
-            
-            // 随机选择一个未使用的颜色
-            var selectedColor = unusedColors[_colorRandom.Next(unusedColors.Count)];
-            _usedCardColors.Add(selectedColor);
-            
-            return selectedColor;
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"颜色管理器测试失败: {ex.Message}");
+            }
         }
         
-        // 获取配对的随机颜色（用于卡片正面和背面）
-        private (System.Windows.Media.Color frontColor, System.Windows.Media.Color backColor) GetRandomColorPair()
-        {
-            var frontColor = GetRandomColor();
-            var backColor = GetRandomColor();
-            
-            // 确保正面和背面颜色不同
-            while (backColor == frontColor && _usedCardColors.Count > 1)
-            {
-                // 从已用颜色中移除背面颜色，重新选择
-                _usedCardColors.Remove(backColor);
-                backColor = GetRandomColor();
-            }
-            
-            return (frontColor, backColor);
-        }
-        
-        // 重置卡片颜色系统
-        private void ResetCardColorSystem()
-        {
-            _usedCardColors.Clear();
-        }
-
         // 重置设置
         private void ResetSettings()
         {

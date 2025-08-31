@@ -12,7 +12,43 @@
     </UserControl.Resources>
     
     <Grid>
-        <!-- 固定在右下角的卡片 -->
+        <!-- 堆叠的背景卡片 - 第三层 (最底层) -->
+        <Border x:Name="StackCard3"
+                Width="200"
+                Height="150"
+                Background="#E0E0E0"
+                CornerRadius="15"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,32,15"
+                Effect="{StaticResource CardShadow}"
+                Opacity="0.6">
+            <Border.RenderTransform>
+                <TransformGroup>
+                    <RotateTransform Angle="3" CenterX="100" CenterY="75"/>
+                </TransformGroup>
+            </Border.RenderTransform>
+        </Border>
+        
+        <!-- 堆叠的背景卡片 - 第二层 -->
+        <Border x:Name="StackCard2"
+                Width="200"
+                Height="150"
+                Background="#F0F0F0"
+                CornerRadius="15"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,35,10"
+                Effect="{StaticResource CardShadow}"
+                Opacity="0.8">
+            <Border.RenderTransform>
+                <TransformGroup>
+                    <RotateTransform Angle="-2" CenterX="100" CenterY="75"/>
+                </TransformGroup>
+            </Border.RenderTransform>
+        </Border>
+        
+        <!-- 固定在右下角的卡片 - 主卡片 -->
         <Border x:Name="CardContainer"
                 Width="200"
                 Height="150"
@@ -142,20 +178,6 @@
                             Click="SettingsButton_Click"
                             Cursor="Hand"
                             ToolTip="设置"
-                            Style="{StaticResource CircularButtonStyle}"/>
-                    <Button x:Name="AddButton"
-                            Content="+"
-                            Width="30"
-                            Height="30"
-                            Margin="5,0"
-                            Background="#80FFFFFF"
-                            Foreground="#333333"
-                            BorderThickness="0"
-                            FontSize="18"
-                            FontWeight="Bold"
-                            Click="AddButton_Click"
-                            Cursor="Hand"
-                            ToolTip="添加"
                             Style="{StaticResource CircularButtonStyle}"/>
                 </StackPanel>
                 <!-- 卡片信息显示 - 位于卡片右下角 -->

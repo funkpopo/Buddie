@@ -10,7 +10,6 @@ namespace Buddie.Controls
     {
         public event EventHandler? DialogButtonClicked;
         public event EventHandler? SettingsButtonClicked;
-        public event EventHandler? AddButtonClicked;
         public event EventHandler? LeftFlipButtonClicked;
         public event EventHandler? RightFlipButtonClicked;
         
@@ -26,6 +25,10 @@ namespace Buddie.Controls
         public CardControl()
         {
             InitializeComponent();
+            
+            // 确保卡片初始显示正面
+            CardFront.Visibility = Visibility.Visible;
+            CardBack.Visibility = Visibility.Collapsed;
         }
 
         private void CardContainer_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -61,10 +64,6 @@ namespace Buddie.Controls
             SettingsRequested?.Invoke(this, EventArgs.Empty);
         }
 
-        private void AddButton_Click(object sender, RoutedEventArgs e)
-        {
-            AddButtonClicked?.Invoke(this, EventArgs.Empty);
-        }
 
         private void LeftFlipButton_Click(object sender, RoutedEventArgs e)
         {
@@ -150,8 +149,89 @@ namespace Buddie.Controls
             CardFront.Background = cardData.FrontBackground;
             CardBack.Background = cardData.BackBackground;
             
+            // 确保显示正面
+            CardFront.Visibility = Visibility.Visible;
+            CardBack.Visibility = Visibility.Collapsed;
+            
             // Update card info
             UpdateCardInfo($"{currentIndex}/{totalCount}");
+            
+            // Update stack visibility based on total count
+            UpdateStackVisibility(totalCount);
+        }
+
+        /// <summary>
+        /// 根据卡片总数更新堆叠显示
+        /// </summary>
+        /// <param name="totalCount">卡片总数</param>
+        private void UpdateStackVisibility(int totalCount)
+        {
+            if (totalCount <= 1)
+            {
+                // 只有一张卡片时隐藏堆叠
+                StackCard2.Visibility = Visibility.Collapsed;
+                StackCard3.Visibility = Visibility.Collapsed;
+            }
+            else if (totalCount == 2)
+            {
+                // 两张卡片时显示第二层
+                StackCard2.Visibility = Visibility.Visible;
+                StackCard3.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                // 三张或以上显示全部堆叠
+                StackCard2.Visibility = Visibility.Visible;
+                StackCard3.Visibility = Visibility.Visible;
+            }
+        }
+
+        /// <summary>
+        /// 执行卡片切换动画（无旋转效果）
+        /// </summary>
+        /// <param name="newCardData">新卡片数据</param>
+        /// <param name="currentIndex">当前索引</param>
+        /// <param name="totalCount">总数</param>
+        /// <param name="direction">翻动方向：1为向右，-1为向左</param>
+        /// <param name="onCompleted">动画完成回调</param>
+        public void SwitchWithFlipAnimation(CardData newCardData, int currentIndex, int totalCount, int direction, Action? onCompleted = null)
+        {
+            // 简单的淡出淡入效果
+            var fadeOutAnimation = new DoubleAnimation
+            {
+                From = 1.0,
+                To = 0.3,
+                Duration = TimeSpan.FromMilliseconds(150),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+            };
+
+            fadeOutAnimation.Completed += (s, e) =>
+            {
+                // 更新卡片内容
+                UpdateDisplay(newCardData, currentIndex, totalCount);
+                
+                // 淡入新内容
+                var fadeInAnimation = new DoubleAnimation
+                {
+                    From = 0.3,
+                    To = 1.0,
+                    Duration = TimeSpan.FromMilliseconds(150),
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                };
+
+                fadeInAnimation.Completed += (s2, e2) =>
+                {
+                    // 确保完全不透明
+                    this.Opacity = 1.0;
+                    onCompleted?.Invoke();
+                };
+
+                // 执行淡入动画
+                this.BeginAnimation(UIElement.OpacityProperty, fadeInAnimation);
+            };
+
+            // 执行淡出动画
+            this.BeginAnimation(UIElement.OpacityProperty, fadeOutAnimation);
         }
 
         // 更新按钮状态显示
