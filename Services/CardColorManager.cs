@@ -90,16 +90,9 @@ namespace Buddie.Services
                 return GetColorPair();
             }
             
-            // 如果该ID已经分配过颜色，生成确定性颜色
-            if (_assignedColorIds.Contains(id))
-            {
-                return GenerateDeterministicColorPair(id);
-            }
-            
+            // 为ID生成确定性颜色（无论是否已分配过）
             _assignedColorIds.Add(id);
-            var colorPair = GetColorPair();
-            
-            return colorPair;
+            return GenerateDeterministicColorPair(id);
         }
         
         /// <summary>
