@@ -3,13 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Buddie.Controls">
     
-    <UserControl.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/SharedResources.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </UserControl.Resources>
     
     <Grid>
         <!-- 堆叠的背景卡片 - 第三层 (最底层) -->
@@ -165,6 +158,19 @@
                             Click="DialogButton_Click"
                             Cursor="Hand"
                             ToolTip="对话"
+                            Style="{StaticResource CircularButtonStyle}"/>
+                    <Button x:Name="BuddieButton"
+                            Content="🤖"
+                            Width="30"
+                            Height="30"
+                            Margin="5,0"
+                            Background="#80FFFFFF"
+                            Foreground="#333333"
+                            BorderThickness="0"
+                            FontSize="14"
+                            Click="BuddieButton_Click"
+                            Cursor="Hand"
+                            ToolTip="Buddie实时交互"
                             Style="{StaticResource CircularButtonStyle}"/>
                     <Button x:Name="SettingsButton"
                             Content="⚙"

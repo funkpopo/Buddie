@@ -18,6 +18,10 @@ namespace Buddie.Controls
         public event EventHandler<TtsConfiguration>? TtsConfigurationAdded;
         public event EventHandler<TtsConfiguration>? TtsConfigurationUpdated;
         public event EventHandler<TtsConfiguration>? TtsConfigurationRemoved;
+        public event EventHandler<RealtimeConfiguration>? RealtimeConfigurationActivated;
+        public event EventHandler<RealtimeConfiguration>? RealtimeConfigurationAdded;
+        public event EventHandler<RealtimeConfiguration>? RealtimeConfigurationUpdated;
+        public event EventHandler<RealtimeConfiguration>? RealtimeConfigurationRemoved;
         public event EventHandler<bool>? SettingsVisibilityChanged;
 
         public SettingsControl()
@@ -39,6 +43,7 @@ namespace Buddie.Controls
             // 初始化子控件
             ApiConfigControl.Initialize(appSettings.ApiConfigurations);
             TtsConfigControl.Initialize(appSettings.TtsConfigurations);
+            RealtimeConfigControl.Initialize(appSettings.RealtimeConfigurations);
             
             // 订阅子控件事件
             ApiConfigControl.ConfigurationAdded += (s, config) => {
@@ -75,12 +80,38 @@ namespace Buddie.Controls
                 // TTS配置激活
                 TtsConfigurationActivated?.Invoke(this, config);
             };
+            
+            RealtimeConfigControl.ConfigurationAdded += (s, config) => {
+                // 实时交互配置添加
+                RealtimeConfigurationAdded?.Invoke(this, config);
+            };
+            
+            RealtimeConfigControl.ConfigurationRemoved += (s, config) => {
+                // 实时交互配置移除
+                RealtimeConfigurationRemoved?.Invoke(this, config);
+            };
+            
+            RealtimeConfigControl.ConfigurationUpdated += (s, config) => {
+                // 实时交互配置更新
+                RealtimeConfigurationUpdated?.Invoke(this, config);
+            };
+            
+            RealtimeConfigControl.ConfigurationActivated += (s, config) => {
+                // 实时交互配置激活
+                RealtimeConfigurationActivated?.Invoke(this, config);
+            };
         }
         
         public void RefreshTtsConfigurations(ObservableCollection<TtsConfiguration> ttsConfigurations)
         {
             // 重新初始化TTS配置控件，用于数据库加载后刷新
             TtsConfigControl.Initialize(ttsConfigurations);
+        }
+        
+        public void RefreshRealtimeConfigurations(ObservableCollection<RealtimeConfiguration> realtimeConfigurations)
+        {
+            // 重新初始化实时交互配置控件，用于数据库加载后刷新
+            RealtimeConfigControl.Initialize(realtimeConfigurations);
         }
         
         public void RefreshApiConfigurations(ObservableCollection<OpenApiConfiguration> apiConfigurations)

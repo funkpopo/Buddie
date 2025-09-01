@@ -4,13 +4,6 @@
              xmlns:local="clr-namespace:Buddie.Controls"
              xmlns:controls="clr-namespace:Buddie.Controls">
     
-    <UserControl.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/SharedResources.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </UserControl.Resources>
     
     <!-- 设置界面 - 位于右下角CardContainer附近 -->
     <Border x:Name="SettingsInterface"
@@ -314,6 +307,12 @@
                 <TabItem Header="TTS设置">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <controls:TtsConfigControl x:Name="TtsConfigControl"/>
+                    </ScrollViewer>
+                </TabItem>
+                <!-- 实时交互设置页 -->
+                <TabItem Header="实时交互设置">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <controls:RealtimeConfigControl x:Name="RealtimeConfigControl"/>
                     </ScrollViewer>
                 </TabItem>
             </TabControl>

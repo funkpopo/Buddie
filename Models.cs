@@ -113,6 +113,17 @@ namespace Buddie
         MiniMax
     }
 
+    public enum RealtimeChannelType
+    {
+        QwenOmni,
+        Custom
+    }
+
+    public enum VadMode
+    {
+        CLIENT_VAD
+    }
+
     public class TtsPresetChannel
     {
         public string Name { get; set; } = "";
@@ -645,6 +656,7 @@ namespace Buddie
         private bool _isDarkTheme = false;
         private ObservableCollection<OpenApiConfiguration> _apiConfigurations = new ObservableCollection<OpenApiConfiguration>();
         private ObservableCollection<TtsConfiguration> _ttsConfigurations = new ObservableCollection<TtsConfiguration>();
+        private ObservableCollection<RealtimeConfiguration> _realtimeConfigurations = new ObservableCollection<RealtimeConfiguration>();
         private DatabaseService _databaseService = new DatabaseService();
 
         // TTS缓存设置
@@ -686,6 +698,12 @@ namespace Buddie
         {
             get => _ttsConfigurations;
             set => SetProperty(ref _ttsConfigurations, value);
+        }
+
+        public ObservableCollection<RealtimeConfiguration> RealtimeConfigurations
+        {
+            get => _realtimeConfigurations;
+            set => SetProperty(ref _realtimeConfigurations, value);
         }
 
         // TTS缓存配置属性
@@ -1044,6 +1062,205 @@ namespace Buddie
         {
             return GetPresetChannels().FirstOrDefault(c => c.ChannelType == channelType) 
                 ?? GetPresetChannels().First(c => c.ChannelType == TtsChannelType.OpenAI);
+        }
+    }
+
+    public class RealtimeConfiguration : INotifyPropertyChanged
+    {
+        private int _id;
+        private string _name = "";
+        private RealtimeChannelType _channelType = RealtimeChannelType.QwenOmni;
+        private string _baseUrl = "";
+        private string _apiKey = "";
+        private string _model = "";
+        private string _voice = "";
+        private VadMode _vadMode = VadMode.CLIENT_VAD;
+        private bool _isEditMode = true;
+        private bool _isSaved = false;
+        private bool _isActive = false;
+        private int _sampleRate = 24000;
+        private int _chunkSize = 3200;
+        private TestStatus _testStatus = TestStatus.NotTested;
+        private string _testMessage = "";
+
+        public RealtimeConfiguration()
+        {
+            // 构造函数中调用UpdateDefaultsForChannel来设置默认值
+            UpdateDefaultsForChannel();
+        }
+
+        public int Id
+        {
+            get => _id;
+            set => SetProperty(ref _id, value);
+        }
+
+        public string Name
+        {
+            get => _name;
+            set => SetProperty(ref _name, value);
+        }
+
+        public RealtimeChannelType ChannelType
+        {
+            get => _channelType;
+            set 
+            { 
+                if (SetProperty(ref _channelType, value))
+                {
+                    UpdateDefaultsForChannel();
+                    OnPropertyChanged(nameof(RequiresBaseUrl));
+                    OnPropertyChanged(nameof(RequiresApiKey));
+                    OnPropertyChanged(nameof(RequiresModel));
+                    OnPropertyChanged(nameof(RequiresVoice));
+                    OnPropertyChanged(nameof(SupportedModels));
+                    OnPropertyChanged(nameof(SupportedVoices));
+                    OnPropertyChanged(nameof(Model)); // 通知Model属性已更改
+                    OnPropertyChanged(nameof(BaseUrl)); // 通知BaseUrl属性已更改
+                    OnPropertyChanged(nameof(VadMode)); // 通知VadMode属性已更改
+                }
+            }
+        }
+
+        public string BaseUrl
+        {
+            get => _baseUrl;
+            set => SetProperty(ref _baseUrl, value);
+        }
+
+        public string ApiKey
+        {
+            get => _apiKey;
+            set => SetProperty(ref _apiKey, value);
+        }
+
+        public string Model
+        {
+            get => _model;
+            set => SetProperty(ref _model, value);
+        }
+
+        public string Voice
+        {
+            get => _voice;
+            set => SetProperty(ref _voice, value);
+        }
+
+        public VadMode VadMode
+        {
+            get => _vadMode;
+            set => SetProperty(ref _vadMode, value);
+        }
+
+        public bool IsEditMode
+        {
+            get => _isEditMode;
+            set => SetProperty(ref _isEditMode, value);
+        }
+
+        public bool IsSaved
+        {
+            get => _isSaved;
+            set => SetProperty(ref _isSaved, value);
+        }
+
+        public bool IsActive
+        {
+            get => _isActive;
+            set => SetProperty(ref _isActive, value);
+        }
+
+        public int SampleRate
+        {
+            get => _sampleRate;
+            set => SetProperty(ref _sampleRate, value);
+        }
+
+        public int ChunkSize
+        {
+            get => _chunkSize;
+            set => SetProperty(ref _chunkSize, value);
+        }
+
+        public TestStatus TestStatus
+        {
+            get => _testStatus;
+            set => SetProperty(ref _testStatus, value);
+        }
+
+        public string TestMessage
+        {
+            get => _testMessage;
+            set => SetProperty(ref _testMessage, value);
+        }
+
+        // 动态属性 - 根据渠道类型确定是否需要显示某些字段
+        public bool RequiresBaseUrl => ChannelType != RealtimeChannelType.QwenOmni;
+        public bool RequiresApiKey => true;
+        public bool RequiresModel => true;
+        public bool RequiresVoice => false;
+
+        public string[] SupportedModels
+        {
+            get
+            {
+                return ChannelType switch
+                {
+                    RealtimeChannelType.QwenOmni => _qwenOmniSupportedModels,
+                    RealtimeChannelType.Custom => _customSupportedModels,
+                    _ => _customSupportedModels
+                };
+            }
+        }
+
+        // 静态数组以避免每次创建新实例
+        private static readonly string[] _qwenOmniSupportedModels = new[] { "qwen-omni-turbo-realtime" };
+        private static readonly string[] _customSupportedModels = Array.Empty<string>();
+
+        public string[] SupportedVoices
+        {
+            get
+            {
+                return Array.Empty<string>(); // Voice字段已移除
+            }
+        }
+
+        private void UpdateDefaultsForChannel()
+        {
+            switch (ChannelType)
+            {
+                case RealtimeChannelType.QwenOmni:
+                    BaseUrl = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
+                    Model = "qwen-omni-turbo-realtime";
+                    VadMode = VadMode.CLIENT_VAD; // 默认使用客户端VAD
+                    SampleRate = 24000;
+                    ChunkSize = 3200;
+                    break;
+                case RealtimeChannelType.Custom:
+                    BaseUrl = "";
+                    Model = "";
+                    VadMode = VadMode.CLIENT_VAD;
+                    SampleRate = 24000;
+                    ChunkSize = 3200;
+                    break;
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string? propertyName = null)
+        {
+            if (Equals(backingStore, value))
+                return false;
+
+            backingStore = value;
+            OnPropertyChanged(propertyName);
+            return true;
         }
     }
 

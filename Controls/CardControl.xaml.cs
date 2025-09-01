@@ -9,17 +9,20 @@ namespace Buddie.Controls
     public partial class CardControl : UserControl
     {
         public event EventHandler? DialogButtonClicked;
+        public event EventHandler? BuddieButtonClicked;
         public event EventHandler? SettingsButtonClicked;
         public event EventHandler? LeftFlipButtonClicked;
         public event EventHandler? RightFlipButtonClicked;
         
         public event EventHandler? DialogRequested;
+        public event EventHandler? BuddieRequested;
         public event EventHandler? SettingsRequested;
         public event EventHandler? MouseEntered;
         public event EventHandler? MouseLeft;
 
         // 界面状态跟踪
         private bool _isDialogOpen = false;
+        private bool _isBuddieOpen = false;
         private bool _isSettingsOpen = false;
 
         public CardControl()
@@ -56,6 +59,12 @@ namespace Buddie.Controls
         {
             DialogButtonClicked?.Invoke(this, EventArgs.Empty);
             DialogRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void BuddieButton_Click(object sender, RoutedEventArgs e)
+        {
+            BuddieButtonClicked?.Invoke(this, EventArgs.Empty);
+            BuddieRequested?.Invoke(this, EventArgs.Empty);
         }
 
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
@@ -255,6 +264,16 @@ namespace Buddie.Controls
             UpdateButtonColors();
         }
 
+        /// &lt;summary&gt;
+        /// 更新Buddie按钮状态
+        /// &lt;/summary&gt;
+        /// &lt;param name="isOpen"&gt;Buddie是否打开&lt;/param&gt;
+        public void UpdateBuddieButtonState(bool isOpen)
+        {
+            _isBuddieOpen = isOpen;
+            UpdateButtonColors();
+        }
+
         private void UpdateButtonColors()
         {
             // 对话按钮：展开时显示橘色
@@ -267,6 +286,18 @@ namespace Buddie.Controls
             {
                 DialogButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(128, 255, 255, 255)); // #80FFFFFF
                 DialogButton.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(255, 51, 51, 51)); // #333333
+            }
+
+            // Buddie按钮：展开时显示绿色
+            if (_isBuddieOpen)
+            {
+                BuddieButton.Background = System.Windows.Media.Brushes.Green;
+                BuddieButton.Foreground = System.Windows.Media.Brushes.White;
+            }
+            else
+            {
+                BuddieButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(128, 255, 255, 255)); // #80FFFFFF
+                BuddieButton.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(255, 51, 51, 51)); // #333333
             }
 
             // 设置按钮：展开时显示蓝色

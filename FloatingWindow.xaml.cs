@@ -53,6 +53,10 @@ namespace Buddie
         private readonly AppSettings _appSettings = new AppSettings();
         private readonly CardColorManager _colorManager = new CardColorManager();
         
+        // 实时交互服务
+        private readonly RealtimeInteractionService _realtimeService = new RealtimeInteractionService();
+        private bool _isRealtimeInteractionOpen = false;
+        
         // 用户交互状态管理
         private bool _isUserInteracting = false;
         private System.Windows.Threading.DispatcherTimer? _interactionTimer;
@@ -107,6 +111,75 @@ namespace Buddie
             }
             
             _isClickThrough = enable;
+        }
+
+        /// <summary>
+        /// 切换实时交互界面
+        /// </summary>
+        private async void ToggleRealtimeInteraction()
+        {
+            try
+            {
+                if (!_isRealtimeInteractionOpen)
+                {
+                    // 获取当前激活的实时交互配置
+                    var activeConfig = _appSettings.RealtimeConfigurations.FirstOrDefault(c => c.IsActive);
+                    
+                    if (activeConfig == null)
+                    {
+                        System.Windows.MessageBox.Show(
+                            "请先在设置中配置并激活一个实时交互配置。",
+                            "提示",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                        
+                        // 打开设置界面并导航到实时交互设置标签
+                        SettingsControl.Show();
+                        // TODO: 导航到实时交互设置标签
+                        return;
+                    }
+
+                    // 启动实时交互服务
+                    await _realtimeService.StartAsync(activeConfig);
+                    _isRealtimeInteractionOpen = true;
+                    
+                    // 更新按钮状态
+                    cardControl.UpdateBuddieButtonState(true);
+                    
+                    // TODO: 显示实时交互UI
+                    System.Windows.MessageBox.Show(
+                        $"实时交互已启动\n配置: {activeConfig.Name}\n模型: {activeConfig.Model}\n语音: {activeConfig.Voice}",
+                        "实时交互",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+                else
+                {
+                    // 停止实时交互服务
+                    await _realtimeService.StopAsync();
+                    _isRealtimeInteractionOpen = false;
+                    
+                    // 更新按钮状态
+                    cardControl.UpdateBuddieButtonState(false);
+                    
+                    System.Windows.MessageBox.Show(
+                        "实时交互已停止",
+                        "实时交互",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(
+                    $"实时交互操作失败: {ex.Message}",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                
+                _isRealtimeInteractionOpen = false;
+                cardControl.UpdateBuddieButtonState(false);
+            }
         }
 
         private void InitializeControls()
@@ -206,6 +279,11 @@ namespace Buddie
             // 初始化卡片控件
             cardControl.DialogRequested += (s, e) => {
                 DialogControl.Toggle();
+                EnableClickThrough(false);
+            };
+            cardControl.BuddieRequested += (s, e) => {
+                // TODO: 显示实时交互界面
+                ToggleRealtimeInteraction();
                 EnableClickThrough(false);
             };
             cardControl.SettingsRequested += (s, e) => {

@@ -5,13 +5,8 @@
              xmlns:buddie="clr-namespace:Buddie">
     
     <UserControl.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/SharedResources.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-            
-            <!-- 消息气泡数据模板 -->
-            <DataTemplate x:Key="MessageBubbleTemplate">
+        <!-- 消息气泡数据模板 -->
+        <DataTemplate x:Key="MessageBubbleTemplate">
                 <Border x:Name="MessageBubble"
                         CornerRadius="18"
                         Effect="{StaticResource CardShadow}">
@@ -226,7 +221,6 @@
                     </Grid>
                 </Border>
             </DataTemplate>
-        </ResourceDictionary>
     </UserControl.Resources>
     
     <!-- 对话界面 - 位于右下角CardContainer附近 -->

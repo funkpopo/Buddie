@@ -228,4 +228,34 @@ namespace Buddie
             throw new NotImplementedException();
         }
     }
+    
+    public class BoolToActiveTextConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool boolValue)
+                return boolValue ? "激活" : "未激活";
+            return "未激活";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    
+    public class BoolToActiveBrushConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool boolValue)
+                return new SolidColorBrush(boolValue ? Color.FromRgb(40, 167, 69) : Color.FromRgb(108, 117, 125));
+            return new SolidColorBrush(Color.FromRgb(108, 117, 125));
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
