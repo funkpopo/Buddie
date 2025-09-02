@@ -138,6 +138,14 @@ namespace Buddie.Controls
                             vadModeComboBox.SelectedValuePath = "Value";
                             vadModeComboBox.SelectedValue = config.VadMode;
                         }
+
+                        // Initialize Model ComboBox for QwenOmni
+                        var qwenModelComboBox = FindVisualChild<ComboBox>(container, "QwenModelComboBox");
+                        if (qwenModelComboBox != null && config.ChannelType == RealtimeChannelType.QwenOmni)
+                        {
+                            qwenModelComboBox.ItemsSource = config.SupportedModels;
+                            qwenModelComboBox.SelectedItem = config.Model;
+                        }
                     }
                 }
             }
@@ -199,6 +207,14 @@ namespace Buddie.Controls
                             vadModeComboBox.DisplayMemberPath = "Display";
                             vadModeComboBox.SelectedValuePath = "Value";
                             vadModeComboBox.SelectedValue = newConfig.VadMode;
+                        }
+
+                        // Initialize Model ComboBox for QwenOmni
+                        var qwenModelComboBox = FindVisualChild<ComboBox>(container, "QwenModelComboBox");
+                        if (qwenModelComboBox != null && newConfig.ChannelType == RealtimeChannelType.QwenOmni)
+                        {
+                            qwenModelComboBox.ItemsSource = newConfig.SupportedModels;
+                            qwenModelComboBox.SelectedItem = newConfig.Model;
                         }
                     }
                 }));
@@ -297,6 +313,14 @@ namespace Buddie.Controls
                             vadModeComboBox.DisplayMemberPath = "Display";
                             vadModeComboBox.SelectedValuePath = "Value";
                             vadModeComboBox.SelectedValue = config.VadMode;
+                        }
+
+                        // Initialize Model ComboBox for QwenOmni
+                        var qwenModelComboBox = FindVisualChild<ComboBox>(container, "QwenModelComboBox");
+                        if (qwenModelComboBox != null && config.ChannelType == RealtimeChannelType.QwenOmni)
+                        {
+                            qwenModelComboBox.ItemsSource = config.SupportedModels;
+                            qwenModelComboBox.SelectedItem = config.Model;
                         }
                     }
                 }));

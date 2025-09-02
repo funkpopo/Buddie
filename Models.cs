@@ -1214,7 +1214,13 @@ namespace Buddie
         }
 
         // 静态数组以避免每次创建新实例
-        private static readonly string[] _qwenOmniSupportedModels = new[] { "qwen-omni-turbo-realtime" };
+        private static readonly string[] _qwenOmniSupportedModels = new[] 
+        { 
+            "qwen-omni-turbo-realtime",
+            "qwen-omni-turbo-realtime-latest", 
+            "qwen-omni-turbo-realtime-2025-05-08",
+            "qwen2.5-omni-7b"
+        };
         private static readonly string[] _customSupportedModels = Array.Empty<string>();
 
         public string[] SupportedVoices

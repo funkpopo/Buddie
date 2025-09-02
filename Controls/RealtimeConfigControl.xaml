@@ -197,29 +197,24 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                     
-                                    <!-- 对于QwenOmni显示固定模型文本 -->
-                                    <TextBlock Grid.Row="4" Grid.Column="1"
-                                               Text="{Binding Model}"
-                                               Margin="0,0,10,8"
-                                               Padding="8,6"
-                                               Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
-                                               VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="#495057"/>
+                                    <!-- 对于QwenOmni显示模型选择下拉菜单 -->
+                                    <ComboBox Grid.Row="4" Grid.Column="1"
+                                              x:Name="QwenModelComboBox"
+                                              SelectedItem="{Binding Model, Mode=TwoWay}"
+                                              ItemsSource="{Binding SupportedModels}"
+                                              Margin="0,0,10,8"
+                                              SelectionChanged="ModelComboBox_SelectionChanged">
+                                        <ComboBox.Style>
+                                            <Style TargetType="ComboBox" BasedOn="{StaticResource ModernComboBoxStyle}">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding ChannelType}" Value="QwenOmni">
                                                         <Setter Property="Visibility" Value="Visible"/>
                                                     </DataTrigger>
-                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                        <Setter Property="Foreground" Value="White"/>
-                                                        <Setter Property="Background" Value="#2D2D30"/>
-                                                    </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                        </ComboBox.Style>
+                                    </ComboBox>
                                     
                                     <!-- 对于Custom显示可编辑下拉菜单 -->
                                     <ComboBox Grid.Row="4" Grid.Column="1"

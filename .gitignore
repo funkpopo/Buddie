@@ -46,6 +46,7 @@ Secrets.toml
 .vscode
 
 # Database files
+data/
 *.db
 *.db-journal
 
