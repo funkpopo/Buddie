@@ -311,6 +311,7 @@
                     <ScrollViewer Grid.Row="2"
                                   Margin="4,0,4,4"
                                   VerticalScrollBarVisibility="Auto"
+                                  Style="{StaticResource ModernScrollViewerStyle}"
                                   HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl x:Name="ConversationsList">
                             <ItemsControl.ItemTemplate>
@@ -490,6 +491,7 @@
                 <ScrollViewer x:Name="DialogScrollViewer"
                               Grid.Row="1"
                               Margin="10"
+                              Style="{StaticResource ModernScrollViewerStyle}"
                               VerticalScrollBarVisibility="Auto"
                               Background="Transparent">
                     <ItemsControl x:Name="DialogMessagesPanel"

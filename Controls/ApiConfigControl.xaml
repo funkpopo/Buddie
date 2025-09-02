@@ -196,7 +196,7 @@
                                                                             CornerRadius="8"
                                                                             MaxHeight="{TemplateBinding MaxDropDownHeight}"
                                                                             MinWidth="{TemplateBinding ActualWidth}">
-                                                                        <ScrollViewer>
+                                                                        <ScrollViewer Style="{StaticResource ModernScrollViewerStyle}">
                                                                             <StackPanel IsItemsHost="True"/>
                                                                         </ScrollViewer>
                                                                     </Border>

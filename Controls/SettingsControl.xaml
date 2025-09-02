@@ -97,7 +97,7 @@
                 </TabControl.Resources>
                 <!-- 基本设置页 -->
                 <TabItem Header="基本设置">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource ModernScrollViewerStyle}">
                         <StackPanel Margin="15">
                             <TextBlock Text="外观设置"
                                        FontWeight="Bold"
@@ -299,19 +299,19 @@
                 </TabItem>
                 <!-- 对话模型设置页 -->
                 <TabItem Header="对话模型设置">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource ModernScrollViewerStyle}">
                         <controls:ApiConfigControl x:Name="ApiConfigControl"/>
                     </ScrollViewer>
                 </TabItem>
                 <!-- TTS设置页 -->
                 <TabItem Header="TTS设置">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource ModernScrollViewerStyle}">
                         <controls:TtsConfigControl x:Name="TtsConfigControl"/>
                     </ScrollViewer>
                 </TabItem>
                 <!-- 实时交互设置页 -->
                 <TabItem Header="实时交互设置">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource ModernScrollViewerStyle}">
                         <controls:RealtimeConfigControl x:Name="RealtimeConfigControl"/>
                     </ScrollViewer>
                 </TabItem>

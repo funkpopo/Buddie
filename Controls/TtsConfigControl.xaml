@@ -176,7 +176,7 @@
                                                                                 BorderBrush="#CED4DA"
                                                                                 CornerRadius="6"
                                                                                 Effect="{StaticResource CardShadow}"/>
-                                                                        <ScrollViewer Margin="4,6,4,6" SnapsToDevicePixels="True">
+                                                                        <ScrollViewer Margin="4,6,4,6" SnapsToDevicePixels="True" Style="{StaticResource ModernScrollViewerStyle}">
                                                                             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
                                                                         </ScrollViewer>
                                                                     </Grid>
