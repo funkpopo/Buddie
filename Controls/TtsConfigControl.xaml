@@ -118,8 +118,23 @@
                                                                         BorderBrush="{TemplateBinding BorderBrush}"
                                                                         BorderThickness="{TemplateBinding BorderThickness}">
                                                                     <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="30"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        
+                                                                        <ContentPresenter Name="ContentSite"
+                                                                                          Grid.Column="0"
+                                                                                          IsHitTestVisible="False"
+                                                                                          Content="{TemplateBinding SelectionBoxItem}"
+                                                                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                                                          Margin="10,8,5,8"
+                                                                                          VerticalAlignment="Center"
+                                                                                          HorizontalAlignment="Left"/>
+                                                                        
                                                                         <ToggleButton Name="ToggleButton"
-                                                                                      Grid.Column="2"
+                                                                                      Grid.Column="1"
                                                                                       Focusable="False"
                                                                                       IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                                                                       ClickMode="Press"
@@ -129,22 +144,15 @@
                                                                                   HorizontalAlignment="Center"
                                                                                   VerticalAlignment="Center"
                                                                                   Data="M 0 0 L 4 4 L 8 0 Z"
-                                                                                  Fill="#6C757D"
-                                                                                  Margin="0,0,8,0"/>
+                                                                                  Fill="#6C757D"/>
                                                                         </ToggleButton>
-                                                                        <ContentPresenter Name="ContentSite"
-                                                                                          IsHitTestVisible="False"
-                                                                                          Content="{TemplateBinding SelectionBoxItem}"
-                                                                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                                                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                                                                          Margin="10,8"
-                                                                                          VerticalAlignment="Center"
-                                                                                          HorizontalAlignment="Left"/>
+                                                                        
                                                                         <TextBox x:Name="PART_EditableTextBox"
+                                                                                 Grid.Column="0"
                                                                                  Style="{x:Null}"
                                                                                  HorizontalAlignment="Left"
                                                                                  VerticalAlignment="Center"
-                                                                                 Margin="10,8"
+                                                                                 Margin="10,8,5,8"
                                                                                  Focusable="True"
                                                                                  Background="Transparent"
                                                                                  BorderThickness="0"
@@ -184,8 +192,8 @@
                                                                     <Setter TargetName="Border" Property="BorderBrush" Value="#3F3F46"/>
                                                                     <Setter TargetName="DropDownBorder" Property="Background" Value="#2D2D30"/>
                                                                     <Setter TargetName="DropDownBorder" Property="BorderBrush" Value="#3F3F46"/>
-                                                                    <Setter TargetName="Arrow" Property="Fill" Value="#CCCCCC"/>
-                                                                    <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                                    <Setter TargetName="Arrow" Property="Fill" Value="White"/>
+                                                                    <Setter Property="Foreground" Value="White"/>
                                                                 </DataTrigger>
                                                             </ControlTemplate.Triggers>
                                                         </ControlTemplate>
@@ -212,14 +220,21 @@
                                                                                 <Setter Property="Foreground" Value="White"/>
                                                                             </Trigger>
                                                                             <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                                                <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                                                <Setter Property="Foreground" Value="White"/>
                                                                             </DataTrigger>
                                                                             <MultiDataTrigger>
                                                                                 <MultiDataTrigger.Conditions>
                                                                                     <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
                                                                                     <Condition Binding="{Binding IsHighlighted, RelativeSource={RelativeSource Self}}" Value="True"/>
                                                                                 </MultiDataTrigger.Conditions>
-                                                                                <Setter TargetName="Border" Property="Background" Value="#3F3F46"/>
+                                                                                <Setter TargetName="Border" Property="Background" Value="#404040"/>
+                                                                            </MultiDataTrigger>
+                                                                            <MultiDataTrigger>
+                                                                                <MultiDataTrigger.Conditions>
+                                                                                    <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                                                                    <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True"/>
+                                                                                </MultiDataTrigger.Conditions>
+                                                                                <Setter TargetName="Border" Property="Background" Value="#555555"/>
                                                                             </MultiDataTrigger>
                                                                         </ControlTemplate.Triggers>
                                                                     </ControlTemplate>
