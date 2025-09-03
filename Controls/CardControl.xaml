@@ -80,11 +80,12 @@
                                    Margin="0,0,0,10"
                                    Foreground="White">
                             <TextBlock.Effect>
-                                <DropShadowEffect Color="Black"
+                                <DropShadowEffect x:Name="FrontTextShadow"
+                                                  Color="Black"
                                                   Direction="0"
                                                   ShadowDepth="1"
                                                   Opacity="0.8"
-                                                  BlurRadius="1"/>
+                                                  BlurRadius="2"/>
                             </TextBlock.Effect>
                         </TextBlock>
                         <TextBlock x:Name="FrontSubText"
@@ -93,11 +94,12 @@
                                    HorizontalAlignment="Center"
                                    Foreground="White">
                             <TextBlock.Effect>
-                                <DropShadowEffect Color="Black"
+                                <DropShadowEffect x:Name="FrontSubTextShadow"
+                                                  Color="Black"
                                                   Direction="0"
                                                   ShadowDepth="1"
                                                   Opacity="0.7"
-                                                  BlurRadius="1"/>
+                                                  BlurRadius="2"/>
                             </TextBlock.Effect>
                         </TextBlock>
                     </StackPanel>
@@ -117,11 +119,12 @@
                                    Margin="0,0,0,10"
                                    Foreground="White">
                             <TextBlock.Effect>
-                                <DropShadowEffect Color="Black"
+                                <DropShadowEffect x:Name="BackTextShadow"
+                                                  Color="Black"
                                                   Direction="0"
                                                   ShadowDepth="1"
                                                   Opacity="0.8"
-                                                  BlurRadius="1"/>
+                                                  BlurRadius="2"/>
                             </TextBlock.Effect>
                         </TextBlock>
                         <TextBlock x:Name="BackSubText"
@@ -130,11 +133,12 @@
                                    HorizontalAlignment="Center"
                                    Foreground="White">
                             <TextBlock.Effect>
-                                <DropShadowEffect Color="Black"
+                                <DropShadowEffect x:Name="BackSubTextShadow"
+                                                  Color="Black"
                                                   Direction="0"
                                                   ShadowDepth="1"
                                                   Opacity="0.7"
-                                                  BlurRadius="1"/>
+                                                  BlurRadius="2"/>
                             </TextBlock.Effect>
                         </TextBlock>
                     </StackPanel>
@@ -187,16 +191,19 @@
                             Style="{StaticResource CircularButtonStyle}"/>
                 </StackPanel>
                 <!-- 卡片信息显示 - 位于卡片右下角 -->
-                <TextBlock x:Name="CardInfo"
-                           Text="卡片 1 / 4"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Bottom"
-                           Margin="0,0,10,10"
-                           Foreground="Black"
-                           FontSize="10"
-                           Background="#80FFFFFF"
-                           Padding="4,2"
-                           Opacity="0.8"/>
+                <Border x:Name="CardInfoContainer"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        Margin="0,0,10,10"
+                        Background="#80FFFFFF"
+                        CornerRadius="8"
+                        Padding="4,2">
+                    <TextBlock x:Name="CardInfo"
+                               Text="卡片 1 / 4"
+                               Foreground="#333333"
+                               FontSize="10"
+                               FontWeight="Medium"/>
+                </Border>
             </Grid>
         </Border>
         

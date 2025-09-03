@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Effects;
 
 namespace Buddie.Controls
 {
@@ -32,6 +34,12 @@ namespace Buddie.Controls
             // 确保卡片初始显示正面
             CardFront.Visibility = Visibility.Visible;
             CardBack.Visibility = Visibility.Collapsed;
+            
+            // 监听DataContext变化以获取主题设置
+            DataContextChanged += OnDataContextChanged;
+            
+            // 初始化时应用主题
+            UpdateTheme();
         }
 
         private void CardContainer_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -312,5 +320,102 @@ namespace Buddie.Controls
                 SettingsButton.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(255, 51, 51, 51)); // #333333
             }
         }
+
+        #region 主题适配
+
+        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            // 当DataContext变化时更新主题
+            if (e.NewValue is AppSettings appSettings)
+            {
+                appSettings.PropertyChanged += AppSettings_PropertyChanged;
+            }
+            
+            if (e.OldValue is AppSettings oldAppSettings)
+            {
+                oldAppSettings.PropertyChanged -= AppSettings_PropertyChanged;
+            }
+            
+            UpdateTheme();
+        }
+
+        private void AppSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(AppSettings.IsDarkTheme))
+            {
+                UpdateTheme();
+            }
+        }
+
+        /// <summary>
+        /// 更新主题适配
+        /// </summary>
+        public void UpdateTheme()
+        {
+            bool isDarkTheme = GetCurrentTheme();
+            UpdateTextTheme(isDarkTheme);
+            UpdateCardInfoTheme(isDarkTheme);
+            UpdateButtonColors(); // 重新应用按钮颜色以适配主题
+        }
+
+        private bool GetCurrentTheme()
+        {
+            if (DataContext is AppSettings appSettings)
+            {
+                return appSettings.IsDarkTheme;
+            }
+            return false; // 默认浅色主题
+        }
+
+        private void UpdateTextTheme(bool isDarkTheme)
+        {
+            // 更新阴影效果以适配主题
+            var shadowColor = isDarkTheme ? Colors.White : Colors.Black;
+            var shadowOpacity = isDarkTheme ? 0.6 : 0.8;
+
+            // 更新正面文字阴影
+            if (FrontTextShadow != null)
+            {
+                FrontTextShadow.Color = shadowColor;
+                FrontTextShadow.Opacity = shadowOpacity;
+            }
+
+            if (FrontSubTextShadow != null)
+            {
+                FrontSubTextShadow.Color = shadowColor;
+                FrontSubTextShadow.Opacity = shadowOpacity * 0.875; // 稍微透明一些
+            }
+
+            // 更新背面文字阴影
+            if (BackTextShadow != null)
+            {
+                BackTextShadow.Color = shadowColor;
+                BackTextShadow.Opacity = shadowOpacity;
+            }
+
+            if (BackSubTextShadow != null)
+            {
+                BackSubTextShadow.Color = shadowColor;
+                BackSubTextShadow.Opacity = shadowOpacity * 0.875;
+            }
+        }
+
+        private void UpdateCardInfoTheme(bool isDarkTheme)
+        {
+            if (isDarkTheme)
+            {
+                // 深色主题：深色背景，浅色文字
+                CardInfoContainer.Background = new SolidColorBrush(Color.FromArgb(128, 45, 45, 48)); // #802D2D30
+                CardInfo.Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)); // #DCDCDC
+            }
+            else
+            {
+                // 浅色主题：浅色背景，深色文字
+                CardInfoContainer.Background = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)); // #80FFFFFF
+                CardInfo.Foreground = new SolidColorBrush(Color.FromArgb(255, 51, 51, 51)); // #333333
+            }
+        }
+
+        #endregion
     }
 }

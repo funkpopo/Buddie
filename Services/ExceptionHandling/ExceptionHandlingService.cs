@@ -51,7 +51,7 @@ namespace Buddie.Services.ExceptionHandling
             catch (Exception ex)
             {
                 HandleException(ex, strategy, context);
-                return defaultValue;
+                return defaultValue!;
             }
         }
 
@@ -89,7 +89,7 @@ namespace Buddie.Services.ExceptionHandling
             catch (Exception ex)
             {
                 HandleException(ex, strategy, context);
-                return defaultValue;
+                return defaultValue!;
             }
         }
 
