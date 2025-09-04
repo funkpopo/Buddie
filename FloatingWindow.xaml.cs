@@ -330,10 +330,51 @@ namespace Buddie
 
             // 创建右键菜单
             var contextMenu = new ContextMenuStrip();
-            contextMenu.Items.Add("显示", null, ShowWindow_Click);
-            contextMenu.Items.Add("隐藏", null, HideWindow_Click);
+            
+            // 使用一个标志来追踪右键点击状态
+            bool rightClickPressed = false;
+            
+            // 创建菜单项
+            var showItem = new ToolStripMenuItem("显示");
+            showItem.MouseDown += (sender, e) => {
+                rightClickPressed = (e.Button == System.Windows.Forms.MouseButtons.Right);
+            };
+            showItem.Click += (sender, e) => {
+                if (!rightClickPressed)
+                {
+                    ShowWindow_Click(sender, e);
+                }
+                rightClickPressed = false;
+            };
+            contextMenu.Items.Add(showItem);
+            
+            var hideItem = new ToolStripMenuItem("隐藏");
+            hideItem.MouseDown += (sender, e) => {
+                rightClickPressed = (e.Button == System.Windows.Forms.MouseButtons.Right);
+            };
+            hideItem.Click += (sender, e) => {
+                if (!rightClickPressed)
+                {
+                    HideWindow_Click(sender, e);
+                }
+                rightClickPressed = false;
+            };
+            contextMenu.Items.Add(hideItem);
+            
             contextMenu.Items.Add("-");
-            contextMenu.Items.Add("退出", null, ExitApplication_Click);
+            
+            var exitItem = new ToolStripMenuItem("退出");
+            exitItem.MouseDown += (sender, e) => {
+                rightClickPressed = (e.Button == System.Windows.Forms.MouseButtons.Right);
+            };
+            exitItem.Click += (sender, e) => {
+                if (!rightClickPressed)
+                {
+                    ExitApplication_Click(sender, e);
+                }
+                rightClickPressed = false;
+            };
+            contextMenu.Items.Add(exitItem);
             
             trayIcon.ContextMenuStrip = contextMenu;
             
