@@ -4,6 +4,7 @@
       "Bash(dotnet clean:*)"
     ],
     "deny": [],
+    "defaultMode": "acceptEdits",
     "ask": []
   }
 }

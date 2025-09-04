@@ -52,6 +52,7 @@ data/
 
 # CLAUDE.md
 CLAUDE.md
+.claude/
 
 # .env
 .env
