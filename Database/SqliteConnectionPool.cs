@@ -11,11 +11,8 @@ namespace Buddie.Database
     /// <summary>
     /// SQLite连接池，管理数据库连接的创建、复用和清理
     /// </summary>
-    public sealed class SqliteConnectionPool : IDisposable
+    public sealed class SqliteConnectionPool : ISqliteConnectionPool, IDisposable
     {
-        private static readonly Lazy<SqliteConnectionPool> _instance = new(() => new SqliteConnectionPool());
-        public static SqliteConnectionPool Instance => _instance.Value;
-
         private readonly ConcurrentQueue<PooledConnection> _availableConnections;
         private readonly ConcurrentDictionary<string, PooledConnection> _usedConnections;
         private readonly SemaphoreSlim _connectionSemaphore;
@@ -31,8 +28,11 @@ namespace Buddie.Database
         private int _currentConnectionCount;
         private bool _disposed;
 
-        private SqliteConnectionPool()
+        private readonly IDatabasePathProvider _pathProvider;
+
+        public SqliteConnectionPool(IDatabasePathProvider pathProvider)
         {
+            _pathProvider = pathProvider;
             _maxConnections = 20; // 最大连接数
             _minConnections = 2;  // 最小连接数
             _connectionTimeout = TimeSpan.FromMinutes(5); // 连接超时时间
@@ -144,7 +144,7 @@ namespace Buddie.Database
         /// </summary>
         private async Task<PooledConnection> CreateNewConnectionAsync()
         {
-            var connection = new SqliteConnection(DatabaseManager.ConnectionString);
+            var connection = new SqliteConnection(_pathProvider.ConnectionString);
             await connection.OpenAsync();
             
             Interlocked.Increment(ref _currentConnectionCount);
@@ -305,14 +305,6 @@ namespace Buddie.Database
             public DateTime Created { get; set; }
             public DateTime LastUsed { get; set; }
         }
-    }
-
-    /// <summary>
-    /// 可释放的连接接口
-    /// </summary>
-    public interface IDisposableConnection : IDisposable
-    {
-        SqliteConnection Connection { get; }
     }
 
     /// <summary>

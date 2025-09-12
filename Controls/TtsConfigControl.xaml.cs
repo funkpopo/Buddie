@@ -6,11 +6,14 @@ using System.Windows.Controls;
 using System.Collections.ObjectModel;
 using System.Windows.Media;
 using Buddie.Services.ExceptionHandling;
+using Buddie.ViewModels;
+using Buddie;
 
 namespace Buddie.Controls
 {
     public partial class TtsConfigControl : UserControl
     {
+        private TtsConfigViewModel? _vm;
         public event EventHandler<TtsConfiguration>? ConfigurationAdded;
         public event EventHandler<TtsConfiguration>? ConfigurationRemoved;
         public event EventHandler<TtsConfiguration>? ConfigurationUpdated;
@@ -23,8 +26,39 @@ namespace Buddie.Controls
 
         public void Initialize(ObservableCollection<TtsConfiguration> configurations)
         {
-            TtsConfigList.ItemsSource = configurations;
+            if (_vm != null)
+            {
+                _vm.Configurations = configurations;
+            }
+            else
+            {
+                // temporary direct binding until AppSettings available
+                TtsConfigList.ItemsSource = configurations;
+            }
             UpdateNoTtsConfigMessageVisibility(configurations);
+        }
+
+        public void SetAppSettings(AppSettings appSettings)
+        {
+            _vm = new TtsConfigViewModel(appSettings);
+            this.DataContext = _vm;
+
+            // If ItemsSource set directly before, move it into VM
+            if (TtsConfigList.ItemsSource is ObservableCollection<TtsConfiguration> src)
+            {
+                _vm.Configurations = src;
+                TtsConfigList.ItemsSource = null;
+            }
+
+            // Bridge events to existing outward events
+            _vm.ConfigurationAdded += (s, c) => ConfigurationAdded?.Invoke(this, c);
+            _vm.ConfigurationRemoved += (s, c) => ConfigurationRemoved?.Invoke(this, c);
+            _vm.ConfigurationUpdated += (s, c) => ConfigurationUpdated?.Invoke(this, c);
+            _vm.ConfigurationActivated += (s, c) => ConfigurationActivated?.Invoke(this, c);
+            _vm.ValidationFailed += (s, message) =>
+            {
+                MessageBox.Show(message, "验证错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+            };
         }
 
         private void UpdateNoTtsConfigMessageVisibility(ObservableCollection<TtsConfiguration> configurations)

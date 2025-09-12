@@ -1,100 +1,29 @@
 using Microsoft.Data.Sqlite;
 using System;
-using System.IO;
-using System.Reflection;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Database
 {
-    public static class DatabaseManager
+    public class DatabaseInitializer : IDatabaseInitializer
     {
-        private static string? _connectionString;
-        private static string? _databasePath;
+        private readonly IDatabasePathProvider _pathProvider;
+        private readonly DatabaseService _databaseService;
 
-        public static string ConnectionString
+        public DatabaseInitializer(IDatabasePathProvider pathProvider, DatabaseService databaseService)
         {
-            get
-            {
-                if (string.IsNullOrEmpty(_connectionString))
-                {
-                    InitializeDatabasePath();
-                }
-                return _connectionString!;
-            }
+            _pathProvider = pathProvider;
+            _databaseService = databaseService;
         }
 
-        public static string DatabasePath
+        public async Task InitializeAsync()
         {
-            get
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
-                if (string.IsNullOrEmpty(_databasePath))
-                {
-                    InitializeDatabasePath();
-                }
-                return _databasePath!;
-            }
-        }
+                using var connection = new SqliteConnection(_pathProvider.ConnectionString);
+                await connection.OpenAsync();
 
-        private static void InitializeDatabasePath()
-        {
-            string dbDirectory;
-            
-            // 判断是否为开发环境
-            if (IsDebugMode())
-            {
-                // 开发环境：使用项目根目录的 data 文件夹
-                var projectRoot = GetProjectRoot();
-                dbDirectory = Path.Combine(projectRoot, "data");
-            }
-            else
-            {
-                // 生产环境：使用 exe 同级目录的 data 文件夹
-                var exeDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                dbDirectory = Path.Combine(exeDirectory, "data");
-            }
-
-            // 确保目录存在
-            Directory.CreateDirectory(dbDirectory);
-
-            _databasePath = Path.Combine(dbDirectory, "buddie.db");
-            _connectionString = $"Data Source={_databasePath}";
-        }
-
-        private static bool IsDebugMode()
-        {
-            #if DEBUG
-                return true;
-            #else
-                return false;
-            #endif
-        }
-
-        private static string GetProjectRoot()
-        {
-            var assembly = Assembly.GetExecutingAssembly();
-            var location = assembly.Location;
-            var directory = new DirectoryInfo(Path.GetDirectoryName(location)!);
-
-            // 向上查找，直到找到包含 .csproj 文件的目录
-            while (directory != null && !directory.GetFiles("*.csproj").Any())
-            {
-                directory = directory.Parent;
-            }
-
-            return directory?.FullName ?? AppDomain.CurrentDomain.BaseDirectory;
-        }
-
-        public static void InitializeDatabase()
-        {
-            ExceptionHandlingService.Database.ExecuteSafely(() =>
-            {
-                using var connection = new SqliteConnection(ConnectionString);
-                connection.Open();
-
-                // 创建应用设置表
                 var createAppSettingsTable = @"
                     CREATE TABLE IF NOT EXISTS AppSettings (
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,8 +33,7 @@ namespace Buddie.Database
                         IsDarkTheme INTEGER NOT NULL DEFAULT 0,
                         UpdatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )";
-                
-                // 创建API配置表
+
                 var createApiConfigTable = @"
                     CREATE TABLE IF NOT EXISTS ApiConfigurations (
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,7 +49,6 @@ namespace Buddie.Database
                         UpdatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )";
 
-                // 创建TTS配置表
                 var createTtsConfigTable = @"
                     CREATE TABLE IF NOT EXISTS TtsConfigurations (
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,7 +64,6 @@ namespace Buddie.Database
                         UpdatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )";
 
-                // 创建对话表
                 var createConversationsTable = @"
                     CREATE TABLE IF NOT EXISTS Conversations (
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,7 +73,6 @@ namespace Buddie.Database
                         MessageCount INTEGER NOT NULL DEFAULT 0
                     )";
 
-                // 创建消息表
                 var createMessagesTable = @"
                     CREATE TABLE IF NOT EXISTS Messages (
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -159,7 +84,6 @@ namespace Buddie.Database
                         FOREIGN KEY (ConversationId) REFERENCES Conversations (Id) ON DELETE CASCADE
                     )";
 
-                // 创建TTS音频缓存表
                 var createTtsAudioTable = @"
                     CREATE TABLE IF NOT EXISTS TtsAudio (
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -170,7 +94,6 @@ namespace Buddie.Database
                         LastAccessedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )";
 
-                // 创建索引
                 var createIndexes = @"
                     CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON Messages(ConversationId);
                     CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON Conversations(UpdatedAt DESC);
@@ -180,36 +103,18 @@ namespace Buddie.Database
                 ";
 
                 using var command = connection.CreateCommand();
-                
-                // 执行所有建表语句
-                command.CommandText = createAppSettingsTable;
-                command.ExecuteNonQuery();
+                command.CommandText = createAppSettingsTable; await command.ExecuteNonQueryAsync();
+                command.CommandText = createApiConfigTable; await command.ExecuteNonQueryAsync();
+                command.CommandText = createTtsConfigTable; await command.ExecuteNonQueryAsync();
+                command.CommandText = createConversationsTable; await command.ExecuteNonQueryAsync();
+                command.CommandText = createMessagesTable; await command.ExecuteNonQueryAsync();
+                command.CommandText = createTtsAudioTable; await command.ExecuteNonQueryAsync();
+                command.CommandText = createIndexes; await command.ExecuteNonQueryAsync();
 
-                command.CommandText = createApiConfigTable;
-                command.ExecuteNonQuery();
-
-                command.CommandText = createTtsConfigTable;
-                command.ExecuteNonQuery();
-
-                command.CommandText = createConversationsTable;
-                command.ExecuteNonQuery();
-
-                command.CommandText = createMessagesTable;
-                command.ExecuteNonQuery();
-
-                command.CommandText = createTtsAudioTable;
-                command.ExecuteNonQuery();
-
-                command.CommandText = createIndexes;
-                command.ExecuteNonQuery();
-
-                // 执行数据库迁移
                 MigrateDatabaseSchema(connection);
-
-                // 初始化默认应用设置
                 InitializeDefaultSettings(connection);
 
-                Debug.WriteLine($"Database initialized at: {DatabasePath}");
+                Debug.WriteLine($"Database initialized at: {_pathProvider.DatabasePath}");
             }, "初始化数据库");
         }
 
@@ -217,72 +122,50 @@ namespace Buddie.Database
         {
             ExceptionHandlingService.Database.ExecuteSafely(() =>
             {
-                // 检查TtsConfigurations表是否有IsActive列和ChannelType列
                 using var command = connection.CreateCommand();
                 command.CommandText = "PRAGMA table_info(TtsConfigurations)";
                 using var reader = command.ExecuteReader();
-                
                 bool hasIsActiveColumn = false;
                 bool hasChannelTypeColumn = false;
                 while (reader.Read())
                 {
                     string columnName = reader.GetString(1);
-                    if (columnName == "IsActive")
-                    {
-                        hasIsActiveColumn = true;
-                    }
-                    else if (columnName == "ChannelType")
-                    {
-                        hasChannelTypeColumn = true;
-                    }
+                    if (columnName == "IsActive") hasIsActiveColumn = true;
+                    else if (columnName == "ChannelType") hasChannelTypeColumn = true;
                 }
                 reader.Close();
-                
-                // 如果没有IsActive列，则添加它
+
                 if (!hasIsActiveColumn)
                 {
                     command.CommandText = "ALTER TABLE TtsConfigurations ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 0";
                     command.ExecuteNonQuery();
                     Debug.WriteLine("Added IsActive column to TtsConfigurations table");
                 }
-                
-                // 如果没有ChannelType列，则添加它
                 if (!hasChannelTypeColumn)
                 {
-                    command.CommandText = "ALTER TABLE TtsConfigurations ADD COLUMN ChannelType INTEGER DEFAULT 0"; // 0对应TtsChannelType.OpenAI
+                    command.CommandText = "ALTER TABLE TtsConfigurations ADD COLUMN ChannelType INTEGER DEFAULT 0";
                     command.ExecuteNonQuery();
                     Debug.WriteLine("Added ChannelType column to TtsConfigurations table");
                 }
 
-                // 检查Messages表是否有图片相关列
                 command.CommandText = "PRAGMA table_info(Messages)";
                 using var messagesReader = command.ExecuteReader();
-                
                 bool hasImageDataColumn = false;
                 bool hasImageContentTypeColumn = false;
                 while (messagesReader.Read())
                 {
                     string columnName = messagesReader.GetString(1);
-                    if (columnName == "ImageData")
-                    {
-                        hasImageDataColumn = true;
-                    }
-                    else if (columnName == "ImageContentType")
-                    {
-                        hasImageContentTypeColumn = true;
-                    }
+                    if (columnName == "ImageData") hasImageDataColumn = true;
+                    else if (columnName == "ImageContentType") hasImageContentTypeColumn = true;
                 }
                 messagesReader.Close();
-                
-                // 添加图片数据列
+
                 if (!hasImageDataColumn)
                 {
                     command.CommandText = "ALTER TABLE Messages ADD COLUMN ImageData BLOB";
                     command.ExecuteNonQuery();
                     Debug.WriteLine("Added ImageData column to Messages table");
                 }
-                
-                // 添加图片内容类型列
                 if (!hasImageContentTypeColumn)
                 {
                     command.CommandText = "ALTER TABLE Messages ADD COLUMN ImageContentType TEXT";
@@ -294,16 +177,12 @@ namespace Buddie.Database
 
         private static void InitializeDefaultSettings(SqliteConnection connection)
         {
-            // 检查是否已有应用设置
             using var checkCommand = connection.CreateCommand();
             checkCommand.CommandText = "SELECT COUNT(*) FROM AppSettings";
             var count = Convert.ToInt32(checkCommand.ExecuteScalar());
-            
             Debug.WriteLine($"Found {count} app settings records in database");
-
             if (count == 0)
             {
-                // 插入默认应用设置
                 using var insertCommand = connection.CreateCommand();
                 insertCommand.CommandText = @"
                     INSERT INTO AppSettings (IsTopmost, ShowInTaskbar, EnableAnimation, IsDarkTheme, UpdatedAt)
@@ -311,48 +190,36 @@ namespace Buddie.Database
                 insertCommand.ExecuteNonQuery();
                 Debug.WriteLine("Inserted default app settings into database");
             }
-            else
-            {
-                Debug.WriteLine("App settings already exist, skipping default initialization");
-            }
         }
 
-        public static void BackupDatabase(string backupPath)
+        public void BackupDatabase(string backupPath)
         {
             ExceptionHandlingService.Database.ExecuteSafely(() =>
             {
-                File.Copy(DatabasePath, backupPath, true);
+                System.IO.File.Copy(_pathProvider.DatabasePath, backupPath, true);
                 Debug.WriteLine($"Database backed up to: {backupPath}");
             }, "备份数据库");
         }
 
-        public static void RestoreDatabase(string backupPath)
+        public void RestoreDatabase(string backupPath)
         {
             ExceptionHandlingService.Database.ExecuteSafely(() =>
             {
-                if (File.Exists(backupPath))
+                if (System.IO.File.Exists(backupPath))
                 {
-                    File.Copy(backupPath, DatabasePath, true);
+                    System.IO.File.Copy(backupPath, _pathProvider.DatabasePath, true);
                     Debug.WriteLine($"Database restored from: {backupPath}");
                 }
             }, "恢复数据库");
         }
 
-        public static void CleanupTtsAudioCache()
+        public async Task CleanupTtsAudioCacheAsync(int daysToKeep = 7, int maxCount = 1000, long maxSizeMB = 500)
         {
-            ExceptionHandlingService.Database.ExecuteSafely(() =>
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
             {
-                // 使用新的综合清理策略而不是删除所有缓存
-                var databaseService = new DatabaseService();
-                // 使用默认设置：保留7天，最多1000条，最大500MB
-                Task.Run(async () =>
-                {
-                    await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
-                    {
-                        await databaseService.CleanupTtsCacheAsync(7, 1000, 500);
-                    }, "TTS缓存清理");
-                });
-            }, "初始化TTS缓存清理");
+                await _databaseService.CleanupTtsCacheAsync(daysToKeep, maxCount, maxSizeMB);
+            }, "TTS缓存清理");
         }
     }
 }
+

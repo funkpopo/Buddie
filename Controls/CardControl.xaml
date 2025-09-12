@@ -159,7 +159,7 @@
                             Foreground="#333333"
                             BorderThickness="0"
                             FontSize="14"
-                            Click="DialogButton_Click"
+                            Command="{Binding DialogCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             Cursor="Hand"
                             ToolTip="对话"
                             Style="{StaticResource CircularButtonStyle}"/>
@@ -172,7 +172,7 @@
                             Foreground="#333333"
                             BorderThickness="0"
                             FontSize="14"
-                            Click="BuddieButton_Click"
+                            Command="{Binding BuddieCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             Cursor="Hand"
                             ToolTip="Buddie实时交互"
                             Style="{StaticResource CircularButtonStyle}"/>
@@ -185,7 +185,7 @@
                             Foreground="#333333"
                             BorderThickness="0"
                             FontSize="14"
-                            Click="SettingsButton_Click"
+                            Command="{Binding SettingsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             Cursor="Hand"
                             ToolTip="设置"
                             Style="{StaticResource CircularButtonStyle}"/>

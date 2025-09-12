@@ -29,11 +29,13 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Buddie.Services.ExceptionHandling;
 using Buddie.Services;
+using Buddie.ViewModels;
 
 namespace Buddie.Controls
 {
     public partial class DialogControl : System.Windows.Controls.UserControl
     {
+        private DialogViewModel? _viewModel;
         // NAudio-based audio player
         private WaveOutEvent? _currentAudioPlayer;
         private AudioFileReader? _currentAudioReader;
@@ -50,7 +52,7 @@ namespace Buddie.Controls
         private bool _isSidebarVisible = false;
         private readonly List<string> _conversationHistory = new List<string>();
         private readonly MarkdownPipeline _markdownPipeline;
-        private readonly DatabaseService _databaseService = new DatabaseService();
+        private readonly DatabaseService _databaseService = Buddie.App.GetService<Buddie.Database.DatabaseService>();
         private DbConversation? _currentConversation;
         private List<DbMessage> _currentMessages = new List<DbMessage>();
         
@@ -384,6 +386,86 @@ namespace Buddie.Controls
             
             Hide();
             DialogClosed?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void InitializeViewModel(DialogViewModel vm)
+        {
+            _viewModel = vm;
+            this.DataContext = vm;
+
+            vm.SendRequested += (s, message) =>
+            {
+                if (DialogInput != null)
+                {
+                    DialogInput.Text = message ?? string.Empty;
+                }
+                SendMessage_Click(this, new RoutedEventArgs());
+            };
+            vm.CopyRequested += (s, text) =>
+            {
+                ExceptionHandlingService.ExecuteSafely(() =>
+                {
+                    if (!string.IsNullOrEmpty(text))
+                    {
+                        System.Windows.Clipboard.SetText(text);
+                    }
+                }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
+                {
+                    Component = "DialogControl",
+                    Operation = "复制消息内容（VM）"
+                });
+            };
+            vm.PlayTtsRequested += async (s, text) =>
+            {
+                await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
+                {
+                    if (string.IsNullOrEmpty(text)) return;
+                    var appSettings = DataContext as AppSettings;
+                    var ttsConfig = appSettings?.GetActiveTtsConfiguration();
+                    if (ttsConfig == null)
+                    {
+                        System.Windows.MessageBox.Show("未找到TTS配置，请先在设置中配置并激活TTS服务。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                        return;
+                    }
+                    await CallTtsApi(text, ttsConfig);
+                }, "TTS语音合成（VM）");
+            };
+            vm.ScreenshotRequested += (s, e) =>
+            {
+                ScreenshotButton_Click(this, new RoutedEventArgs());
+            };
+            vm.ImageUploadRequested += (s, e) =>
+            {
+                ImageUploadButton_Click(this, new RoutedEventArgs());
+            };
+            vm.ToggleSidebarRequested += async (s, e) =>
+            {
+                await ToggleSidebar();
+            };
+            vm.CloseRequested += (s, e) =>
+            {
+                CloseButton_Click(this, new RoutedEventArgs());
+            };
+            vm.NewConversationRequested += async (s, e) =>
+            {
+                await StartNewConversation();
+            };
+            vm.DeleteConversationRequested += async (s, id) =>
+            {
+                await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
+                {
+                    var result = System.Windows.MessageBox.Show("确定要删除这个对话吗？", "确认删除", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+                    if (result == System.Windows.MessageBoxResult.Yes)
+                    {
+                        await DeleteConversation(id);
+                        await RefreshConversationsList();
+                    }
+                }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
+                {
+                    Component = "DialogControl",
+                    Operation = "删除对话（VM）"
+                });
+            };
         }
 
         private void SendMessage_Click(object sender, RoutedEventArgs e)
@@ -1450,10 +1532,9 @@ namespace Buddie.Controls
         /// </summary>
         private HttpClient CreateHttpClient(OpenApiConfiguration apiConfig)
         {
-            var httpClient = new HttpClient
-            {
-                Timeout = TimeSpan.FromMinutes(5)
-            };
+            var factory = App.GetService<System.Net.Http.IHttpClientFactory>();
+            var httpClient = factory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromMinutes(5);
             
             // 根据渠道类型设置不同的认证头
             switch (apiConfig.ChannelType)
@@ -1983,8 +2064,9 @@ namespace Buddie.Controls
 
                 System.Diagnostics.Debug.WriteLine("TTS API: 未找到缓存，使用TTS服务生成新音频");
                 
-                // 使用TTS服务工厂创建相应的服务
-                using var ttsService = TtsServiceFactory.CreateService(ttsConfig.ChannelType);
+                // 使用DI解析的解析器创建相应的TTS服务
+                var resolver = Buddie.App.GetService<Buddie.Services.Tts.ITtsServiceResolver>();
+                using var ttsService = resolver.Create(ttsConfig.ChannelType);
                 
                 // 创建TTS请求
                 var ttsRequest = new TtsRequest

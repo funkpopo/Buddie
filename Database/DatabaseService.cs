@@ -10,12 +10,12 @@ namespace Buddie.Database
 {
     public class DatabaseService : IDisposable
     {
-        private readonly SqliteConnectionPool _connectionPool;
+        private readonly ISqliteConnectionPool _connectionPool;
         private bool _disposed;
 
-        public DatabaseService()
+        public DatabaseService(ISqliteConnectionPool connectionPool)
         {
-            _connectionPool = SqliteConnectionPool.Instance;
+            _connectionPool = connectionPool;
         }
         private static DateTime ParseDateTime(string dateTimeStr)
         {

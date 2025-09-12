@@ -110,7 +110,7 @@ namespace Buddie.Services.Tts
                 var uri = new Uri(apiUrl);
                 var baseUrl = $"{uri.Scheme}://{uri.Host}";
                 
-                using var httpClient = new HttpClient();
+                var httpClient = Buddie.App.GetService<System.Net.Http.IHttpClientFactory>().CreateClient();
                 httpClient.Timeout = TimeSpan.FromSeconds(10);
                 
                 var response = await httpClient.GetAsync(baseUrl);
@@ -138,7 +138,7 @@ namespace Buddie.Services.Tts
             
             return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                using var httpClient = new HttpClient();
+                var httpClient = Buddie.App.GetService<System.Net.Http.IHttpClientFactory>().CreateClient();
                 httpClient.Timeout = TimeSpan.FromSeconds(30);
                 
                 // 设置请求头

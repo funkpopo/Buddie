@@ -15,21 +15,11 @@ using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
 using Buddie.Services;
 using Buddie.Tests;
+using Buddie.ViewModels;
 
 namespace Buddie
 {
-    public class CardData
-    {
-        public string FrontText { get; set; } = "";
-        public string FrontSubText { get; set; } = "";
-        public string BackText { get; set; } = "";
-        public string BackSubText { get; set; } = "";
-        public System.Windows.Media.Brush FrontBackground { get; set; } = System.Windows.Media.Brushes.LightBlue;
-        public System.Windows.Media.Brush BackBackground { get; set; } = System.Windows.Media.Brushes.LightCoral;
-        
-        // 关联的API配置
-        public OpenApiConfiguration? ApiConfiguration { get; set; }
-    }
+    
 
     public partial class FloatingWindow : Window
     {
@@ -48,13 +38,14 @@ namespace Buddie
         #endregion
 
         private NotifyIcon? trayIcon;
+        private readonly FloatingWindowViewModel _vm;
         private readonly List<CardData> _cards = new List<CardData>();
         private int _currentCardIndex = 0;
         private readonly AppSettings _appSettings = new AppSettings();
         private readonly CardColorManager _colorManager = new CardColorManager();
         
         // 实时交互服务
-        private readonly RealtimeInteractionService _realtimeService = new RealtimeInteractionService();
+        private readonly RealtimeInteractionService _realtimeService = Buddie.App.GetService<Buddie.Services.RealtimeInteractionService>();
         private bool _isRealtimeInteractionOpen = false;
         
         // 用户交互状态管理
@@ -66,9 +57,53 @@ namespace Buddie
         {
             InitializeComponent();
             InitializeTrayIcon();
-            InitializeCards();
+            
+            // ViewModel wiring
+            _vm = new FloatingWindowViewModel(_appSettings, _realtimeService);
+            this.DataContext = _vm;
+            
             InitializeControls();
-            UpdateCardDisplay();
+            
+            // Initial cards sync to view is handled by ViewModel
+
+            // Bridge VM state to controls
+            _vm.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(FloatingWindowViewModel.CurrentCardIndex) || e.PropertyName == nameof(FloatingWindowViewModel.Cards))
+                {
+                    UpdateCardDisplayFromViewModel();
+                }
+                else if (e.PropertyName == nameof(FloatingWindowViewModel.IsDialogVisible))
+                {
+                    if (_vm.IsDialogVisible)
+                    {
+                        DialogControl.Show();
+                    }
+                    else
+                    {
+                        DialogControl.Hide();
+                    }
+                    cardControl.UpdateDialogButtonState(_vm.IsDialogVisible);
+                }
+                else if (e.PropertyName == nameof(FloatingWindowViewModel.IsSettingsVisible))
+                {
+                    if (_vm.IsSettingsVisible)
+                    {
+                        SettingsControl.Show();
+                    }
+                    else
+                    {
+                        SettingsControl.Hide();
+                    }
+                    cardControl.UpdateSettingsButtonState(_vm.IsSettingsVisible);
+                }
+                else if (e.PropertyName == nameof(FloatingWindowViewModel.IsRealtimeOpen))
+                {
+                    cardControl.UpdateBuddieButtonState(_vm.IsRealtimeOpen);
+                }
+            };
+            // Initial paint from VM state
+            UpdateCardDisplayFromViewModel();
             
             // 应用初始主题
             ApplyTheme();
@@ -111,6 +146,17 @@ namespace Buddie
             }
             
             _isClickThrough = enable;
+        }
+
+        private void UpdateCardDisplayFromViewModel()
+        {
+            var card = _vm.CurrentCard;
+            if (card == null) return;
+
+            var index = _vm.CurrentCardIndex + 1;
+            var total = _vm.Cards.Count;
+            cardControl.UpdateDisplay(card, index, total);
+            DialogControl.SetCurrentApiConfiguration(card.ApiConfiguration);
         }
 
         /// <summary>
@@ -204,6 +250,7 @@ namespace Buddie
             SettingsControl.SettingsVisibilityChanged += (s, isVisible) => {
                 // 更新卡片按钮状态
                 cardControl.UpdateSettingsButtonState(isVisible);
+                _vm.IsSettingsVisible = isVisible;
             };
             SettingsControl.ApiConfigurationChanged += async (s, e) => {
                 // 自动保存配置更改到数据库
@@ -256,17 +303,18 @@ namespace Buddie
                 }
             };
             
-            // 初始化对话控件
-            DialogControl.DataContext = _appSettings;
+            // 初始化对话控件（MVVM）
+            var dialogVm = new Buddie.ViewModels.DialogViewModel(_appSettings);
+            DialogControl.InitializeViewModel(dialogVm);
             DialogControl.MessageSent += async (s, message) => {
-                if (_currentCardIndex < _cards.Count && _cards[_currentCardIndex].ApiConfiguration != null)
+                var card = _vm.CurrentCard;
+                if (card?.ApiConfiguration != null)
                 {
-                    await DialogControl.SendMessageToApi(message, _cards[_currentCardIndex].ApiConfiguration!);
+                    await DialogControl.SendMessageToApi(message, card.ApiConfiguration);
                 }
                 else
                 {
                     DialogControl.AddMessageBubble("请先配置API才能进行对话。", false);
-                    // 重置发送状态，确保按钮恢复为"发送"
                     DialogControl.ResetSendingState();
                 }
             };
@@ -274,22 +322,12 @@ namespace Buddie
             DialogControl.DialogVisibilityChanged += (s, isVisible) => {
                 // 更新卡片按钮状态
                 cardControl.UpdateDialogButtonState(isVisible);
+                _vm.IsDialogVisible = isVisible;
             };
             
-            // 初始化卡片控件
-            cardControl.DialogRequested += (s, e) => {
-                DialogControl.Toggle();
-                EnableClickThrough(false);
-            };
-            cardControl.BuddieRequested += (s, e) => {
-                // TODO: 显示实时交互界面
-                ToggleRealtimeInteraction();
-                EnableClickThrough(false);
-            };
-            cardControl.SettingsRequested += (s, e) => {
-                SettingsControl.Toggle();
-                EnableClickThrough(false);
-            };
+            // 初始化卡片控件 - 通过命令绑定触发动作
+            cardControl.MouseEntered += (s, e) => EnableClickThrough(false);
+            cardControl.MouseLeft += (s, e) => EnableClickThrough(false);
             cardControl.MouseEntered += (s, e) => EnableClickThrough(false);
             cardControl.MouseLeft += (s, e) => EnableClickThrough(false);
             

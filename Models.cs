@@ -657,7 +657,7 @@ namespace Buddie
         private ObservableCollection<OpenApiConfiguration> _apiConfigurations = new ObservableCollection<OpenApiConfiguration>();
         private ObservableCollection<TtsConfiguration> _ttsConfigurations = new ObservableCollection<TtsConfiguration>();
         private ObservableCollection<RealtimeConfiguration> _realtimeConfigurations = new ObservableCollection<RealtimeConfiguration>();
-        private DatabaseService _databaseService = new DatabaseService();
+        private DatabaseService _databaseService = Buddie.App.GetService<Buddie.Database.DatabaseService>();
 
         // TTS缓存设置
         private int _maxTtsCacheCount = 1000;
@@ -963,7 +963,7 @@ namespace Buddie
             {
                 if (configToRemove.Id > 0)
                 {
-                    var service = new DatabaseService();
+                    var service = Buddie.App.GetService<Buddie.Database.DatabaseService>();
                     await service.DeleteTtsConfigurationAsync(configToRemove.Id);
                 }
                 

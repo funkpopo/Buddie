@@ -67,12 +67,12 @@ namespace Buddie.Services.Tts
 
                 Debug.WriteLine($"请求体: {jsonContent}");
 
-                // 发送HTTP请求
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
-                
+                // 发送HTTP请求（复用基类HttpClient）
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+
                 var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
-                var response = await httpClient.PostAsync(apiUrl, content);
+                var response = await _httpClient.PostAsync(apiUrl, content);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -205,10 +205,10 @@ namespace Buddie.Services.Tts
         {
             return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
                 
-                var response = await httpClient.GetAsync("https://api.elevenlabs.io/v1/voices");
+                var response = await _httpClient.GetAsync("https://api.elevenlabs.io/v1/voices");
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -252,10 +252,10 @@ namespace Buddie.Services.Tts
         {
             return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
                 
-                var response = await httpClient.GetAsync($"https://api.elevenlabs.io/v1/voices/settings/default");
+                var response = await _httpClient.GetAsync($"https://api.elevenlabs.io/v1/voices/settings/default");
                 
                 if (response.IsSuccessStatusCode)
                 {

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Text.Json;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Services.ExceptionHandling
 {
@@ -13,6 +14,17 @@ namespace Buddie.Services.ExceptionHandling
     /// </summary>
     public static class ExceptionHandlingService
     {
+        private static IErrorNotifier? _errorNotifier;
+        private static ILogger? _logger;
+
+        /// <summary>
+        /// 在应用启动时配置错误通知器与日志。
+        /// </summary>
+        public static void Configure(IErrorNotifier notifier, ILoggerFactory loggerFactory)
+        {
+            _errorNotifier = notifier;
+            _logger = loggerFactory.CreateLogger("ExceptionHandling");
+        }
         /// <summary>
         /// 异常处理策略枚举
         /// </summary>
@@ -131,11 +143,11 @@ namespace Buddie.Services.ExceptionHandling
                     break;
 
                 case HandlingStrategy.ShowMessage:
-                    ShowErrorMessage(errorMessage, exception);
+                    ShowErrorMessage(errorMessage, exception, context);
                     break;
 
                 case HandlingStrategy.ShowMessageAndLog:
-                    ShowErrorMessage(errorMessage, exception);
+                    ShowErrorMessage(errorMessage, exception, context);
                     LogException(exception, logMessage, context);
                     break;
 
@@ -183,20 +195,27 @@ namespace Buddie.Services.ExceptionHandling
         /// <summary>
         /// 显示错误消息给用户
         /// </summary>
-        private static void ShowErrorMessage(string message, Exception exception)
+        private static void ShowErrorMessage(string message, Exception exception, ExceptionContext? context)
         {
             try
             {
-                if (Application.Current?.Dispatcher?.CheckAccess() == true)
+                if (_errorNotifier != null)
                 {
-                    MessageBox.Show(message, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    _errorNotifier.NotifyError(message, exception, context);
                 }
                 else
                 {
-                    Application.Current?.Dispatcher?.Invoke(() =>
+                    if (Application.Current?.Dispatcher?.CheckAccess() == true)
                     {
                         MessageBox.Show(message, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    });
+                    }
+                    else
+                    {
+                        Application.Current?.Dispatcher?.Invoke(() =>
+                        {
+                            MessageBox.Show(message, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        });
+                    }
                 }
             }
             catch
@@ -213,24 +232,31 @@ namespace Buddie.Services.ExceptionHandling
         {
             try
             {
-                // 输出到控制台（在调试时可见）
-                Console.WriteLine($"[ERROR] {DateTime.Now:yyyy-MM-dd HH:mm:ss} {logMessage}");
-                
-                // 输出堆栈跟踪
-                Console.WriteLine($"Stack Trace: {exception.StackTrace}");
-                
-                // 如果有额外数据，也输出
-                if (context?.AdditionalData?.Count > 0)
+                if (_logger != null)
                 {
-                    Console.WriteLine("Additional Data:");
-                    foreach (var kvp in context.AdditionalData)
+                    _logger.LogError(exception, logMessage);
+                    if (context?.AdditionalData?.Count > 0)
                     {
-                        Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
+                        foreach (var kvp in context.AdditionalData)
+                        {
+                            _logger.LogDebug("AdditionalData {Key}={Value}", kvp.Key, kvp.Value);
+                        }
                     }
                 }
-
-                // TODO: 可以在这里添加更复杂的日志记录逻辑
-                // 比如写入文件、发送到日志服务等
+                else
+                {
+                    // 输出到控制台（在调试时可见）
+                    Console.WriteLine($"[ERROR] {DateTime.Now:yyyy-MM-dd HH:mm:ss} {logMessage}");
+                    Console.WriteLine($"Stack Trace: {exception.StackTrace}");
+                    if (context?.AdditionalData?.Count > 0)
+                    {
+                        Console.WriteLine("Additional Data:");
+                        foreach (var kvp in context.AdditionalData)
+                        {
+                            Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
+                        }
+                    }
+                }
             }
             catch
             {

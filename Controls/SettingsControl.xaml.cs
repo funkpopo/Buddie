@@ -43,6 +43,7 @@ namespace Buddie.Controls
             // 初始化子控件
             ApiConfigControl.Initialize(appSettings.ApiConfigurations);
             TtsConfigControl.Initialize(appSettings.TtsConfigurations);
+            TtsConfigControl.SetAppSettings(appSettings);
             RealtimeConfigControl.Initialize(appSettings.RealtimeConfigurations);
             
             // 订阅子控件事件
@@ -106,6 +107,10 @@ namespace Buddie.Controls
         {
             // 重新初始化TTS配置控件，用于数据库加载后刷新
             TtsConfigControl.Initialize(ttsConfigurations);
+            if (this.DataContext is AppSettings appSettings)
+            {
+                TtsConfigControl.SetAppSettings(appSettings);
+            }
         }
         
         public void RefreshRealtimeConfigurations(ObservableCollection<RealtimeConfiguration> realtimeConfigurations)

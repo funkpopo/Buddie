@@ -16,7 +16,7 @@ namespace Buddie.Controls
 {
     public partial class ApiConfigControl : UserControl
     {
-        private readonly HttpClient httpClient = new HttpClient();
+        private readonly HttpClient httpClient = Buddie.App.GetService<System.Net.Http.IHttpClientFactory>().CreateClient();
         private readonly ConcurrentDictionary<string, CancellationTokenSource> testCancellationTokens = new();
         private bool _isInitializing = false;
 

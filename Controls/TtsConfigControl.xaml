@@ -32,13 +32,13 @@
                     BorderThickness="0"
                     Padding="12,8"
                     FontWeight="Bold"
-                    Click="AddTtsConfig_Click"
+                    Command="{Binding AddCommand}"
                     Cursor="Hand"
                     Style="{StaticResource RoundedButtonStyle}"/>
         </Grid>
         
         <!-- TTS配置列表 -->
-        <ItemsControl x:Name="TtsConfigList">
+        <ItemsControl x:Name="TtsConfigList" ItemsSource="{Binding Configurations}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border CornerRadius="12"
@@ -102,7 +102,7 @@
                                               SelectedValuePath="Tag"
                                               Margin="0,0,10,8"
                                               Padding="10,8"
-                                              SelectionChanged="ChannelType_SelectionChanged">
+                                              >
                                         <ComboBox.Style>
                                             <Style TargetType="ComboBox">
                                                 <Setter Property="Background" Value="White"/>
@@ -464,8 +464,8 @@
                                               VerticalAlignment="Center"
                                               ToolTip="激活后，该配置将用于对话界面的语音合成"
                                               Style="{StaticResource ToggleSwitchStyle}"
-                                              Checked="ActivateTts_Checked"
-                                              Unchecked="ActivateTts_Unchecked"/>
+                                              Command="{Binding DataContext.ToggleActivateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                              CommandParameter="{Binding}"/>
                                     
                                     <!-- 操作按钮 -->
                                     <StackPanel Grid.Row="8" Grid.Column="1"
@@ -479,7 +479,8 @@
                                                 Padding="16,8"
                                                 Margin="0,0,10,0"
                                                 FontWeight="Bold"
-                                                Click="SaveTtsConfig_Click"
+                                                Command="{Binding DataContext.SaveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
                                                 Cursor="Hand"
                                                 Style="{StaticResource RoundedButtonStyle}"/>
                                         <Button Content="取消"
@@ -488,7 +489,8 @@
                                                 BorderThickness="0"
                                                 Padding="16,8"
                                                 FontWeight="Bold"
-                                                Click="CancelTtsConfig_Click"
+                                                Command="{Binding DataContext.CancelCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
                                                 Cursor="Hand"
                                                 Style="{StaticResource RoundedButtonStyle}"/>
                                     </StackPanel>
@@ -698,7 +700,8 @@
                                                 Padding="8,4"
                                                 FontSize="12"
                                                 FontWeight="Bold"
-                                                Click="ActivateTtsConfig_Click"
+                                                Command="{Binding DataContext.ActivateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
                                                 Cursor="Hand">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource RoundedButtonStyle}">
@@ -726,7 +729,8 @@
                                                 Padding="12,6"
                                                 Margin="0,0,8,0"
                                                 FontWeight="Bold"
-                                                Click="EditTtsConfig_Click"
+                                                Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
                                                 Cursor="Hand"
                                                 Style="{StaticResource RoundedButtonStyle}"/>
                                         <Button Content="删除"
@@ -735,7 +739,8 @@
                                                 BorderThickness="0"
                                                 Padding="12,6"
                                                 FontWeight="Bold"
-                                                Click="RemoveTtsConfig_Click"
+                                                Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
                                                 Cursor="Hand"
                                                 Style="{StaticResource RoundedButtonStyle}"/>
                                     </StackPanel>

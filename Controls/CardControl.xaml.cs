@@ -5,11 +5,39 @@ using System.Windows.Media.Animation;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Data;
 
 namespace Buddie.Controls
 {
     public partial class CardControl : UserControl
     {
+        public static readonly DependencyProperty DialogCommandProperty = DependencyProperty.Register(
+            nameof(DialogCommand), typeof(ICommand), typeof(CardControl), new PropertyMetadata(null));
+
+        public static readonly DependencyProperty BuddieCommandProperty = DependencyProperty.Register(
+            nameof(BuddieCommand), typeof(ICommand), typeof(CardControl), new PropertyMetadata(null));
+
+        public static readonly DependencyProperty SettingsCommandProperty = DependencyProperty.Register(
+            nameof(SettingsCommand), typeof(ICommand), typeof(CardControl), new PropertyMetadata(null));
+
+        public ICommand? DialogCommand
+        {
+            get => (ICommand?)GetValue(DialogCommandProperty);
+            set => SetValue(DialogCommandProperty, value);
+        }
+
+        public ICommand? BuddieCommand
+        {
+            get => (ICommand?)GetValue(BuddieCommandProperty);
+            set => SetValue(BuddieCommandProperty, value);
+        }
+
+        public ICommand? SettingsCommand
+        {
+            get => (ICommand?)GetValue(SettingsCommandProperty);
+            set => SetValue(SettingsCommandProperty, value);
+        }
+
         public event EventHandler? DialogButtonClicked;
         public event EventHandler? BuddieButtonClicked;
         public event EventHandler? SettingsButtonClicked;
@@ -63,23 +91,7 @@ namespace Buddie.Controls
             MouseLeft?.Invoke(this, EventArgs.Empty);
         }
 
-        private void DialogButton_Click(object sender, RoutedEventArgs e)
-        {
-            DialogButtonClicked?.Invoke(this, EventArgs.Empty);
-            DialogRequested?.Invoke(this, EventArgs.Empty);
-        }
-
-        private void BuddieButton_Click(object sender, RoutedEventArgs e)
-        {
-            BuddieButtonClicked?.Invoke(this, EventArgs.Empty);
-            BuddieRequested?.Invoke(this, EventArgs.Empty);
-        }
-
-        private void SettingsButton_Click(object sender, RoutedEventArgs e)
-        {
-            SettingsButtonClicked?.Invoke(this, EventArgs.Empty);
-            SettingsRequested?.Invoke(this, EventArgs.Empty);
-        }
+        // Button clicks are now bound to ICommand via dependency properties in XAML.
 
 
         private void LeftFlipButton_Click(object sender, RoutedEventArgs e)

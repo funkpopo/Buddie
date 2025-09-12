@@ -1,6 +1,9 @@
 using System;
 using System.Windows;
 using System.Windows.Threading;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Buddie.Database;
 using Buddie.Services.ExceptionHandling;
 
@@ -8,16 +11,59 @@ namespace Buddie
 {
     public partial class App : Application
     {
+        private IHost? _host;
+        public static IServiceProvider Services => ((App)Current)._host!.Services;
+        public static T GetService<T>() where T : notnull => Services.GetRequiredService<T>();
+
         protected override async void OnStartup(StartupEventArgs e)
         {
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
+                // Build Host (DI + Logging + HttpClient)
+                _host = Host.CreateDefaultBuilder()
+                    .ConfigureLogging(logging =>
+                    {
+                        logging.ClearProviders();
+                        logging.AddDebug();
+                    })
+                    .ConfigureServices(services =>
+                    {
+                        services.AddHttpClient();
+                        services.AddSingleton<IErrorNotifier, WpfErrorNotifier>();
+                        
+                        // Database services
+                        services.AddSingleton<IDatabasePathProvider, DatabasePathProvider>();
+                        services.AddSingleton<ISqliteConnectionPool, SqliteConnectionPool>();
+                        services.AddSingleton<DatabaseService>();
+                        services.AddSingleton<IDatabaseInitializer, DatabaseInitializer>();
+
+                        // TTS services + resolver
+                        services.AddTransient<Services.Tts.OpenAiTtsService>();
+                        services.AddTransient<Services.Tts.ElevenLabsTtsService>();
+                        services.AddTransient<Services.Tts.MiniMaxTtsService>();
+                        services.AddSingleton<Services.Tts.ITtsServiceResolver, Services.Tts.DefaultTtsServiceResolver>();
+
+                        // Realtime services
+                        services.AddSingleton<Services.RealtimeInteractionService>();
+                        services.AddSingleton<Services.EnhancedRealtimeInteractionService>();
+                        services.AddSingleton<Services.RealtimeClient>();
+                    })
+                    .Build();
+
+                await _host.StartAsync();
+
+                // Wire ExceptionHandlingService with notifier + logger
+                var notifier = _host.Services.GetRequiredService<IErrorNotifier>();
+                var loggerFactory = _host.Services.GetRequiredService<ILoggerFactory>();
+                ExceptionHandlingService.Configure(notifier, loggerFactory);
+
                 // Set up global exception handlers
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
                 DispatcherUnhandledException += App_DispatcherUnhandledException;
                 
                 // Initialize database
-                DatabaseManager.InitializeDatabase();
+                var dbInitializer = _host.Services.GetRequiredService<IDatabaseInitializer>();
+                await dbInitializer.InitializeAsync();
 
                 // Create and show main window
                 var floatingWindow = new FloatingWindow();
@@ -39,6 +85,12 @@ namespace Buddie
 
         protected override void OnExit(ExitEventArgs e)
         {
+            // Stop host gracefully
+            if (_host != null)
+            {
+                _host.StopAsync().GetAwaiter().GetResult();
+                _host.Dispose();
+            }
             // 最后一次保存应用程序设置
             ExceptionHandlingService.ExecuteSafely(() =>
             {
@@ -55,9 +107,13 @@ namespace Buddie
             // 清理TTS音频缓存
             ExceptionHandlingService.ExecuteSafely(() =>
             {
-                DatabaseManager.CleanupTtsAudioCache();
+                var initializer = _host?.Services.GetService<IDatabaseInitializer>();
+                if (initializer != null)
+                {
+                    initializer.CleanupTtsAudioCacheAsync().GetAwaiter().GetResult();
+                }
             },
-            ExceptionHandlingService.HandlingStrategy.Silent, // 静默处理清理失败
+            ExceptionHandlingService.HandlingStrategy.Silent,
             new ExceptionHandlingService.ExceptionContext
             {
                 Component = "App",
@@ -69,12 +125,10 @@ namespace Buddie
         
         private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            MessageBox.Show(
-                $"发生未处理的异常:\n\n{e.Exception.Message}", 
-                "应用程序错误", 
-                MessageBoxButton.OK, 
-                MessageBoxImage.Error);
-            
+            var notifier = _host?.Services.GetService<IErrorNotifier>();
+            notifier?.NotifyError($"发生未处理的异常:\n\n{e.Exception.Message}", e.Exception,
+                new ExceptionHandlingService.ExceptionContext { Component = "App", Operation = "DispatcherUnhandledException" });
+
             // Mark the exception as handled to prevent app crash
             e.Handled = true;
         }
@@ -84,11 +138,9 @@ namespace Buddie
             var exception = e.ExceptionObject as Exception;
             if (exception != null)
             {
-                MessageBox.Show(
-                    $"发生严重错误:\n\n{exception.Message}\n\n应用程序将退出。", 
-                    "严重错误", 
-                    MessageBoxButton.OK, 
-                    MessageBoxImage.Error);
+                var notifier = _host?.Services.GetService<IErrorNotifier>();
+                notifier?.NotifyError($"发生严重错误:\n\n{exception.Message}\n\n应用程序将退出。", exception,
+                    new ExceptionHandlingService.ExceptionContext { Component = "App", Operation = "UnhandledException" });
             }
         }
     }

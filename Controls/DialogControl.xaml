@@ -170,8 +170,8 @@
                                     FontSize="12"
                                     Cursor="Hand"
                                     ToolTip="复制"
-                                    Tag="{Binding Content}"
-                                    Click="CopyButton_Click"/>
+                                    Command="{Binding DataContext.CopyMessageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding Content}"/>
                         </StackPanel>
                         
                         <!-- AI消息按钮区域 -->
@@ -203,8 +203,8 @@
                                     FontSize="12"
                                     Cursor="Hand"
                                     ToolTip="复制"
-                                    Tag="{Binding Content}"
-                                    Click="CopyButton_Click"/>
+                                    Command="{Binding DataContext.CopyMessageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding Content}"/>
                             <!-- TTS按钮 -->
                             <Button Content="🔊"
                                     Width="24"
@@ -215,8 +215,8 @@
                                     Margin="5,0,0,0"
                                     Cursor="Hand"
                                     ToolTip="朗读"
-                                    Tag="{Binding Content}"
-                                    Click="TtsButton_Click"/>
+                                    Command="{Binding DataContext.PlayTtsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding Content}"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -304,7 +304,7 @@
                             BorderThickness="0"
                             Cursor="Hand"
                             FontSize="11"
-                            Click="NewConversationButton_Click"
+                            Command="{Binding NewConversationCommand}"
                             Style="{StaticResource RoundedButtonStyle}"/>
                     
                     <!-- 对话列表 -->
@@ -387,8 +387,8 @@
                                                     Cursor="Hand"
                                                     Opacity="0.5"
                                                     ToolTip="删除对话"
-                                                    Click="DeleteConversationButton_Click"
-                                                    Tag="{Binding Id}"/>
+                                                    Command="{Binding DataContext.DeleteConversationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Id}"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -426,15 +426,15 @@
                                     HorizontalAlignment="Left"
                                     VerticalAlignment="Center"
                                     Margin="10,0,0,0">
-                            <Button x:Name="SidebarButton"
-                                    Content="☰"
+                    <Button x:Name="SidebarButton"
+                            Content="☰"
                                     Width="20"
                                     Height="20"
                                     Background="Transparent"
                                     BorderThickness="0"
                                     FontSize="12"
                                     Cursor="Hand"
-                                    Click="SidebarButton_Click"
+                                    Command="{Binding ToggleSidebarCommand}"
                                     Margin="0,0,10,0">
                                 <Button.Style>
                                     <Style TargetType="Button">
@@ -471,7 +471,7 @@
                                 BorderThickness="0"
                                 FontSize="16"
                                 Cursor="Hand"
-                                Click="CloseButton_Click"
+                                Command="{Binding CloseCommand}"
                                 Margin="0,0,10,0">
                             <Button.Style>
                                 <Style TargetType="Button">
@@ -788,7 +788,7 @@
                                 Width="40"
                                 Height="40"
                                 BorderThickness="0"
-                                Click="ImageUploadButton_Click"
+                                Command="{Binding ImageUploadCommand}"
                                 Cursor="Hand"
                                 FontSize="16"
                                 Margin="0,0,5,0"
@@ -830,7 +830,7 @@
                                 Width="40"
                                 Height="40"
                                 BorderThickness="0"
-                                Click="ScreenshotButton_Click"
+                                Command="{Binding ScreenshotCommand}"
                                 Cursor="Hand"
                                 FontSize="16"
                                 Margin="0,0,5,0"
@@ -870,7 +870,8 @@
                                 Grid.Column="3"
                                 Content="发送"
                                 BorderThickness="0"
-                                Click="SendMessage_Click"
+                                Command="{Binding SendMessageCommand}"
+                                CommandParameter="{Binding ElementName=DialogInput, Path=Text}"
                                 Cursor="Hand"
                                 FontSize="14"
                                 FontWeight="Bold"
