@@ -313,7 +313,8 @@
                                   VerticalScrollBarVisibility="Auto"
                                   Style="{StaticResource ModernScrollViewerStyle}"
                                   HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl x:Name="ConversationsList">
+                        <ItemsControl x:Name="ConversationsList"
+                                      ItemsSource="{Binding Conversations}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Margin="2"
@@ -487,33 +488,24 @@
                     </Grid>
                 </Border>
                 
-                <!-- 对话消息区域 -->
-                <ScrollViewer x:Name="DialogScrollViewer"
-                              Grid.Row="1"
-                              Margin="10"
-                              Style="{StaticResource ModernScrollViewerStyle}"
-                              VerticalScrollBarVisibility="Auto"
-                              Background="Transparent">
-                    <ItemsControl x:Name="DialogMessagesPanel"
-                                  Margin="5"
-                                  VirtualizingPanel.IsVirtualizing="True"
-                                  VirtualizingPanel.VirtualizationMode="Recycling"
-                                  VirtualizingPanel.IsContainerVirtualizable="True"
-                                  ScrollViewer.CanContentScroll="True">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <VirtualizingStackPanel Orientation="Vertical"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid HorizontalAlignment="Stretch"
-                                      Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
-                                    <!-- Message with reasoning -->
-                                    <StackPanel x:Name="MessageContainer">
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
+                <!-- 对话消息区域（启用虚拟化） -->
+                <ListBox x:Name="DialogMessagesList"
+                         Grid.Row="1"
+                         Margin="10"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ItemsSource="{Binding Messages}"
+                         ScrollViewer.CanContentScroll="True"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid HorizontalAlignment="Stretch">
+                                <!-- Message with reasoning -->
+                                <StackPanel x:Name="MessageContainer">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding HasReasoning}" Value="True">
                                                         <Setter Property="Visibility" Value="Visible"/>
@@ -603,9 +595,8 @@
                                     </ContentControl>
                                 </Grid>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                    </ListBox.ItemTemplate>
+                </ListBox>
                 
                 <!-- 输入区域 -->
                 <Grid Grid.Row="2"

@@ -349,9 +349,8 @@ namespace Buddie.Controls
         {
             InitializeComponent();
             
-            // Initialize messages collection and bind to ItemsControl
+            // Initialize messages collection
             Messages = new ObservableCollection<MessageDisplayModel>();
-            DialogMessagesPanel.ItemsSource = Messages;
             
             // 初始化Markdown管道，启用常用的扩展
             _markdownPipeline = new MarkdownPipelineBuilder()
@@ -392,6 +391,28 @@ namespace Buddie.Controls
         {
             _viewModel = vm;
             this.DataContext = vm;
+            // Share the same messages collection for virtualization binding
+            vm.Messages = this.Messages;
+            
+            // Subscribe to VM HTTP events to drive UI and persistence
+            vm.StreamingStarted += (s, e) =>
+            {
+                InitializeStreamingMessage();
+            };
+            vm.StreamingDelta += (s, e) =>
+            {
+                AppendStreamingDelta(e.Content, e.Reasoning);
+            };
+            vm.StreamingCompleted += (s, e) =>
+            {
+                FinalizeStreamingMessage();
+                SetSendingState(false);
+            };
+            vm.ResponseReady += (s, e) =>
+            {
+                AddMessageBubble(e.Content, false);
+                SetSendingState(false);
+            };
 
             vm.SendRequested += (s, message) =>
             {
@@ -401,35 +422,7 @@ namespace Buddie.Controls
                 }
                 SendMessage_Click(this, new RoutedEventArgs());
             };
-            vm.CopyRequested += (s, text) =>
-            {
-                ExceptionHandlingService.ExecuteSafely(() =>
-                {
-                    if (!string.IsNullOrEmpty(text))
-                    {
-                        System.Windows.Clipboard.SetText(text);
-                    }
-                }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
-                {
-                    Component = "DialogControl",
-                    Operation = "复制消息内容（VM）"
-                });
-            };
-            vm.PlayTtsRequested += async (s, text) =>
-            {
-                await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
-                {
-                    if (string.IsNullOrEmpty(text)) return;
-                    var appSettings = DataContext as AppSettings;
-                    var ttsConfig = appSettings?.GetActiveTtsConfiguration();
-                    if (ttsConfig == null)
-                    {
-                        System.Windows.MessageBox.Show("未找到TTS配置，请先在设置中配置并激活TTS服务。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                        return;
-                    }
-                    await CallTtsApi(text, ttsConfig);
-                }, "TTS语音合成（VM）");
-            };
+            // Copy and TTS are now handled fully in ViewModel via commands
             vm.ScreenshotRequested += (s, e) =>
             {
                 ScreenshotButton_Click(this, new RoutedEventArgs());
@@ -441,6 +434,11 @@ namespace Buddie.Controls
             vm.ToggleSidebarRequested += async (s, e) =>
             {
                 await ToggleSidebar();
+                // Also refresh conversations when opening
+                if (_isSidebarVisible && _viewModel != null)
+                {
+                    await _viewModel.RefreshConversationsAsync();
+                }
             };
             vm.CloseRequested += (s, e) =>
             {
@@ -476,16 +474,13 @@ namespace Buddie.Controls
             };
         }
 
-        private void SendMessage_Click(object sender, RoutedEventArgs e)
+        private async void SendMessage_Click(object sender, RoutedEventArgs e)
         {
             if (_isSending)
             {
                 // 如果正在发送，执行中断操作
-                if (_currentRequest != null)
-                {
-                    _currentRequest.Cancel();
-                    AddMessageBubble("对话已中断", false);
-                }
+                _viewModel?.CancelSend();
+                AddMessageBubble("对话已中断", false);
                 // 重置发送状态
                 SetSendingState(false);
                 return;
@@ -515,15 +510,25 @@ namespace Buddie.Controls
                 // 更新UI状态
                 SetSendingState(true);
                 
-                // 如果有截图或本地图片，传递给发送事件处理器
-                if (_hasScreenshot || _hasLocalImage)
+                // 先将用户消息显示并保存
+                bool hasScreenshot = _hasScreenshot && _currentScreenshot != null;
+                bool hasLocalImage = _hasLocalImage && _currentLocalImage != null;
+                bool hasImage = hasScreenshot || hasLocalImage;
+                bool configSupportsMultimodal = _currentApiConfiguration?.IsMultimodalEnabled ?? false;
+                bool channelSupportsMultimodal = _currentApiConfiguration != null && Buddie.Services.MultimodalApiService.SupportsMultimodal(_currentApiConfiguration.ChannelType);
+                byte[]? imageForDisplay = null;
+                if (hasImage && configSupportsMultimodal && channelSupportsMultimodal)
                 {
-                    MessageSent?.Invoke(this, $"[MULTIMODAL]{message}");
+                    imageForDisplay = hasScreenshot ? _currentScreenshot : _currentLocalImage;
                 }
-                else
-                {
-                    MessageSent?.Invoke(this, message);
-                }
+                await AddMessageBubble(message, true, imageForDisplay);
+
+                // 调用ViewModel发送HTTP请求
+                _viewModel!.CurrentApiConfiguration = _currentApiConfiguration;
+                _viewModel.ScreenshotImage = _currentScreenshot;
+                _viewModel.LocalImage = _currentLocalImage;
+                // 通过命令触发发送，避免直接调用私有方法
+                _viewModel.SendMessageToApiCommand.Execute(message);
                 
                 DialogInput.Clear();
                 
@@ -535,6 +540,12 @@ namespace Buddie.Controls
                     _currentLocalImage = null;
                     _hasLocalImage = false;
                     ScreenshotPreviewContainer.Visibility = Visibility.Collapsed;
+                    // 同步VM中的图像状态
+                    if (_viewModel != null)
+                    {
+                        _viewModel.ScreenshotImage = null;
+                        _viewModel.LocalImage = null;
+                    }
                 }
             }
         }
@@ -628,6 +639,10 @@ namespace Buddie.Controls
         {
             _currentApiConfiguration = apiConfiguration;
             UpdateScreenshotButtonVisibility();
+            if (_viewModel != null)
+            {
+                _viewModel.CurrentApiConfiguration = apiConfiguration;
+            }
         }
         
         /// <summary>
@@ -662,6 +677,11 @@ namespace Buddie.Controls
             _currentLocalImage = null;
             _hasLocalImage = false;
             ScreenshotPreviewContainer.Visibility = Visibility.Collapsed;
+            if (_viewModel != null)
+            {
+                _viewModel.ScreenshotImage = null;
+                _viewModel.LocalImage = null;
+            }
         }
 
         /// <summary>
@@ -712,8 +732,11 @@ namespace Buddie.Controls
             Messages.Add(messageModel);
             ScrollToBottom();
             
-            // 自动保存消息到数据库
-            await SaveMessage(message, isUser, imageData: imageData);
+            // 自动保存消息到数据库（委托给 ViewModel）
+            if (_viewModel != null)
+            {
+                await _viewModel.SaveMessageAsync(message, isUser, null, imageData);
+            }
         }
 
         private Border CreateMessageBubble(string message, bool isUser)
@@ -1288,16 +1311,12 @@ namespace Buddie.Controls
         {
             if (Messages.Count > 0)
             {
-                DialogScrollViewer.ScrollToEnd();
-                
-                // Ensure the last item is visible by requesting bring into view
                 var lastMessage = Messages.LastOrDefault();
                 if (lastMessage != null)
                 {
-                    // Use Dispatcher to delay the scroll to ensure the item is rendered
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        DialogScrollViewer.ScrollToEnd();
+                        DialogMessagesList?.ScrollIntoView(lastMessage);
                     }), System.Windows.Threading.DispatcherPriority.Background);
                 }
             }
@@ -1821,6 +1840,19 @@ namespace Buddie.Controls
             }
         }
 
+        private void AppendStreamingDelta(string? content, string? reasoning)
+        {
+            if (!string.IsNullOrEmpty(reasoning))
+            {
+                _streamingReasoning.Append(reasoning);
+            }
+            if (!string.IsNullOrEmpty(content))
+            {
+                _streamingContent.Append(content);
+            }
+            Dispatcher.InvokeAsync(() => UpdateStreamingMessage());
+        }
+
 
         private List<string> ExtractCompleteSentences(StringBuilder buffer)
         {
@@ -1931,10 +1963,10 @@ namespace Buddie.Controls
                     _currentStreamingMessage.RenderedDocument = ConvertMarkdownToFlowDocument(finalContent);
                 }
                 
-                // Auto-save AI reply message to database
-                if (!string.IsNullOrEmpty(finalContent))
+                // Auto-save AI reply message to database (delegate to ViewModel)
+                if (!string.IsNullOrEmpty(finalContent) && _viewModel != null)
                 {
-                    await SaveMessage(finalContent, false, string.IsNullOrEmpty(finalReasoning) ? null : finalReasoning);
+                    await _viewModel.SaveMessageAsync(finalContent, false, string.IsNullOrEmpty(finalReasoning) ? null : finalReasoning);
                 }
                 
                 // If no valid content was received, remove the message or update with placeholder
@@ -2568,35 +2600,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 重建对话界面
         /// </summary>
-        private async Task RebuildConversationUI()
-        {
-            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
-            {
-                Messages.Clear();
-
-                foreach (var message in _currentMessages.OrderBy(m => m.CreatedAt))
-                {
-                    var messageModel = new MessageDisplayModel
-                    {
-                        Content = message.Content,
-                        IsUser = message.IsUser,
-                        ReasoningContent = message.ReasoningContent,
-                        Timestamp = message.CreatedAt,
-                        ImageData = message.ImageData,
-                        HasImage = message.HasImage
-                    };
-                    
-                    Messages.Add(messageModel);
-                }
-
-                ScrollToBottom();
-                await Task.CompletedTask;
-            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
-            {
-                Component = "DialogControl",
-                Operation = "重建对话界面"
-            });
-        }
+        private async Task RebuildConversationUI() => await Task.CompletedTask; // Moved to ViewModel
 
         /// <summary>
         /// 清空对话界面
@@ -2611,16 +2615,10 @@ namespace Buddie.Controls
         /// </summary>
         public async Task DeleteConversation(int conversationId)
         {
-            await ExceptionHandlingService.Database.ExecuteSafelyAsync(async () =>
+            if (_viewModel != null)
             {
-                await _databaseService.DeleteConversationAsync(conversationId);
-                
-                // 如果删除的是当前对话，开始新对话
-                if (_currentConversation?.Id == conversationId)
-                {
-                    await StartNewConversation();
-                }
-            }, "删除对话");
+                await _viewModel.DeleteConversationByIdAsync(conversationId);
+            }
         }
 
         /// <summary>
@@ -2628,10 +2626,12 @@ namespace Buddie.Controls
         /// </summary>
         public async Task<List<DbConversation>> GetAllConversations()
         {
-            return await ExceptionHandlingService.Database.ExecuteSafelyAsync(
-                () => _databaseService.GetConversationsAsync(),
-                new List<DbConversation>(),
-                "获取对话列表");
+            if (_viewModel != null)
+            {
+                await _viewModel.RefreshConversationsAsync();
+                return _viewModel.Conversations.ToList();
+            }
+            return new List<DbConversation>();
         }
 
         #endregion
@@ -2666,8 +2666,11 @@ namespace Buddie.Controls
                 SidebarColumn.Width = new GridLength(150);
                 HistorySidebar.Visibility = Visibility.Visible;
                 
-                // 刷新对话列表
-                await RefreshConversationsList();
+                // 刷新对话列表（改为调用VM）
+                if (_viewModel != null)
+                {
+                    await _viewModel.RefreshConversationsAsync();
+                }
             }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
             {
                 Component = "DialogControl",
@@ -2701,15 +2704,10 @@ namespace Buddie.Controls
         /// </summary>
         private async Task RefreshConversationsList()
         {
-            await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
+            if (_viewModel != null)
             {
-                var conversations = await GetAllConversations();
-                ConversationsList.ItemsSource = conversations;
-            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
-            {
-                Component = "DialogControl",
-                Operation = "刷新对话列表"
-            });
+                await _viewModel.RefreshConversationsAsync();
+            }
         }
 
         private async void NewConversationButton_Click(object sender, RoutedEventArgs e)
@@ -2724,7 +2722,10 @@ namespace Buddie.Controls
             
             if (conversation != null)
             {
-                await LoadConversation(conversation.Id);
+                if (_viewModel != null)
+                {
+                    await _viewModel.LoadConversationAsync(conversation.Id);
+                }
             }
         }
 
@@ -2738,8 +2739,10 @@ namespace Buddie.Controls
                     var result = System.Windows.MessageBox.Show("确定要删除这个对话吗？", "确认删除", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
                     if (result == System.Windows.MessageBoxResult.Yes)
                     {
-                        await DeleteConversation(conversationId);
-                        await RefreshConversationsList();
+                        if (_viewModel != null)
+                        {
+                            await _viewModel.DeleteConversationByIdAsync(conversationId);
+                        }
                     }
                 }
             }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
@@ -2828,12 +2831,18 @@ namespace Buddie.Controls
                     
                     _currentLocalImage = imageBytes;
                     _hasLocalImage = true;
+                    if (_viewModel != null)
+                    {
+                        _viewModel.LocalImage = imageBytes;
+                        _viewModel.ScreenshotImage = null;
+                    }
                     
                     // 清除之前的截图（如果有）
                     if (_hasScreenshot)
                     {
                         _currentScreenshot = null;
                         _hasScreenshot = false;
+                        if (_viewModel != null) _viewModel.ScreenshotImage = null;
                     }
                     
                     // 显示图片预览
@@ -2911,12 +2920,18 @@ namespace Buddie.Controls
                 {
                     _currentScreenshot = screenshotBytes;
                     _hasScreenshot = true;
+                    if (_viewModel != null)
+                    {
+                        _viewModel.ScreenshotImage = screenshotBytes;
+                        _viewModel.LocalImage = null;
+                    }
                     
                     // 清除之前的本地图片（如果有）
                     if (_hasLocalImage)
                     {
                         _currentLocalImage = null;
                         _hasLocalImage = false;
+                        if (_viewModel != null) _viewModel.LocalImage = null;
                     }
                     
                     // 显示预览

@@ -205,18 +205,6 @@ namespace Buddie
             // 初始化对话控件（MVVM）
             var dialogVm = new Buddie.ViewModels.DialogViewModel(_appSettings);
             DialogControl.InitializeViewModel(dialogVm);
-            DialogControl.MessageSent += async (s, message) => {
-                var card = _vm.CurrentCard;
-                if (card?.ApiConfiguration != null)
-                {
-                    await DialogControl.SendMessageToApi(message, card.ApiConfiguration);
-                }
-                else
-                {
-                    DialogControl.AddMessageBubble("请先配置API才能进行对话。", false);
-                    DialogControl.ResetSendingState();
-                }
-            };
             DialogControl.DialogClosed += (s, e) => EnableClickThrough(false);
             DialogControl.DialogVisibilityChanged += (s, isVisible) => { _vm.IsDialogVisible = isVisible; };
             
