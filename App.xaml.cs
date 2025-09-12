@@ -37,11 +37,11 @@ namespace Buddie
                         services.AddSingleton<DatabaseService>();
                         services.AddSingleton<IDatabaseInitializer, DatabaseInitializer>();
 
-                        // TTS services + resolver
-                        services.AddTransient<Services.Tts.OpenAiTtsService>();
-                        services.AddTransient<Services.Tts.ElevenLabsTtsService>();
-                        services.AddTransient<Services.Tts.MiniMaxTtsService>();
-                        services.AddSingleton<Services.Tts.ITtsServiceResolver, Services.Tts.DefaultTtsServiceResolver>();
+                        // TTS services + resolver（基于Keyed DI，按渠道类型解析实现）
+                        services.AddKeyedTransient<global::Buddie.Services.Tts.ITtsService, global::Buddie.Services.Tts.OpenAiTtsService>(global::Buddie.Services.Tts.TtsChannelType.OpenAI);
+                        services.AddKeyedTransient<global::Buddie.Services.Tts.ITtsService, global::Buddie.Services.Tts.ElevenLabsTtsService>(global::Buddie.Services.Tts.TtsChannelType.ElevenLabs);
+                        services.AddKeyedTransient<global::Buddie.Services.Tts.ITtsService, global::Buddie.Services.Tts.MiniMaxTtsService>(global::Buddie.Services.Tts.TtsChannelType.MiniMax);
+                        services.AddSingleton<global::Buddie.Services.Tts.ITtsServiceResolver, global::Buddie.Services.Tts.DefaultTtsServiceResolver>();
 
                         // Realtime services
                         services.AddSingleton<Services.RealtimeInteractionService>();

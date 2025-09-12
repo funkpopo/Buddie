@@ -14,20 +14,22 @@ namespace Buddie.Services.Tts
 
         public ITtsService Create(TtsChannelType channelType)
         {
-            return channelType switch
-            {
-                TtsChannelType.OpenAI => _serviceProvider.GetRequiredService<OpenAiTtsService>(),
-                TtsChannelType.ElevenLabs => _serviceProvider.GetRequiredService<ElevenLabsTtsService>(),
-                TtsChannelType.MiniMax => _serviceProvider.GetRequiredService<MiniMaxTtsService>(),
-                _ => throw new NotSupportedException($"不支持的TTS渠道类型: {channelType}")
-            };
+            // 通过Keyed DI解析对应的实现，避免维护手工映射/静态字典
+            return _serviceProvider.GetRequiredKeyedService<ITtsService>(channelType);
         }
 
         public bool IsSupported(TtsChannelType channelType)
         {
-            return channelType == TtsChannelType.OpenAI
-                || channelType == TtsChannelType.ElevenLabs
-                || channelType == TtsChannelType.MiniMax;
+            // 若已注册对应Key则支持；尝试解析并立即释放
+            try
+            {
+                using var service = _serviceProvider.GetKeyedService<ITtsService>(channelType);
+                return service != null;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public TtsValidationResult ValidateConfiguration(TtsConfiguration configuration)
@@ -42,4 +44,3 @@ namespace Buddie.Services.Tts
         }
     }
 }
-
