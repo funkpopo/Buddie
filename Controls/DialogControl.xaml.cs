@@ -450,6 +450,14 @@ namespace Buddie.Controls
             {
                 await StartNewConversation();
             };
+            vm.RemoveScreenshotRequested += (s, e) =>
+            {
+                ClearScreenshot();
+            };
+            vm.OpenScreenshotRequested += (s, e) =>
+            {
+                ScreenshotThumbnail_Click(this, new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left));
+            };
             vm.DeleteConversationRequested += async (s, id) =>
             {
                 await ExceptionHandlingService.ExecuteSafelyAsync(async () =>

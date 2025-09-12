@@ -220,7 +220,7 @@
                 BorderThickness="0"
                 FontSize="12"
                 FontWeight="Bold"
-                Click="LeftFlipButton_Click"
+                Command="{Binding PreviousCardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                 Cursor="Hand"
                 ToolTip="上一张卡片 / 翻转卡片（当卡片已翻转时）">
             <Button.Style>
@@ -275,7 +275,7 @@
                 BorderThickness="0"
                 FontSize="12"
                 FontWeight="Bold"
-                Click="RightFlipButton_Click"
+                Command="{Binding NextCardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                 Cursor="Hand"
                 ToolTip="下一张卡片 / 翻转卡片（当卡片已翻转时）">
             <Button.Style>

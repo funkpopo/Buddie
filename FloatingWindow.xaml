@@ -9,9 +9,9 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        Topmost="True"
+        Topmost="{Binding AppSettings.IsTopmost}"
         ResizeMode="NoResize"
-        ShowInTaskbar="True"
+        ShowInTaskbar="{Binding AppSettings.ShowInTaskbar}"
         WindowStartupLocation="CenterScreen"
         MouseEnter="FloatingWindow_MouseEnter"
         MouseLeave="FloatingWindow_MouseLeave">
@@ -35,48 +35,20 @@
         <controls:CardControl x:Name="cardControl"
                               DialogCommand="{Binding ToggleDialogCommand}"
                               BuddieCommand="{Binding ToggleRealtimeAsyncCommand}"
-                              SettingsCommand="{Binding ToggleSettingsCommand}"/>
+                              SettingsCommand="{Binding ToggleSettingsCommand}"
+                              IsDialogOpen="{Binding IsDialogVisible}"
+                              IsSettingsOpen="{Binding IsSettingsVisible}"
+                              IsBuddieOpen="{Binding IsRealtimeOpen}"
+                              PreviousCardCommand="{Binding PreviousCardCommand}"
+                              NextCardCommand="{Binding NextCardCommand}"/>
         
         <!-- 对话界面 -->
-        <controls:DialogControl x:Name="DialogControl"/>
+        <controls:DialogControl x:Name="DialogControl"
+                                Visibility="{Binding IsDialogVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
         
         <!-- 设置界面 -->
-        <controls:SettingsControl x:Name="SettingsControl"/>
-        
-        <!-- 左边按钮 - 用于切换卡片 -->
-        <Button x:Name="LeftFlipButton"
-                Content="◀"
-                Width="35"
-                Height="35"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Margin="0,0,235,75"
-                Background="#40FFFFFF"
-                Foreground="#666666"
-                BorderThickness="0"
-                FontSize="12"
-                FontWeight="Bold"
-                Command="{Binding PreviousCardCommand}"
-                Cursor="Hand"
-                ToolTip="上一张卡片 / 翻转卡片（当卡片已翻转时）"
-                Style="{StaticResource CircularButtonStyle}"/>
-        
-        <!-- 右边按钮 - 用于切换卡片 -->
-        <Button x:Name="RightFlipButton"
-                Content="▶"
-                Width="35"
-                Height="35"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Margin="0,0,5,75"
-                Background="#40FFFFFF"
-                Foreground="#666666"
-                BorderThickness="0"
-                FontSize="12"
-                FontWeight="Bold"
-                Command="{Binding NextCardCommand}"
-                Cursor="Hand"
-                ToolTip="下一张卡片 / 翻转卡片（当卡片已翻转时）"
-                Style="{StaticResource CircularButtonStyle}"/>
+        <controls:SettingsControl x:Name="SettingsControl"
+                                  Visibility="{Binding IsSettingsVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
     </Grid>
 </Window>

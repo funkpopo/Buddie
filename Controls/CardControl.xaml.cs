@@ -20,6 +20,21 @@ namespace Buddie.Controls
         public static readonly DependencyProperty SettingsCommandProperty = DependencyProperty.Register(
             nameof(SettingsCommand), typeof(ICommand), typeof(CardControl), new PropertyMetadata(null));
 
+        public static readonly DependencyProperty PreviousCardCommandProperty = DependencyProperty.Register(
+            nameof(PreviousCardCommand), typeof(ICommand), typeof(CardControl), new PropertyMetadata(null));
+
+        public static readonly DependencyProperty NextCardCommandProperty = DependencyProperty.Register(
+            nameof(NextCardCommand), typeof(ICommand), typeof(CardControl), new PropertyMetadata(null));
+
+        public static readonly DependencyProperty IsDialogOpenProperty = DependencyProperty.Register(
+            nameof(IsDialogOpen), typeof(bool), typeof(CardControl), new PropertyMetadata(false, OnOpenStateChanged));
+
+        public static readonly DependencyProperty IsBuddieOpenProperty = DependencyProperty.Register(
+            nameof(IsBuddieOpen), typeof(bool), typeof(CardControl), new PropertyMetadata(false, OnOpenStateChanged));
+
+        public static readonly DependencyProperty IsSettingsOpenProperty = DependencyProperty.Register(
+            nameof(IsSettingsOpen), typeof(bool), typeof(CardControl), new PropertyMetadata(false, OnOpenStateChanged));
+
         public ICommand? DialogCommand
         {
             get => (ICommand?)GetValue(DialogCommandProperty);
@@ -38,22 +53,46 @@ namespace Buddie.Controls
             set => SetValue(SettingsCommandProperty, value);
         }
 
-        public event EventHandler? DialogButtonClicked;
-        public event EventHandler? BuddieButtonClicked;
-        public event EventHandler? SettingsButtonClicked;
-        public event EventHandler? LeftFlipButtonClicked;
-        public event EventHandler? RightFlipButtonClicked;
-        
-        public event EventHandler? DialogRequested;
-        public event EventHandler? BuddieRequested;
-        public event EventHandler? SettingsRequested;
+        public ICommand? PreviousCardCommand
+        {
+            get => (ICommand?)GetValue(PreviousCardCommandProperty);
+            set => SetValue(PreviousCardCommandProperty, value);
+        }
+
+        public ICommand? NextCardCommand
+        {
+            get => (ICommand?)GetValue(NextCardCommandProperty);
+            set => SetValue(NextCardCommandProperty, value);
+        }
+
+        public bool IsDialogOpen
+        {
+            get => (bool)GetValue(IsDialogOpenProperty);
+            set => SetValue(IsDialogOpenProperty, value);
+        }
+
+        public bool IsBuddieOpen
+        {
+            get => (bool)GetValue(IsBuddieOpenProperty);
+            set => SetValue(IsBuddieOpenProperty, value);
+        }
+
+        public bool IsSettingsOpen
+        {
+            get => (bool)GetValue(IsSettingsOpenProperty);
+            set => SetValue(IsSettingsOpenProperty, value);
+        }
+
+        private static void OnOpenStateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is CardControl cc)
+            {
+                cc.UpdateButtonColors();
+            }
+        }
+
         public event EventHandler? MouseEntered;
         public event EventHandler? MouseLeft;
-
-        // 界面状态跟踪
-        private bool _isDialogOpen = false;
-        private bool _isBuddieOpen = false;
-        private bool _isSettingsOpen = false;
 
         public CardControl()
         {
@@ -91,18 +130,7 @@ namespace Buddie.Controls
             MouseLeft?.Invoke(this, EventArgs.Empty);
         }
 
-        // Button clicks are now bound to ICommand via dependency properties in XAML.
-
-
-        private void LeftFlipButton_Click(object sender, RoutedEventArgs e)
-        {
-            LeftFlipButtonClicked?.Invoke(this, EventArgs.Empty);
-        }
-
-        private void RightFlipButton_Click(object sender, RoutedEventArgs e)
-        {
-            RightFlipButtonClicked?.Invoke(this, EventArgs.Empty);
-        }
+        // Navigation and actions are bound via ICommand dependency properties in XAML.
 
         /// &lt;summary&gt;
         /// 翻转卡片，切换正面和背面显示
@@ -263,41 +291,12 @@ namespace Buddie.Controls
             this.BeginAnimation(UIElement.OpacityProperty, fadeOutAnimation);
         }
 
-        // 更新按钮状态显示
-        /// &lt;summary&gt;
-        /// 更新对话按钮状态
-        /// &lt;/summary&gt;
-        /// &lt;param name="isOpen"&gt;对话是否打开&lt;/param&gt;
-        public void UpdateDialogButtonState(bool isOpen)
-        {
-            _isDialogOpen = isOpen;
-            UpdateButtonColors();
-        }
-
-        /// &lt;summary&gt;
-        /// 更新设置按钮状态
-        /// &lt;/summary&gt;
-        /// &lt;param name="isOpen"&gt;设置是否打开&lt;/param&gt;
-        public void UpdateSettingsButtonState(bool isOpen)
-        {
-            _isSettingsOpen = isOpen;
-            UpdateButtonColors();
-        }
-
-        /// &lt;summary&gt;
-        /// 更新Buddie按钮状态
-        /// &lt;/summary&gt;
-        /// &lt;param name="isOpen"&gt;Buddie是否打开&lt;/param&gt;
-        public void UpdateBuddieButtonState(bool isOpen)
-        {
-            _isBuddieOpen = isOpen;
-            UpdateButtonColors();
-        }
+        // Visual state driven by IsDialogOpen/IsBuddieOpen/IsSettingsOpen.
 
         private void UpdateButtonColors()
         {
             // 对话按钮：展开时显示橘色
-            if (_isDialogOpen)
+            if (IsDialogOpen)
             {
                 DialogButton.Background = System.Windows.Media.Brushes.Orange;
                 DialogButton.Foreground = System.Windows.Media.Brushes.White;
@@ -309,7 +308,7 @@ namespace Buddie.Controls
             }
 
             // Buddie按钮：展开时显示绿色
-            if (_isBuddieOpen)
+            if (IsBuddieOpen)
             {
                 BuddieButton.Background = System.Windows.Media.Brushes.Green;
                 BuddieButton.Foreground = System.Windows.Media.Brushes.White;
@@ -321,7 +320,7 @@ namespace Buddie.Controls
             }
 
             // 设置按钮：展开时显示蓝色
-            if (_isSettingsOpen)
+            if (IsSettingsOpen)
             {
                 SettingsButton.Background = System.Windows.Media.Brushes.Blue;
                 SettingsButton.Foreground = System.Windows.Media.Brushes.White;

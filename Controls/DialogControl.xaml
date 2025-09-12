@@ -662,8 +662,12 @@
                                        MaxHeight="60"
                                        Stretch="Uniform"
                                        Cursor="Hand"
-                                       MouseLeftButtonDown="ScreenshotThumbnail_Click"
-                                       ToolTip="点击查看大图"/>
+                                       ToolTip="点击查看大图">
+                                    <Image.InputBindings>
+                                    <MouseBinding Gesture="LeftClick"
+                                                  Command="{Binding DataContext.OpenScreenshotCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </Image.InputBindings>
+                                </Image>
                             </Border>
                             
                             <!-- 文件信息 -->
@@ -713,7 +717,7 @@
                                     FontSize="14"
                                     FontWeight="Bold"
                                     Cursor="Hand"
-                                    Click="RemoveScreenshot_Click"
+                                    Command="{Binding DataContext.RemoveScreenshotCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     ToolTip="移除截图">
                                 <Button.Style>
                                     <Style TargetType="Button">

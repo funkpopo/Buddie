@@ -72,7 +72,7 @@
                             BorderThickness="0"
                             FontSize="14"
                             FontWeight="Bold"
-                            Click="CloseSettings_Click"
+                            Command="{Binding CloseCommand}"
                             Cursor="Hand">
                         <Button.Style>
                             <Style TargetType="Button">
@@ -148,10 +148,8 @@
                                 </StackPanel>
                                 <CheckBox x:Name="TopMostCheckBox"
                                           Grid.Column="1"
-                                          IsChecked="True"
-                                          Style="{StaticResource ToggleSwitchStyle}"
-                                          Checked="TopMostCheckBox_Changed"
-                                          Unchecked="TopMostCheckBox_Changed"/>
+                                          IsChecked="{Binding IsTopmost, Mode=TwoWay}"
+                                          Style="{StaticResource ToggleSwitchStyle}"/>
                             </Grid>
                             
                             <Separator Margin="0,8">
@@ -200,10 +198,8 @@
                                 </StackPanel>
                                 <CheckBox x:Name="ShowInTaskbarCheckBox"
                                           Grid.Column="1"
-                                          IsChecked="True"
-                                          Style="{StaticResource ToggleSwitchStyle}"
-                                          Checked="ShowInTaskbarCheckBox_Changed"
-                                          Unchecked="ShowInTaskbarCheckBox_Changed"/>
+                                          IsChecked="{Binding ShowInTaskbar, Mode=TwoWay}"
+                                          Style="{StaticResource ToggleSwitchStyle}"/>
                             </Grid>
                             
                             <Separator Margin="0,8">
@@ -253,9 +249,7 @@
                                 <CheckBox x:Name="DarkThemeCheckBox"
                                           Grid.Column="1"
                                           IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
-                                          Style="{StaticResource ToggleSwitchStyle}"
-                                          Checked="DarkThemeCheckBox_Changed"
-                                          Unchecked="DarkThemeCheckBox_Changed"/>
+                                          Style="{StaticResource ToggleSwitchStyle}"/>
                             </Grid>
                             
                             <Separator Margin="0,15">
@@ -291,7 +285,7 @@
                                     BorderThickness="0"
                                     Padding="10,5"
                                     Margin="0,10,0,0"
-                                    Click="ResetSettings_Click"
+                                    Command="{Binding ResetCommand}"
                                     Cursor="Hand"
                                     Style="{StaticResource RoundedButtonStyle}"/>
                         </StackPanel>

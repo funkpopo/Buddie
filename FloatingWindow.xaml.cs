@@ -39,14 +39,12 @@ namespace Buddie
 
         private NotifyIcon? trayIcon;
         private readonly FloatingWindowViewModel _vm;
-        private readonly List<CardData> _cards = new List<CardData>();
-        private int _currentCardIndex = 0;
         private readonly AppSettings _appSettings = new AppSettings();
         private readonly CardColorManager _colorManager = new CardColorManager();
         
         // 实时交互服务
         private readonly RealtimeInteractionService _realtimeService = Buddie.App.GetService<Buddie.Services.RealtimeInteractionService>();
-        private bool _isRealtimeInteractionOpen = false;
+        // Real-time interaction state is tracked in ViewModel
         
         // 用户交互状态管理
         private bool _isUserInteracting = false;
@@ -66,40 +64,21 @@ namespace Buddie
             
             // Initial cards sync to view is handled by ViewModel
 
-            // Bridge VM state to controls
+            // Update card visuals on index/list changes
             _vm.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(FloatingWindowViewModel.CurrentCardIndex) || e.PropertyName == nameof(FloatingWindowViewModel.Cards))
+                if (e.PropertyName == nameof(FloatingWindowViewModel.CurrentCardIndex) ||
+                    e.PropertyName == nameof(FloatingWindowViewModel.Cards))
                 {
                     UpdateCardDisplayFromViewModel();
                 }
                 else if (e.PropertyName == nameof(FloatingWindowViewModel.IsDialogVisible))
                 {
-                    if (_vm.IsDialogVisible)
-                    {
-                        DialogControl.Show();
-                    }
-                    else
-                    {
-                        DialogControl.Hide();
-                    }
-                    cardControl.UpdateDialogButtonState(_vm.IsDialogVisible);
+                    if (_vm.IsDialogVisible) DialogControl.Show(); else DialogControl.Hide();
                 }
                 else if (e.PropertyName == nameof(FloatingWindowViewModel.IsSettingsVisible))
                 {
-                    if (_vm.IsSettingsVisible)
-                    {
-                        SettingsControl.Show();
-                    }
-                    else
-                    {
-                        SettingsControl.Hide();
-                    }
-                    cardControl.UpdateSettingsButtonState(_vm.IsSettingsVisible);
-                }
-                else if (e.PropertyName == nameof(FloatingWindowViewModel.IsRealtimeOpen))
-                {
-                    cardControl.UpdateBuddieButtonState(_vm.IsRealtimeOpen);
+                    if (_vm.IsSettingsVisible) SettingsControl.Show(); else SettingsControl.Hide();
                 }
             };
             // Initial paint from VM state
@@ -159,97 +138,17 @@ namespace Buddie
             DialogControl.SetCurrentApiConfiguration(card.ApiConfiguration);
         }
 
-        /// <summary>
-        /// 切换实时交互界面
-        /// </summary>
-        private async void ToggleRealtimeInteraction()
-        {
-            try
-            {
-                if (!_isRealtimeInteractionOpen)
-                {
-                    // 获取当前激活的实时交互配置
-                    var activeConfig = _appSettings.RealtimeConfigurations.FirstOrDefault(c => c.IsActive);
-                    
-                    if (activeConfig == null)
-                    {
-                        System.Windows.MessageBox.Show(
-                            "请先在设置中配置并激活一个实时交互配置。",
-                            "提示",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                        
-                        // 打开设置界面并导航到实时交互设置标签
-                        SettingsControl.Show();
-                        // TODO: 导航到实时交互设置标签
-                        return;
-                    }
-
-                    // 启动实时交互服务
-                    await _realtimeService.StartAsync(activeConfig);
-                    _isRealtimeInteractionOpen = true;
-                    
-                    // 更新按钮状态
-                    cardControl.UpdateBuddieButtonState(true);
-                    
-                    // TODO: 显示实时交互UI
-                    System.Windows.MessageBox.Show(
-                        $"实时交互已启动\n配置: {activeConfig.Name}\n模型: {activeConfig.Model}\n语音: {activeConfig.Voice}",
-                        "实时交互",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                }
-                else
-                {
-                    // 停止实时交互服务
-                    await _realtimeService.StopAsync();
-                    _isRealtimeInteractionOpen = false;
-                    
-                    // 更新按钮状态
-                    cardControl.UpdateBuddieButtonState(false);
-                    
-                    System.Windows.MessageBox.Show(
-                        "实时交互已停止",
-                        "实时交互",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Windows.MessageBox.Show(
-                    $"实时交互操作失败: {ex.Message}",
-                    "错误",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-                
-                _isRealtimeInteractionOpen = false;
-                cardControl.UpdateBuddieButtonState(false);
-            }
-        }
+        // 实时交互切换由 ViewModel 的 ToggleRealtimeAsyncCommand 处理
 
         private void InitializeControls()
         {
-            // 初始化设置控件
+            // 初始化设置控件（绑定到 SettingsViewModel）
             SettingsControl.Initialize(_appSettings);
-            SettingsControl.DataContext = _appSettings;
             
             // 订阅设置控件事件
             SettingsControl.SettingsClosed += (s, e) => EnableClickThrough(false);
-            SettingsControl.TopMostChanged += (s, value) => this.Topmost = value;
-            SettingsControl.ShowInTaskbarChanged += (s, value) => this.ShowInTaskbar = value;
-            SettingsControl.DarkThemeChanged += async (s, value) => {
-                _appSettings.IsDarkTheme = value;
-                ApplyTheme();
-                // 自动保存主题设置到数据库
-                await ExceptionHandlingService.Database.ExecuteSafelyAsync(
-                    () => _appSettings.SaveToDatabaseAsync(),
-                    "保存主题设置");
-            };
             SettingsControl.ResetSettingsRequested += (s, e) => ResetSettings();
             SettingsControl.SettingsVisibilityChanged += (s, isVisible) => {
-                // 更新卡片按钮状态
-                cardControl.UpdateSettingsButtonState(isVisible);
                 _vm.IsSettingsVisible = isVisible;
             };
             SettingsControl.ApiConfigurationChanged += async (s, e) => {
@@ -258,8 +157,8 @@ namespace Buddie
                     () => _appSettings.SaveToDatabaseAsync(),
                     "保存API配置");
                 
-                UpdateCardsFromApiConfigurations();
-                UpdateCardDisplay();
+                _vm.BuildCardsFromAppSettings();
+                UpdateCardDisplayFromViewModel();
             };
             
             // 订阅TTS配置事件
@@ -319,15 +218,9 @@ namespace Buddie
                 }
             };
             DialogControl.DialogClosed += (s, e) => EnableClickThrough(false);
-            DialogControl.DialogVisibilityChanged += (s, isVisible) => {
-                // 更新卡片按钮状态
-                cardControl.UpdateDialogButtonState(isVisible);
-                _vm.IsDialogVisible = isVisible;
-            };
+            DialogControl.DialogVisibilityChanged += (s, isVisible) => { _vm.IsDialogVisible = isVisible; };
             
             // 初始化卡片控件 - 通过命令绑定触发动作
-            cardControl.MouseEntered += (s, e) => EnableClickThrough(false);
-            cardControl.MouseLeft += (s, e) => EnableClickThrough(false);
             cardControl.MouseEntered += (s, e) => EnableClickThrough(false);
             cardControl.MouseLeft += (s, e) => EnableClickThrough(false);
             
@@ -335,29 +228,7 @@ namespace Buddie
             SubscribeToFocusEvents();
         }
 
-        private void InitializeCards()
-        {
-            // 初始化卡片根据API配置
-            UpdateCardsFromApiConfigurations();
-            
-            // 如果没有API配置，添加一个默认示例卡片
-            if (_cards.Count == 0)
-            {
-                _cards.Add(new CardData
-                {
-                    FrontText = "示例配置",
-                    FrontSubText = "请先添加API配置",
-                    BackText = "无可用配置",
-                    BackSubText = "点击设置按钮添加",
-                    FrontBackground = new LinearGradientBrush(
-                        Colors.LightBlue, Colors.White, new System.Windows.Point(0, 0), new System.Windows.Point(1, 1)
-                    ),
-                    BackBackground = new LinearGradientBrush(
-                        Colors.LightCoral, Colors.White, new System.Windows.Point(0, 0), new System.Windows.Point(1, 1)
-                    )
-                });
-            }
-        }
+        // Cards are built and tracked via the ViewModel
 
         private void InitializeTrayIcon()
         {
@@ -478,170 +349,9 @@ namespace Buddie
             }
         }
 
-        private bool _isFlipped = false;
-        private bool _isAnimating = false;
-
-        private void LeftFlipButton_Click(object sender, System.Windows.RoutedEventArgs e)
-        {
-            if (_isFlipped)
-            {
-                cardControl.FlipCard();
-                _isFlipped = false;
-            }
-            else
-            {
-                SwitchToPreviousCard();
-            }
-        }
-
-        private void RightFlipButton_Click(object sender, System.Windows.RoutedEventArgs e)
-        {
-            if (_isFlipped)
-            {
-                cardControl.FlipCard();
-                _isFlipped = false;
-            }
-            else
-            {
-                SwitchToNextCard();
-            }
-        }
-
-        private void SwitchToNextCard()
-        {
-            if (_isAnimating || _cards.Count <= 1)
-                return;
-                
-            int nextIndex = (_currentCardIndex + 1) % _cards.Count;
-            SwitchToCardWithAnimation(nextIndex, 1); // 1表示向右翻动
-        }
-
-        private void SwitchToPreviousCard()
-        {
-            if (_isAnimating || _cards.Count <= 1)
-                return;
-                
-            int prevIndex = (_currentCardIndex - 1 + _cards.Count) % _cards.Count;
-            SwitchToCardWithAnimation(prevIndex, -1); // -1表示向左翻动
-        }
-
-        /// <summary>
-        /// 带动画的卡片切换
-        /// </summary>
-        /// <param name="newIndex">新卡片索引</param>
-        /// <param name="direction">动画方向：1为向右，-1为向左</param>
-        private void SwitchToCardWithAnimation(int newIndex, int direction)
-        {
-            if (newIndex == _currentCardIndex || _isAnimating || newIndex < 0 || newIndex >= _cards.Count)
-                return;
-
-            _isAnimating = true;
-            _isFlipped = false;
-            
-            var newCard = _cards[newIndex];
-            
-            // 执行翻动动画
-            cardControl.SwitchWithFlipAnimation(newCard, newIndex + 1, _cards.Count, direction, () =>
-            {
-                // 动画完成后更新当前索引
-                _currentCardIndex = newIndex;
-                _isAnimating = false;
-                
-                // 仅更新DialogControl的API配置，不自动打开对话界面
-                if (_currentCardIndex < _cards.Count && _cards[_currentCardIndex].ApiConfiguration != null)
-                {
-                    DialogControl.SetCurrentApiConfiguration(_cards[_currentCardIndex].ApiConfiguration);
-                }
-            });
-        }
-
-        private void SwitchToCard(int newIndex)
-        {
-            if (newIndex == _currentCardIndex || _isAnimating)
-                return;
-                
-            _currentCardIndex = newIndex;
-            _isFlipped = false;
-            UpdateCardDisplay();
-            
-            // 仅更新DialogControl的API配置，不自动打开对话界面
-            if (_currentCardIndex < _cards.Count && _cards[_currentCardIndex].ApiConfiguration != null)
-            {
-                DialogControl.SetCurrentApiConfiguration(_cards[_currentCardIndex].ApiConfiguration);
-            }
-        }
+        // Card navigation is handled via ViewModel commands and bound buttons.
         
-        // 为当前卡片显示对话界面
-        private void ShowDialogForCurrentCard()
-        {
-            // 传递当前卡片的API配置给DialogControl
-            if (_currentCardIndex >= 0 && _currentCardIndex < _cards.Count)
-            {
-                DialogControl.SetCurrentApiConfiguration(_cards[_currentCardIndex].ApiConfiguration);
-            }
-            DialogControl.Toggle();
-        }
-        
-        private void UpdateCardDisplay()
-        {
-            if (_currentCardIndex < 0 || _currentCardIndex >= _cards.Count)
-                return;
-                
-            var card = _cards[_currentCardIndex];
-            cardControl.UpdateDisplay(card, _currentCardIndex + 1, _cards.Count);
-            
-            // 更新DialogControl的API配置
-            DialogControl.SetCurrentApiConfiguration(card.ApiConfiguration);
-        }
-        
-        // 根据API配置更新卡片
-        private void UpdateCardsFromApiConfigurations()
-        {
-            _cards.Clear();
-            _colorManager.ResetAll(); // 重置颜色系统以确保新卡片有不同的颜色
-            
-            if (_appSettings.ApiConfigurations.Count > 0)
-            {
-                // 批量获取具有明显色差的颜色对
-                var colorPairs = _colorManager.GetMultipleColorPairs(_appSettings.ApiConfigurations.Count);
-                
-                for (int i = 0; i < _appSettings.ApiConfigurations.Count; i++)
-                {
-                    var apiConfig = _appSettings.ApiConfigurations[i];
-                    var colorPair = colorPairs[i];
-                    
-                    _cards.Add(new CardData
-                    {
-                        FrontText = apiConfig.Name,
-                        FrontSubText = apiConfig.ModelName,
-                        BackText = "API配置",
-                        BackSubText = $"URL: {apiConfig.ApiUrl}",
-                        FrontBackground = _colorManager.CreateGradientBrush(colorPair.frontColor),
-                        BackBackground = _colorManager.CreateGradientBrush(colorPair.backColor),
-                        ApiConfiguration = apiConfig  // 关联API配置
-                    });
-                }
-            }
-            
-            // 如果没有API配置，创建默认卡片
-            if (_cards.Count == 0)
-            {
-                var colorPair = _colorManager.GetColorPair();
-                _cards.Add(new CardData
-                {
-                    FrontText = "欢迎使用",
-                    FrontSubText = "点击设置添加AI配置",
-                    BackText = "配置提示",
-                    BackSubText = "在设置中添加OpenAI API配置后即可开始对话",
-                    FrontBackground = _colorManager.CreateGradientBrush(colorPair.frontColor),
-                    BackBackground = _colorManager.CreateGradientBrush(colorPair.backColor)
-                });
-            }
-            
-            // 重置当前卡片索引
-            _currentCardIndex = Math.Min(_currentCardIndex, _cards.Count - 1);
-            if (_currentCardIndex < 0) _currentCardIndex = 0;
-        }
+        // Card visuals are updated from the ViewModel
         
         /// <summary>
         /// 测试颜色管理器功能
@@ -726,8 +436,8 @@ namespace Buddie
                 SettingsControl.RefreshTtsConfigurations(_appSettings.TtsConfigurations);
                 
                 // 更新卡片显示
-                UpdateCardsFromApiConfigurations();
-                UpdateCardDisplay();
+                _vm.BuildCardsFromAppSettings();
+                UpdateCardDisplayFromViewModel();
             }
             catch (Exception)
             {
@@ -756,8 +466,8 @@ namespace Buddie
         /// </summary>
         private void RefreshCards()
         {
-            UpdateCardsFromApiConfigurations();
-            UpdateCardDisplay();
+            _vm.BuildCardsFromAppSettings();
+            UpdateCardDisplayFromViewModel();
         }
 
         /// <summary>

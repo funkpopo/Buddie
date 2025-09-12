@@ -31,6 +31,8 @@ namespace Buddie.ViewModels
         public event EventHandler<string>? CopyRequested;
         public event EventHandler<string>? PlayTtsRequested;
         public event EventHandler<int>? DeleteConversationRequested;
+        public event EventHandler? RemoveScreenshotRequested;
+        public event EventHandler? OpenScreenshotRequested;
 
         [RelayCommand]
         private void SendMessage(string message)
@@ -86,6 +88,18 @@ namespace Buddie.ViewModels
         private void DeleteConversation(int conversationId)
         {
             DeleteConversationRequested?.Invoke(this, conversationId);
+        }
+
+        [RelayCommand]
+        private void RemoveScreenshot()
+        {
+            RemoveScreenshotRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        [RelayCommand]
+        private void OpenScreenshot()
+        {
+            OpenScreenshotRequested?.Invoke(this, EventArgs.Empty);
         }
     }
 }

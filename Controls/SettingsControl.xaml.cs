@@ -40,6 +40,21 @@ namespace Buddie.Controls
 
         public void Initialize(AppSettings appSettings)
         {
+            // Set a ViewModel that wraps AppSettings for MVVM bindings
+            var vm = new Buddie.ViewModels.SettingsViewModel(appSettings);
+            this.DataContext = vm;
+
+            vm.CloseRequested += (s, e) =>
+            {
+                Hide();
+                SettingsClosed?.Invoke(this, EventArgs.Empty);
+            };
+
+            vm.ResetRequested += (s, e) =>
+            {
+                ResetSettingsRequested?.Invoke(this, EventArgs.Empty);
+            };
+
             // 初始化子控件
             ApiConfigControl.Initialize(appSettings.ApiConfigurations);
             TtsConfigControl.Initialize(appSettings.TtsConfigurations);
@@ -132,34 +147,7 @@ namespace Buddie.Controls
             ApiConfigurationChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        private void CloseSettings_Click(object sender, RoutedEventArgs e)
-        {
-            Hide();
-            SettingsClosed?.Invoke(this, EventArgs.Empty);
-        }
-
-        private void ResetSettings_Click(object sender, RoutedEventArgs e)
-        {
-            ResetSettingsRequested?.Invoke(this, EventArgs.Empty);
-        }
-
-        private void TopMostCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            if (TopMostCheckBox.IsChecked.HasValue)
-                TopMostChanged?.Invoke(this, TopMostCheckBox.IsChecked.Value);
-        }
-
-        private void ShowInTaskbarCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            if (ShowInTaskbarCheckBox.IsChecked.HasValue)
-                ShowInTaskbarChanged?.Invoke(this, ShowInTaskbarCheckBox.IsChecked.Value);
-        }
-
-        private void DarkThemeCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            if (DarkThemeCheckBox.IsChecked.HasValue)
-                DarkThemeChanged?.Invoke(this, DarkThemeCheckBox.IsChecked.Value);
-        }
+        // Checkbox changes are two-way bound to AppSettings via ViewModel
 
         public void Show()
         {
