@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Text.Json;
 using System.Threading;
 using Microsoft.Extensions.Logging;
@@ -199,29 +198,13 @@ namespace Buddie.Services.ExceptionHandling
         {
             try
             {
-                if (_errorNotifier != null)
-                {
-                    _errorNotifier.NotifyError(message, exception, context);
-                }
-                else
-                {
-                    if (Application.Current?.Dispatcher?.CheckAccess() == true)
-                    {
-                        MessageBox.Show(message, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    }
-                    else
-                    {
-                        Application.Current?.Dispatcher?.Invoke(() =>
-                        {
-                            MessageBox.Show(message, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        });
-                    }
-                }
+                // 仅通过抽象的通知器进行UI通知；不直接依赖WPF组件
+                _errorNotifier?.NotifyError(message, exception, context);
             }
             catch
             {
-                // 如果消息框显示失败，至少输出到控制台
-                Console.WriteLine($"Error: {message}");
+                // 通知失败时避免影响主流程；必要时降级到控制台输出
+                Console.WriteLine($"Error notification failed: {message}");
             }
         }
 
