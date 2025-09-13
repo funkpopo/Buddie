@@ -134,72 +134,27 @@ namespace Buddie
             // 初始化设置控件（绑定到 SettingsViewModel）
             SettingsControl.Initialize(_appSettings);
             
-            // 订阅设置控件事件
-            SettingsControl.SettingsClosed += (s, e) => _clickThroughService.SetClickThrough(false);
-            SettingsControl.ResetSettingsRequested += (s, e) => ResetSettings();
-            SettingsControl.SettingsVisibilityChanged += (s, isVisible) => {
-                _vm.IsSettingsVisible = isVisible;
-            };
-            SettingsControl.ApiConfigurationChanged += async (s, e) => {
-                // 自动保存配置更改到数据库
-                await ExceptionHandlingService.Database.ExecuteSafelyAsync(
-                    () => _appSettings.SaveToDatabaseAsync(),
-                    "保存API配置");
-                
-                _vm.BuildCardsFromAppSettings();
-                UpdateCardDisplayFromViewModel();
-            };
+            // 设置控件事件处理迁移到 ViewModel
+            SettingsControl.SettingsClosed += (s, e) => _vm.OnSettingsClosed();
+            SettingsControl.ResetSettingsRequested += (s, e) => _vm.ResetSettingsCommand.Execute(null);
+            SettingsControl.SettingsVisibilityChanged += (s, isVisible) => _vm.IsSettingsVisible = isVisible;
+            SettingsControl.ApiConfigurationChanged += async (s, e) => await _vm.HandleApiConfigurationChangedAsync();
             
-            // 订阅TTS配置事件
-            SettingsControl.TtsConfigurationActivated += async (s, config) => {
-                await ExceptionHandlingService.Tts.ExecuteSafelyAsync(
-                    () => _appSettings.ActivateTtsConfigurationAsync(config),
-                    "激活TTS配置");
-            };
-            
-            SettingsControl.TtsConfigurationAdded += (s, config) => {
-                ExceptionHandlingService.UI.ExecuteSafely(() => {
-                    // 新配置添加到集合中并保存到数据库
-                    // 配置已经通过TtsConfigControl.Initialize绑定到_appSettings.TtsConfigurations
-                    // 新添加的配置在用户点击保存按钮时会触发TtsConfigurationUpdated事件
-                }, "TTS配置添加");
-            };
-            
-            SettingsControl.TtsConfigurationUpdated += async (s, config) => {
-                try
-                {
-                    // 当用户点击保存按钮后，保存单个配置
-                    await _appSettings.SaveTtsConfigurationAsync(config);
-                }
-                catch (Exception)
-                {
-                    // Handle TTS configuration update error silently
-                }
-            };
-            
-            SettingsControl.TtsConfigurationRemoved += async (s, config) => {
-                try
-                {
-                    if (config.IsSaved && config.Id > 0)
-                    {
-                        await _appSettings.RemoveTtsConfigurationAsync(config);
-                    }
-                }
-                catch (Exception)
-                {
-                    // Handle TTS configuration removal error silently
-                }
-            };
+            // TTS配置事件处理迁移到 ViewModel
+            SettingsControl.TtsConfigurationActivated += async (s, config) => await _vm.HandleTtsConfigurationActivatedAsync(config);
+            SettingsControl.TtsConfigurationAdded += (s, config) => _vm.HandleTtsConfigurationAdded(config);
+            SettingsControl.TtsConfigurationUpdated += async (s, config) => await _vm.HandleTtsConfigurationUpdatedAsync(config);
+            SettingsControl.TtsConfigurationRemoved += async (s, config) => await _vm.HandleTtsConfigurationRemovedAsync(config);
             
             // 初始化对话控件（MVVM）
             var dialogVm = new Buddie.ViewModels.DialogViewModel(_appSettings);
             DialogControl.InitializeViewModel(dialogVm);
-            DialogControl.DialogClosed += (s, e) => _clickThroughService.SetClickThrough(false);
-            DialogControl.DialogVisibilityChanged += (s, isVisible) => { _vm.IsDialogVisible = isVisible; };
+            DialogControl.DialogClosed += (s, e) => _vm.OnDialogClosed();
+            DialogControl.DialogVisibilityChanged += (s, isVisible) => _vm.IsDialogVisible = isVisible;
             
             // 初始化卡片控件 - 通过命令绑定触发动作
-            cardControl.MouseEntered += (s, e) => _clickThroughService.SetClickThrough(false);
-            cardControl.MouseLeft += (s, e) => _clickThroughService.SetClickThrough(false);
+            cardControl.MouseEntered += (s, e) => _vm.OnCardMouseEntered();
+            cardControl.MouseLeft += (s, e) => _vm.OnCardMouseLeft();
             
             // 监听子控件的焦点事件以防止输入时透明化
             SubscribeToFocusEvents();
@@ -317,32 +272,21 @@ namespace Buddie
             }
         }
         
-        // 重置设置
+        // 重置设置 - 迁移到 ViewModel
         private void ResetSettings()
         {
-            this.Topmost = true;
-            this.ShowInTaskbar = true;
-            _appSettings.IsDarkTheme = false;
+            _vm.ResetSettingsCommand.Execute(null);
             ApplyTheme();
         }
 
         // 应用主题
         private void ApplyTheme()
         {
-            bool isDarkTheme = _appSettings.IsDarkTheme;
-            
-            if (isDarkTheme)
-            {
-                ApplyDarkTheme();
-            }
-            else
-            {
-                ApplyLightTheme();
-            }
+            _vm.ApplyThemeCommand.Execute(null);
             
             // 应用主题到子控件
-            SettingsControl.ApplyTheme(isDarkTheme);
-            DialogControl.ApplyTheme(isDarkTheme);
+            SettingsControl.ApplyTheme(_appSettings.IsDarkTheme);
+            DialogControl.ApplyTheme(_appSettings.IsDarkTheme);
         }
 
         private void ApplyDarkTheme()

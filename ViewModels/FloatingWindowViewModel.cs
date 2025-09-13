@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Buddie;
 using Buddie.Services;
+using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.ViewModels
 {
@@ -246,6 +247,92 @@ namespace Buddie.ViewModels
         public void SetClickThroughService(IClickThroughService service)
         {
             _clickThroughService = service;
+        }
+        [RelayCommand]
+        private void ResetSettings()
+        {
+            AppSettings.IsTopmost = true;
+            AppSettings.ShowInTaskbar = true;
+            AppSettings.IsDarkTheme = false;
+        }
+
+        [RelayCommand]
+        private void ApplyTheme()
+        {
+            // Theme application is handled through data binding
+            // Child controls will be notified through property changes
+        }
+
+        // Event handlers for controls
+        public void OnSettingsClosed()
+        {
+            _clickThroughService?.SetClickThrough(false);
+        }
+
+        public void OnDialogClosed()
+        {
+            _clickThroughService?.SetClickThrough(false);
+        }
+
+        public void OnCardMouseEntered()
+        {
+            _clickThroughService?.SetClickThrough(false);
+        }
+
+        public void OnCardMouseLeft()
+        {
+            _clickThroughService?.SetClickThrough(false);
+        }
+
+        // Configuration handling methods
+        public async Task HandleApiConfigurationChangedAsync()
+        {
+            await ExceptionHandlingService.Database.ExecuteSafelyAsync(
+                () => AppSettings.SaveToDatabaseAsync(),
+                "保存API配置");
+            
+            BuildCardsFromAppSettings();
+        }
+
+        public async Task HandleTtsConfigurationActivatedAsync(TtsConfiguration config)
+        {
+            await ExceptionHandlingService.Tts.ExecuteSafelyAsync(
+                () => AppSettings.ActivateTtsConfigurationAsync(config),
+                "激活TTS配置");
+        }
+
+        public void HandleTtsConfigurationAdded(TtsConfiguration config)
+        {
+            ExceptionHandlingService.UI.ExecuteSafely(() => {
+                // Configuration is already bound to AppSettings.TtsConfigurations
+            }, "TTS配置添加");
+        }
+
+        public async Task HandleTtsConfigurationUpdatedAsync(TtsConfiguration config)
+        {
+            try
+            {
+                await AppSettings.SaveTtsConfigurationAsync(config);
+            }
+            catch (Exception)
+            {
+                // Handle TTS configuration update error silently
+            }
+        }
+
+        public async Task HandleTtsConfigurationRemovedAsync(TtsConfiguration config)
+        {
+            try
+            {
+                if (config.IsSaved && config.Id > 0)
+                {
+                    await AppSettings.RemoveTtsConfigurationAsync(config);
+                }
+            }
+            catch (Exception)
+            {
+                // Handle TTS configuration removal error silently
+            }
         }
     }
 }
