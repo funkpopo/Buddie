@@ -1097,6 +1097,9 @@ namespace Buddie
         private string _model = "";
         private string _voice = "";
         private VadMode _vadMode = VadMode.CLIENT_VAD;
+        private double _vadThreshold = 0.02;
+        private int _vadMinSpeechFrames = 3;
+        private int _vadMinSilenceFrames = 10;
         private bool _isEditMode = true;
         private bool _isSaved = false;
         private bool _isActive = false;
@@ -1172,6 +1175,25 @@ namespace Buddie
         {
             get => _vadMode;
             set => SetProperty(ref _vadMode, value);
+        }
+
+        // VAD runtime parameters
+        public double VadThreshold
+        {
+            get => _vadThreshold;
+            set => SetProperty(ref _vadThreshold, value);
+        }
+
+        public int VadMinSpeechFrames
+        {
+            get => _vadMinSpeechFrames;
+            set => SetProperty(ref _vadMinSpeechFrames, value);
+        }
+
+        public int VadMinSilenceFrames
+        {
+            get => _vadMinSilenceFrames;
+            set => SetProperty(ref _vadMinSilenceFrames, value);
         }
 
         public bool IsEditMode

@@ -73,6 +73,9 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="100"/>
@@ -306,11 +309,78 @@
                                              Padding="8,6"
                                              Style="{StaticResource ModernTextBoxStyle}"/>
 
+                                    <!-- VAD 参数 -->
+                                    <TextBlock Grid.Row="8" Grid.Column="0"
+                                               Text="VAD阈值:"
+                                               FontWeight="Bold"
+                                               Margin="0,0,10,8"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#495057"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBox Grid.Row="8" Grid.Column="1"
+                                             Text="{Binding VadThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             Margin="0,0,10,8"
+                                             Padding="8,6"
+                                             Style="{StaticResource ModernTextBoxStyle}"/>
+
+                                    <TextBlock Grid.Row="9" Grid.Column="0"
+                                               Text="语音起始帧:"
+                                               FontWeight="Bold"
+                                               Margin="0,0,10,8"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#495057"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBox Grid.Row="9" Grid.Column="1"
+                                             Text="{Binding VadMinSpeechFrames, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             Margin="0,0,10,8"
+                                             Padding="8,6"
+                                             Style="{StaticResource ModernTextBoxStyle}"/>
+
+                                    <TextBlock Grid.Row="10" Grid.Column="0"
+                                               Text="静音结束帧:"
+                                               FontWeight="Bold"
+                                               Margin="0,0,10,8"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#495057"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBox Grid.Row="10" Grid.Column="1"
+                                             Text="{Binding VadMinSilenceFrames, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             Margin="0,0,10,8"
+                                             Padding="8,6"
+                                             Style="{StaticResource ModernTextBoxStyle}"/>
+
                                     <!-- 按钮区域 -->
-                                    <StackPanel Grid.Row="8" Grid.Column="1"
-                                                Orientation="Horizontal"
-                                                HorizontalAlignment="Right"
-                                                Margin="0,15,0,0">
+                                    <StackPanel Grid.Row="11" Grid.Column="1"
+                                                 Orientation="Horizontal"
+                                                 HorizontalAlignment="Right"
+                                                 Margin="0,15,0,0">
                                         <Button Content="测试连接"
                                                 Background="#007BFF"
                                                 Foreground="White"

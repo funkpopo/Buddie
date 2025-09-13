@@ -71,7 +71,10 @@ namespace Buddie.Services
                 _audioCapture.OnAudioData += OnAudioCaptured;
 
                 // 初始化VAD检测器（仅客户端VAD）
-                _vadDetector = new LocalVadDetector();
+                _vadDetector = new LocalVadDetector(
+                    _configuration.VadThreshold,
+                    _configuration.VadMinSpeechFrames,
+                    _configuration.VadMinSilenceFrames);
                 _vadDetector.OnSpeechStart += OnSpeechStart;
                 _vadDetector.OnSpeechEnd += OnSpeechEnd;
 
