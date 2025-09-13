@@ -28,7 +28,15 @@ namespace Buddie
                     })
                     .ConfigureServices(services =>
                     {
+                        // 配置 HttpClient
                         services.AddHttpClient();
+                        
+                        // 为 TTS 服务配置专用的 HttpClient
+                        services.AddHttpClient("TtsClient", client =>
+                        {
+                            client.Timeout = TimeSpan.FromMinutes(2);
+                        });
+                        
                         services.AddSingleton<IErrorNotifier, WpfErrorNotifier>();
                         
                         // Database services

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Buddie.Services.Tts
 {
@@ -13,10 +14,24 @@ namespace Buddie.Services.Tts
     {
         private bool _disposed = false;
         protected readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory? _httpClientFactory;
 
         protected TtsServiceBase()
         {
-            _httpClient = new HttpClient();
+            // 尝试从DI容器获取IHttpClientFactory
+            _httpClientFactory = App.Services?.GetService<IHttpClientFactory>();
+            
+            if (_httpClientFactory != null)
+            {
+                // 使用IHttpClientFactory创建HttpClient
+                _httpClient = _httpClientFactory.CreateClient("TtsClient");
+            }
+            else
+            {
+                // 降级到直接创建HttpClient（仅用于测试或没有DI的场景）
+                _httpClient = new HttpClient();
+            }
+            
             _httpClient.Timeout = TimeSpan.FromMinutes(2);
         }
 
@@ -138,7 +153,12 @@ namespace Buddie.Services.Tts
             {
                 if (disposing)
                 {
-                    _httpClient?.Dispose();
+                    // 如果使用IHttpClientFactory创建的HttpClient，不需要手动Dispose
+                    // IHttpClientFactory会管理HttpClient的生命周期
+                    if (_httpClientFactory == null)
+                    {
+                        _httpClient?.Dispose();
+                    }
                 }
                 _disposed = true;
             }

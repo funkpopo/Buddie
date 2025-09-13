@@ -13,7 +13,6 @@ using System.Windows.Interop;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
 using Buddie.Services;
-using Buddie.Tests;
 using Buddie.ViewModels;
 
 namespace Buddie
@@ -255,15 +254,14 @@ namespace Buddie
         {
             try
             {
-                var testResults = CardColorManagerTests.RunAllTests();
+                // 测试功能已移除
                 System.Diagnostics.Debug.WriteLine("=== 颜色管理器测试结果 ===");
-                System.Diagnostics.Debug.WriteLine(testResults);
+                System.Diagnostics.Debug.WriteLine("测试功能暂时不可用");
                 System.Diagnostics.Debug.WriteLine("=========================");
                 
-                // 在调试模式下显示测试结果
                 #if DEBUG
                 Console.WriteLine("颜色管理器测试结果:");
-                Console.WriteLine(testResults);
+                Console.WriteLine("测试功能暂时不可用");
                 #endif
             }
             catch (Exception ex)
