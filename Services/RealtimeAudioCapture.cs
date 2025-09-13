@@ -98,7 +98,7 @@ namespace Buddie.Services
         }
     }
 
-    public class RealtimeScreenCapture : IDisposable
+    public class RealtimeAudioPlayer : IDisposable
     {
         private readonly ConcurrentQueue<byte[]> _audioQueue;
         private readonly AutoResetEvent _audioAvailableEvent;
@@ -113,7 +113,7 @@ namespace Buddie.Services
         // 中断标志
         private volatile bool _interruptPlayback;
 
-        public RealtimeScreenCapture(int sampleRate = 24000, int channels = 1, int bitsPerSample = 16)
+        public RealtimeAudioPlayer(int sampleRate = 24000, int channels = 1, int bitsPerSample = 16)
         {
             _sampleRate = sampleRate;
             _channels = channels;

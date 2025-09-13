@@ -8,7 +8,7 @@ namespace Buddie.Services
     {
         private QwenOmniRealtimeAdapter? _adapter;
         private RealtimeAudioCapture? _audioCapture;
-        private RealtimeScreenCapture? _audioPlayer;
+        private RealtimeAudioPlayer? _audioPlayer;
         private LocalVadDetector? _vadDetector;
         private CancellationTokenSource? _cancellationTokenSource;
         
@@ -56,7 +56,7 @@ namespace Buddie.Services
 
                 // 启动音频播放
                 OnStatusUpdate?.Invoke("启动音频播放...");
-                _audioPlayer = new RealtimeScreenCapture(
+                _audioPlayer = new RealtimeAudioPlayer(
                     _configuration.SampleRate,
                     1,
                     16);
