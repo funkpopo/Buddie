@@ -462,7 +462,11 @@ namespace Buddie.Controls
             {
                 await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
                 {
-                    var result = System.Windows.MessageBox.Show("确定要删除这个对话吗？", "确认删除", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+                    var result = System.Windows.MessageBox.Show(
+                        Buddie.Localization.LocalizationManager.GetString("Confirm_DeleteConversation_Message"),
+                        Buddie.Localization.LocalizationManager.GetString("Confirm_DeleteConversation_Title"),
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Question);
                     if (result == System.Windows.MessageBoxResult.Yes)
                     {
                         await DeleteConversation(id);
@@ -728,7 +732,18 @@ namespace Buddie.Controls
             if (!isUser && ContainsMarkdown(message))
             {
                 messageModel.IsMarkdownContent = true;
-                messageModel.RenderedDocument = ConvertMarkdownToFlowDocument(message);
+                // 对长内容延迟渲染，避免阻塞UI
+                if (message?.Length > 800)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        messageModel.RenderedDocument = ConvertMarkdownToFlowDocument(message);
+                    }), System.Windows.Threading.DispatcherPriority.Background);
+                }
+                else
+                {
+                    messageModel.RenderedDocument = ConvertMarkdownToFlowDocument(message);
+                }
             }
             
             Messages.Add(messageModel);
@@ -1962,7 +1977,17 @@ namespace Buddie.Controls
                 if (ContainsMarkdown(finalContent))
                 {
                     _currentStreamingMessage.IsMarkdownContent = true;
-                    _currentStreamingMessage.RenderedDocument = ConvertMarkdownToFlowDocument(finalContent);
+                    if (finalContent?.Length > 800)
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            _currentStreamingMessage.RenderedDocument = ConvertMarkdownToFlowDocument(finalContent);
+                        }), System.Windows.Threading.DispatcherPriority.Background);
+                    }
+                    else
+                    {
+                        _currentStreamingMessage.RenderedDocument = ConvertMarkdownToFlowDocument(finalContent);
+                    }
                 }
                 
                 // Auto-save AI reply message to database (delegate to ViewModel)
@@ -2738,7 +2763,11 @@ namespace Buddie.Controls
                 var button = sender as System.Windows.Controls.Button;
                 if (button?.Tag is int conversationId)
                 {
-                    var result = System.Windows.MessageBox.Show("确定要删除这个对话吗？", "确认删除", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+                    var result = System.Windows.MessageBox.Show(
+                        Buddie.Localization.LocalizationManager.GetString("Confirm_DeleteConversation_Message"),
+                        Buddie.Localization.LocalizationManager.GetString("Confirm_DeleteConversation_Title"),
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Question);
                     if (result == System.Windows.MessageBoxResult.Yes)
                     {
                         if (_viewModel != null)

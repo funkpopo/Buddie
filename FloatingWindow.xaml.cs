@@ -225,8 +225,8 @@ namespace Buddie
             // 使用一个标志来追踪右键点击状态
             bool rightClickPressed = false;
             
-            // 创建菜单项
-            var showItem = new ToolStripMenuItem("显示");
+            // 创建菜单项（本地化）
+            var showItem = new ToolStripMenuItem(Buddie.Localization.LocalizationManager.GetString("Tray_Show"));
             showItem.MouseDown += (sender, e) => {
                 rightClickPressed = (e.Button == System.Windows.Forms.MouseButtons.Right);
             };
@@ -239,7 +239,7 @@ namespace Buddie
             };
             contextMenu.Items.Add(showItem);
             
-            var hideItem = new ToolStripMenuItem("隐藏");
+            var hideItem = new ToolStripMenuItem(Buddie.Localization.LocalizationManager.GetString("Tray_Hide"));
             hideItem.MouseDown += (sender, e) => {
                 rightClickPressed = (e.Button == System.Windows.Forms.MouseButtons.Right);
             };
@@ -254,7 +254,7 @@ namespace Buddie
             
             contextMenu.Items.Add("-");
             
-            var exitItem = new ToolStripMenuItem("退出");
+            var exitItem = new ToolStripMenuItem(Buddie.Localization.LocalizationManager.GetString("Tray_Exit"));
             exitItem.MouseDown += (sender, e) => {
                 rightClickPressed = (e.Button == System.Windows.Forms.MouseButtons.Right);
             };

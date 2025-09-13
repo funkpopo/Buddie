@@ -60,7 +60,7 @@ namespace Buddie.Controls
             _vm.ConfigurationActivated += (s, c) => ConfigurationActivated?.Invoke(this, c);
             _vm.ValidationFailed += (s, message) =>
             {
-                MessageBox.Show(message, "验证错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                UserFriendlyErrorService.ShowError(new InvalidOperationException(message), "TTS Validation");
             };
         }
 
@@ -126,7 +126,7 @@ namespace Buddie.Controls
                 if (missingFields.Count > 0)
                 {
                     var message = $"请填写以下必填项：\n• {string.Join("\n• ", missingFields)}";
-                    MessageBox.Show(message, "验证错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    UserFriendlyErrorService.ShowError(new InvalidOperationException(message), "TTS Validation");
                     return;
                 }
 
@@ -136,7 +136,7 @@ namespace Buddie.Controls
                 var validationResult = ValidateChannelSpecificSettings(config);
                 if (!string.IsNullOrEmpty(validationResult))
                 {
-                    MessageBox.Show(validationResult, "配置验证", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    UserFriendlyErrorService.ShowError(new InvalidOperationException(validationResult), "TTS Validation");
                     return;
                 }
 

@@ -2,226 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Buddie.Controls"
-             xmlns:buddie="clr-namespace:Buddie">
+             xmlns:buddie="clr-namespace:Buddie"
+             xmlns:loc="clr-namespace:Buddie.Localization">
     
-    <UserControl.Resources>
-        <!-- 消息气泡数据模板 -->
-        <DataTemplate x:Key="MessageBubbleTemplate">
-                <Border x:Name="MessageBubble"
-                        CornerRadius="18"
-                        Effect="{StaticResource CardShadow}">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="#F0F0F0"/>
-                            <Setter Property="Margin" Value="10,5,50,5"/>
-                            <Setter Property="HorizontalAlignment" Value="Left"/>
-                            <Style.Triggers>
-                                <!-- 用户消息样式 -->
-                                <DataTrigger Binding="{Binding IsUser}" Value="True">
-                                    <Setter Property="Background" Value="#0084FF"/>
-                                    <Setter Property="Margin" Value="50,5,10,5"/>
-                                    <Setter Property="HorizontalAlignment" Value="Right"/>
-                                </DataTrigger>
-                                <!-- 深色主题下的AI消息 -->
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding IsUser}" Value="False"/>
-                                        <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Background" Value="#3A3A3C"/>
-                                </MultiDataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- 图片内容区域 -->
-                        <Border Grid.Row="0"
-                               CornerRadius="8"
-                               Margin="8,8,8,4"
-                               BorderThickness="1"
-                               MaxWidth="250">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Setter Property="BorderBrush" Value="#DDDDDD"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HasImage}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                            <Setter Property="BorderBrush" Value="#555555"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <Image x:Name="MessageImage"
-                                   MaxHeight="200"
-                                   Stretch="Uniform"
-                                   ToolTip="图片内容">
-                                <Image.Source>
-                                    <Binding Path="ImageData">
-                                        <Binding.Converter>
-                                            <buddie:ImageConverter/>
-                                        </Binding.Converter>
-                                    </Binding>
-                                </Image.Source>
-                            </Image>
-                        </Border>
-                        
-                        <!-- 消息内容 - 根据是否为Markdown内容选择显示控件 -->
-                        <!-- TextBlock for non-Markdown content -->
-                        <TextBlock Grid.Row="1"
-                                   Text="{Binding Content}"
-                                   Padding="12,8,12,8"
-                                   TextWrapping="Wrap"
-                                   MaxWidth="300"
-                                   FontSize="13"
-                                   LineHeight="18">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="Black"/>
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                    <Style.Triggers>
-                                        <!-- 隐藏TextBlock当内容为Markdown时 -->
-                                        <DataTrigger Binding="{Binding IsMarkdownContent}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                        </DataTrigger>
-                                        <!-- 用户消息文字 -->
-                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
-                                            <Setter Property="Foreground" Value="White"/>
-                                        </DataTrigger>
-                                        <!-- 深色主题下的AI消息文字 -->
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsUser}" Value="False"/>
-                                                <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Foreground" Value="White"/>
-                                        </MultiDataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                        
-                        <!-- RichTextBox for Markdown content -->
-                        <RichTextBox Grid.Row="1"
-                                     local:DialogControl.BindableDocument="{Binding RenderedDocument}"
-                                     Padding="12,8,12,8"
-                                     MaxWidth="300"
-                                     FontSize="13"
-                                     IsReadOnly="True"
-                                     BorderThickness="0"
-                                     VerticalScrollBarVisibility="Disabled"
-                                     HorizontalScrollBarVisibility="Disabled">
-                            <RichTextBox.Style>
-                                <Style TargetType="RichTextBox">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="Foreground" Value="Black"/>
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <!-- 显示RichTextBox当内容为Markdown时 -->
-                                        <DataTrigger Binding="{Binding IsMarkdownContent}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                        <!-- 用户消息文字 -->
-                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
-                                            <Setter Property="Foreground" Value="White"/>
-                                        </DataTrigger>
-                                        <!-- 深色主题下的AI消息文字 -->
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsUser}" Value="False"/>
-                                                <Condition Binding="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Foreground" Value="White"/>
-                                        </MultiDataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </RichTextBox.Style>
-                        </RichTextBox>
-                        
-                        <!-- 用户消息按钮区域 -->
-                        <StackPanel Grid.Row="2"
-                                   Orientation="Horizontal"
-                                   HorizontalAlignment="Left"
-                                   Margin="8,0,0,5">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <!-- 复制按钮 -->
-                            <Button Content="📋"
-                                    Width="24"
-                                    Height="24"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    FontSize="12"
-                                    Cursor="Hand"
-                                    ToolTip="复制"
-                                    Command="{Binding DataContext.CopyMessageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding Content}"/>
-                        </StackPanel>
-                        
-                        <!-- AI消息按钮区域 -->
-                        <StackPanel Grid.Row="2"
-                                   Orientation="Horizontal"
-                                   HorizontalAlignment="Right"
-                                   Margin="0,0,8,5">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <!-- 只有AI消息且有TTS配置时显示 -->
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsUser}" Value="False"/>
-                                                <Condition Binding="{Binding DataContext.HasActiveTtsConfiguration, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </MultiDataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <!-- 复制按钮 -->
-                            <Button Content="📋"
-                                    Width="24"
-                                    Height="24"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    FontSize="12"
-                                    Cursor="Hand"
-                                    ToolTip="复制"
-                                    Command="{Binding DataContext.CopyMessageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding Content}"/>
-                            <!-- TTS按钮 -->
-                            <Button Content="🔊"
-                                    Width="24"
-                                    Height="24"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    FontSize="12"
-                                    Margin="5,0,0,0"
-                                    Cursor="Hand"
-                                    ToolTip="朗读"
-                                    Command="{Binding DataContext.PlayTtsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding Content}"/>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-            </DataTemplate>
-    </UserControl.Resources>
     
     <!-- 对话界面 - 位于右下角CardContainer附近 -->
     <Border x:Name="DialogInterface"
@@ -276,7 +59,7 @@
                     
                     <!-- 侧边栏标题 -->
                     <TextBlock Grid.Row="0"
-                               Text="对话历史"
+                               Text="{loc:Resx Dialog_HistoryTitle}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
                                FontWeight="Bold"
@@ -296,7 +79,7 @@
                     <!-- 新建对话按钮 -->
                     <Button Grid.Row="1"
                             x:Name="NewConversationButton"
-                            Content="+ 新建对话"
+                            Content="{loc:Resx Dialog_NewConversation}"
                             Margin="8,4"
                             Padding="8,4"
                             Background="#007BFF"
@@ -448,7 +231,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <TextBlock Text="对话"
+                            <TextBlock Text="{loc:Resx Dialog_Title}"
                                        VerticalAlignment="Center"
                                        FontWeight="Bold">
                                 <TextBlock.Style>
@@ -530,7 +313,7 @@
                                                 </Style>
                                             </StackPanel.Style>
                                             <!-- 思维过程展开器 -->
-                                            <Expander Header="💭 思维过程"
+                                            <Expander Header="{loc:Resx Label_Reasoning}"
                                                      IsExpanded="False"
                                                      Margin="0,0,0,5">
                                                 <Expander.Style>
@@ -665,7 +448,7 @@
                             <StackPanel Grid.Column="1" 
                                         VerticalAlignment="Center"
                                         Margin="5,0">
-                                <TextBlock Text="📷 已添加截图"
+                                <TextBlock Text="{loc:Resx Label_AddedScreenshot}"
                                            FontSize="12"
                                            FontWeight="SemiBold">
                                     <TextBlock.Style>
@@ -680,7 +463,7 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                                 <TextBlock x:Name="ScreenshotInfo"
-                                           Text="点击图片预览"
+                                           Text="{loc:Resx Label_ClickImagePreview}"
                                            FontSize="10"
                                            Opacity="0.7">
                                     <TextBlock.Style>
@@ -709,7 +492,7 @@
                                     FontWeight="Bold"
                                     Cursor="Hand"
                                     Command="{Binding DataContext.RemoveScreenshotCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    ToolTip="移除截图">
+                                    ToolTip="{loc:Resx Tooltip_RemoveScreenshot}">
                                 <Button.Style>
                                     <Style TargetType="Button">
                                         <Setter Property="Foreground" Value="#999999"/>
@@ -787,7 +570,7 @@
                                 Cursor="Hand"
                                 FontSize="16"
                                 Margin="0,0,5,0"
-                                ToolTip="上传图片">
+                                ToolTip="{loc:Resx Tooltip_UploadImage}">
                             <Button.Style>
                                 <Style TargetType="Button">
                                     <Setter Property="Foreground" Value="White"/>
@@ -829,7 +612,7 @@
                                 Cursor="Hand"
                                 FontSize="16"
                                 Margin="0,0,5,0"
-                                ToolTip="截图">
+                                ToolTip="{loc:Resx Tooltip_Screenshot}">
                             <Button.Style>
                                 <Style TargetType="Button">
                                     <Setter Property="Foreground" Value="White"/>
@@ -863,7 +646,7 @@
                         
                         <Button x:Name="SendButton"
                                 Grid.Column="3"
-                                Content="发送"
+                                Content="{loc:Resx Dialog_Send}"
                                 BorderThickness="0"
                                 Command="{Binding SendMessageCommand}"
                                 CommandParameter="{Binding ElementName=DialogInput, Path=Text}"

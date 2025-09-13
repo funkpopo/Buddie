@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
+using Buddie.Localization;
 
 namespace Buddie.Controls
 {
@@ -161,12 +162,12 @@ namespace Buddie.Controls
             if (_isDetailsVisible)
             {
                 DetailsPanel.Visibility = Visibility.Visible;
-                DetailsButton.Content = "隐藏详情";
+                DetailsButton.Content = LocalizationManager.GetString("Error_HideDetails");
             }
             else
             {
                 DetailsPanel.Visibility = Visibility.Collapsed;
-                DetailsButton.Content = "查看详情";
+                DetailsButton.Content = LocalizationManager.GetString("Error_ViewDetails");
             }
         }
 

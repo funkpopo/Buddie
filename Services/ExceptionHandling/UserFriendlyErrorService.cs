@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Buddie.Controls;
+using Buddie.Localization;
 
 namespace Buddie.Services.ExceptionHandling
 {
@@ -50,18 +51,18 @@ namespace Buddie.Services.ExceptionHandling
             ErrorContexts["HttpRequestException"] = new ErrorContextInfo
             {
                 ErrorType = ErrorType.Network,
-                UserFriendlyTitle = "网络连接问题",
-                UserFriendlyMessage = "无法连接到服务器，请检查网络连接",
-                SuggestedAction = "重试",
+                UserFriendlyTitle = LocalizationManager.GetString("Error_Generic"),
+                UserFriendlyMessage = LocalizationManager.GetString("Error_DefaultMessage"),
+                SuggestedAction = LocalizationManager.GetString("Error_Retry"),
                 ShowDetails = true
             };
 
             ErrorContexts["TaskCanceledException"] = new ErrorContextInfo
             {
                 ErrorType = ErrorType.Network,
-                UserFriendlyTitle = "请求超时",
-                UserFriendlyMessage = "服务器响应超时，请稍后再试",
-                SuggestedAction = "重试",
+                UserFriendlyTitle = LocalizationManager.GetString("Error_Generic"),
+                UserFriendlyMessage = LocalizationManager.GetString("Error_DefaultMessage"),
+                SuggestedAction = LocalizationManager.GetString("Error_Retry"),
                 ShowDetails = false
             };
 
@@ -69,9 +70,9 @@ namespace Buddie.Services.ExceptionHandling
             ErrorContexts["UnauthorizedAccessException"] = new ErrorContextInfo
             {
                 ErrorType = ErrorType.Authentication,
-                UserFriendlyTitle = "权限不足",
-                UserFriendlyMessage = "API密钥无效或权限不足，请检查配置",
-                SuggestedAction = "检查设置",
+                UserFriendlyTitle = LocalizationManager.GetString("Error_Generic"),
+                UserFriendlyMessage = LocalizationManager.GetString("Error_DefaultMessage"),
+                SuggestedAction = null,
                 ShowDetails = true
             };
 
@@ -79,18 +80,18 @@ namespace Buddie.Services.ExceptionHandling
             ErrorContexts["ArgumentException"] = new ErrorContextInfo
             {
                 ErrorType = ErrorType.Configuration,
-                UserFriendlyTitle = "配置错误",
-                UserFriendlyMessage = "参数配置有误，请检查设置",
-                SuggestedAction = "检查设置",
+                UserFriendlyTitle = LocalizationManager.GetString("Error_Generic"),
+                UserFriendlyMessage = LocalizationManager.GetString("Error_DefaultMessage"),
+                SuggestedAction = null,
                 ShowDetails = true
             };
 
             ErrorContexts["InvalidOperationException"] = new ErrorContextInfo
             {
                 ErrorType = ErrorType.Configuration,
-                UserFriendlyTitle = "操作无效",
-                UserFriendlyMessage = "当前操作无法执行，请检查配置或稍后重试",
-                SuggestedAction = "重试",
+                UserFriendlyTitle = LocalizationManager.GetString("Error_Generic"),
+                UserFriendlyMessage = LocalizationManager.GetString("Error_DefaultMessage"),
+                SuggestedAction = LocalizationManager.GetString("Error_Retry"),
                 ShowDetails = true
             };
 
@@ -98,9 +99,9 @@ namespace Buddie.Services.ExceptionHandling
             ErrorContexts["JsonException"] = new ErrorContextInfo
             {
                 ErrorType = ErrorType.Data,
-                UserFriendlyTitle = "数据格式错误",
-                UserFriendlyMessage = "服务器返回的数据格式异常",
-                SuggestedAction = "重试",
+                UserFriendlyTitle = LocalizationManager.GetString("Error_Generic"),
+                UserFriendlyMessage = LocalizationManager.GetString("Error_DefaultMessage"),
+                SuggestedAction = LocalizationManager.GetString("Error_Retry"),
                 ShowDetails = true
             };
 
@@ -108,9 +109,9 @@ namespace Buddie.Services.ExceptionHandling
             ErrorContexts["TtsException"] = new ErrorContextInfo
             {
                 ErrorType = ErrorType.Media,
-                UserFriendlyTitle = "语音合成失败",
-                UserFriendlyMessage = "语音合成服务出现问题",
-                SuggestedAction = "重试",
+                UserFriendlyTitle = LocalizationManager.GetString("Error_Generic"),
+                UserFriendlyMessage = LocalizationManager.GetString("Error_DefaultMessage"),
+                SuggestedAction = LocalizationManager.GetString("Error_Retry"),
                 ShowDetails = true
             };
 
@@ -118,9 +119,9 @@ namespace Buddie.Services.ExceptionHandling
             ErrorContexts["DatabaseException"] = new ErrorContextInfo
             {
                 ErrorType = ErrorType.Data,
-                UserFriendlyTitle = "数据保存失败",
-                UserFriendlyMessage = "无法保存对话记录",
-                SuggestedAction = null, // 数据库错误通常不需要用户操作
+                UserFriendlyTitle = LocalizationManager.GetString("Error_Generic"),
+                UserFriendlyMessage = LocalizationManager.GetString("Error_DefaultMessage"),
+                SuggestedAction = null,
                 ShowDetails = false
             };
         }
@@ -237,9 +238,9 @@ namespace Buddie.Services.ExceptionHandling
                 _ => new ErrorContextInfo
                 {
                     ErrorType = ErrorType.General,
-                    UserFriendlyTitle = "操作失败",
-                    UserFriendlyMessage = "发生了意外错误，请稍后重试",
-                    SuggestedAction = "重试",
+                    UserFriendlyTitle = LocalizationManager.GetString("Error_DefaultTitle"),
+                    UserFriendlyMessage = LocalizationManager.GetString("Error_DefaultMessage"),
+                    SuggestedAction = LocalizationManager.GetString("Error_Retry"),
                     ShowDetails = true
                 }
             };

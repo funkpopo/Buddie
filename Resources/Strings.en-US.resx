@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Dialog_HistoryTitle" xml:space="preserve">
+    <value>Conversation History</value>
+  </data>
+  <data name="Dialog_NewConversation" xml:space="preserve">
+    <value>+ New Conversation</value>
+  </data>
+  <data name="Dialog_Title" xml:space="preserve">
+    <value>Chat</value>
+  </data>
+  <data name="Dialog_Send" xml:space="preserve">
+    <value>Send</value>
+  </data>
+  <data name="Tooltip_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Tooltip_ReadAloud" xml:space="preserve">
+    <value>Speak</value>
+  </data>
+  <data name="Tooltip_RemoveScreenshot" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Tooltip_Screenshot" xml:space="preserve">
+    <value>Screenshot</value>
+  </data>
+  <data name="Tooltip_UploadImage" xml:space="preserve">
+    <value>Upload Image</value>
+  </data>
+  <data name="Tooltip_ImageContent" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="Label_AddedScreenshot" xml:space="preserve">
+    <value>📷 Screenshot added</value>
+  </data>
+  <data name="Label_ClickImagePreview" xml:space="preserve">
+    <value>Click image to preview</value>
+  </data>
+  <data name="Label_Reasoning" xml:space="preserve">
+    <value>💭 Reasoning</value>
+  </data>
+  <data name="Error_Generic" xml:space="preserve">
+    <value>An error occurred</value>
+  </data>
+  <data name="Error_DefaultTitle" xml:space="preserve">
+    <value>Operation failed</value>
+  </data>
+  <data name="Error_DefaultMessage" xml:space="preserve">
+    <value>An unexpected error occurred. Please try again.</value>
+  </data>
+  <data name="Error_ViewDetails" xml:space="preserve">
+    <value>View details</value>
+  </data>
+  <data name="Error_HideDetails" xml:space="preserve">
+    <value>Hide details</value>
+  </data>
+  <data name="Error_Retry" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="Confirm_DeleteConversation_Title" xml:space="preserve">
+    <value>Confirm Delete</value>
+  </data>
+  <data name="Confirm_DeleteConversation_Message" xml:space="preserve">
+    <value>Delete this conversation?</value>
+  </data>
+  <data name="Tray_Show" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="Tray_Hide" xml:space="preserve">
+    <value>Hide</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="TTS_Header" xml:space="preserve">
+    <value>TTS Configuration</value>
+  </data>
+  <data name="TTS_AddButton" xml:space="preserve">
+    <value>+ Add TTS Configuration</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Active" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="Inactive" xml:space="preserve">
+    <value>Inactive</value>
+  </data>
+</root>

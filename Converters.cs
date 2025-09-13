@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.IO;
 using System.Windows.Media.Imaging;
 using Buddie.Services.Tts;
+using Buddie.Localization;
 
 namespace Buddie
 {
@@ -48,14 +49,14 @@ namespace Buddie
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is bool boolValue)
-                return boolValue ? "是" : "否";
-            return "否";
+                return boolValue ? LocalizationManager.GetString("Yes") : LocalizationManager.GetString("No");
+            return LocalizationManager.GetString("No");
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is string stringValue)
-                return stringValue == "是";
+                return stringValue == LocalizationManager.GetString("Yes");
             return false;
         }
     }
@@ -235,8 +236,8 @@ namespace Buddie
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is bool boolValue)
-                return boolValue ? "激活" : "未激活";
-            return "未激活";
+                return boolValue ? LocalizationManager.GetString("Active") : LocalizationManager.GetString("Inactive");
+            return LocalizationManager.GetString("Inactive");
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

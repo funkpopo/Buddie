@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using Buddie.Controls;
 
 namespace Buddie.Services.ExceptionHandling
 {
@@ -9,20 +10,14 @@ namespace Buddie.Services.ExceptionHandling
         {
             try
             {
-                if (Application.Current?.Dispatcher?.CheckAccess() == true)
-                {
-                    MessageBox.Show(message, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
-                else
-                {
-                    Application.Current?.Dispatcher?.Invoke(() =>
-                    {
-                        MessageBox.Show(message, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    });
-                }
+                // 委托给用户友好错误服务以展示内嵌通知
+                Services.ExceptionHandling.UserFriendlyErrorService.ShowError(
+                    exception ?? new Exception(message),
+                    context?.Operation);
             }
             catch
             {
+                // 降级到控制台输出
                 Console.WriteLine($"Error: {message}");
                 if (exception != null)
                 {
@@ -32,4 +27,3 @@ namespace Buddie.Services.ExceptionHandling
         }
     }
 }
-

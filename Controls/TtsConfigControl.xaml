@@ -1,7 +1,8 @@
 <UserControl x:Class="Buddie.Controls.TtsConfigControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:Buddie">
+             xmlns:local="clr-namespace:Buddie"
+             xmlns:loc="clr-namespace:Buddie.Localization">
     
     <StackPanel Margin="15">
         <Grid>
@@ -9,7 +10,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="TTS 配置"
+            <TextBlock Text="{loc:Resx TTS_Header}"
                        FontWeight="Bold"
                        FontSize="16"
                        Margin="0,0,0,15"
@@ -26,7 +27,7 @@
                 </TextBlock.Style>
             </TextBlock>
             <Button Grid.Column="1"
-                    Content="+ 添加TTS配置"
+                    Content="{loc:Resx TTS_AddButton}"
                     Background="#28A745"
                     Foreground="White"
                     BorderThickness="0"
