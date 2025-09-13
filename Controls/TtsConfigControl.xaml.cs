@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Collections.ObjectModel;
 using System.Windows.Media;
 using Buddie.Services.ExceptionHandling;
+using Buddie.Services.Tts;
 using Buddie.ViewModels;
 using Buddie;
 

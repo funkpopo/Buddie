@@ -5,6 +5,7 @@ using System.Windows.Data;
 using System.Windows.Media;
 using System.IO;
 using System.Windows.Media.Imaging;
+using Buddie.Services.Tts;
 
 namespace Buddie
 {

@@ -10,10 +10,11 @@
     <PackageReference Include="ElevenLabs-DotNet" Version="3.6.0" />
     <PackageReference Include="Markdig" Version="0.41.3" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0-preview.7.25380.108" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0-preview.7.24405.7" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0-preview.7.24405.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0-preview.7.24405.7" />
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
   </ItemGroup>
 </Project>

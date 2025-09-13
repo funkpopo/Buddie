@@ -12,9 +12,7 @@
         Topmost="{Binding AppSettings.IsTopmost}"
         ResizeMode="NoResize"
         ShowInTaskbar="{Binding AppSettings.ShowInTaskbar}"
-        WindowStartupLocation="CenterScreen"
-        MouseEnter="FloatingWindow_MouseEnter"
-        MouseLeave="FloatingWindow_MouseLeave">
+        WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -22,6 +20,7 @@
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
+    
     
     <Grid>
         <!-- 错误通知容器 -->

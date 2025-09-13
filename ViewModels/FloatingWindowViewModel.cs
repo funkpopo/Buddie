@@ -1,7 +1,10 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Forms;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -16,6 +19,8 @@ namespace Buddie.ViewModels
         public AppSettings AppSettings { get; }
 
         private readonly RealtimeInteractionService _realtimeService;
+        private IClickThroughService _clickThroughService;
+        private NotifyIcon? _trayIcon;
 
         // Cards
         [ObservableProperty]
@@ -38,10 +43,20 @@ namespace Buddie.ViewModels
         [ObservableProperty]
         private bool isRealtimeOpen;
 
-        public FloatingWindowViewModel(AppSettings appSettings, RealtimeInteractionService realtimeService)
+        [ObservableProperty]
+        private double interfaceOpacity = 1.0;
+
+        [ObservableProperty]
+        private bool isUserInteracting;
+
+        [ObservableProperty]
+        private bool isWindowVisible = true;
+
+        public FloatingWindowViewModel(AppSettings appSettings, RealtimeInteractionService realtimeService, IClickThroughService? clickThroughService = null)
         {
             AppSettings = appSettings;
             _realtimeService = realtimeService;
+            _clickThroughService = clickThroughService ?? new ClickThroughService();
 
             // Build initial cards and keep in sync with settings changes
             BuildCardsFromAppSettings();
@@ -155,6 +170,82 @@ namespace Buddie.ViewModels
                 IsRealtimeOpen = false;
                 throw;
             }
+        }
+
+        [RelayCommand]
+        private void OnMouseEnter()
+        {
+            // 鼠标进入时设置完全不透明
+            InterfaceOpacity = 1.0;
+            _clickThroughService?.SetClickThrough(false);
+        }
+
+        [RelayCommand]
+        private void OnMouseLeave()
+        {
+            // 鼠标离开时设置半透明（如果没有用户交互）
+            if (!IsUserInteracting)
+            {
+                InterfaceOpacity = 0.2;
+            }
+        }
+
+        [RelayCommand]
+        private void ShowWindow()
+        {
+            IsWindowVisible = true;
+            OnPropertyChanged(nameof(IsWindowVisible));
+        }
+
+        [RelayCommand]
+        private void HideWindow()
+        {
+            IsWindowVisible = false;
+            OnPropertyChanged(nameof(IsWindowVisible));
+        }
+
+        [RelayCommand]
+        private async Task ExitApplication()
+        {
+            try
+            {
+                await AppSettings.SaveToDatabaseAsync();
+            }
+            catch
+            {
+                // 忽略保存错误
+            }
+            finally
+            {
+                _trayIcon?.Dispose();
+                System.Windows.Application.Current?.Shutdown();
+            }
+        }
+
+        [RelayCommand]
+        private void ToggleTheme()
+        {
+            AppSettings.IsDarkTheme = !AppSettings.IsDarkTheme;
+        }
+
+        public void InitializeTrayIcon(NotifyIcon trayIcon)
+        {
+            _trayIcon = trayIcon;
+        }
+
+        public void SetUserInteracting(bool interacting)
+        {
+            IsUserInteracting = interacting;
+            if (interacting)
+            {
+                InterfaceOpacity = 1.0;
+                _clickThroughService?.SetClickThrough(false);
+            }
+        }
+
+        public void SetClickThroughService(IClickThroughService service)
+        {
+            _clickThroughService = service;
         }
     }
 }

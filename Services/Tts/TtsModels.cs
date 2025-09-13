@@ -4,6 +4,16 @@ using System.Collections.Generic;
 namespace Buddie.Services.Tts
 {
     /// <summary>
+    /// TTS服务提供商类型
+    /// </summary>
+    public enum TtsChannelType
+    {
+        OpenAI = 0,
+        ElevenLabs = 1,
+        MiniMax = 2
+    }
+
+    /// <summary>
     /// TTS请求模型
     /// </summary>
     public class TtsRequest

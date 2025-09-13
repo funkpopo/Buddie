@@ -1,10 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dotnet clean:*)"
+      "Bash(dotnet clean:*)",
+      "Bash(dotnet add package:*)",
+      "Bash(dotnet build)",
+      "Bash(dotnet build:*)"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits",
-    "ask": []
+    "ask": [],
+    "defaultMode": "acceptEdits"
   }
 }

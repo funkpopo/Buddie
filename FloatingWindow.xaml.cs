@@ -9,7 +9,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Collections.ObjectModel;
 using SystemDrawing = System.Drawing;
-using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
@@ -23,21 +22,8 @@ namespace Buddie
 
     public partial class FloatingWindow : Window
     {
-        #region Windows API for Click-Through
-        [DllImport("user32.dll")]
-        static extern int GetWindowLong(IntPtr hwnd, int index);
-        
-        [DllImport("user32.dll")]
-        static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
-        
-        const int GWL_EXSTYLE = -20;
-        const int WS_EX_TRANSPARENT = 0x00000020;
-        const int WS_EX_LAYERED = 0x00080000;
-        
-        private bool _isClickThrough = false;
-        #endregion
-
         private NotifyIcon? trayIcon;
+        private readonly IClickThroughService _clickThroughService;
         private readonly FloatingWindowViewModel _vm;
         private readonly AppSettings _appSettings = new AppSettings();
         private readonly CardColorManager _colorManager = new CardColorManager();
@@ -46,8 +32,7 @@ namespace Buddie
         private readonly RealtimeInteractionService _realtimeService = Buddie.App.GetService<Buddie.Services.RealtimeInteractionService>();
         // Real-time interaction state is tracked in ViewModel
         
-        // 用户交互状态管理
-        private bool _isUserInteracting = false;
+        // 用户交互状态管理通过ViewModel处理
         private System.Windows.Threading.DispatcherTimer? _interactionTimer;
         private readonly TimeSpan _interactionDelay = TimeSpan.FromSeconds(2);
 
@@ -59,6 +44,10 @@ namespace Buddie
             // ViewModel wiring
             _vm = new FloatingWindowViewModel(_appSettings, _realtimeService);
             this.DataContext = _vm;
+            
+            // Initialize ClickThroughService
+            _clickThroughService = new ClickThroughService();
+            _vm.SetClickThroughService(_clickThroughService);
             
             InitializeControls();
             
@@ -79,6 +68,23 @@ namespace Buddie
                 else if (e.PropertyName == nameof(FloatingWindowViewModel.IsSettingsVisible))
                 {
                     if (_vm.IsSettingsVisible) SettingsControl.Show(); else SettingsControl.Hide();
+                }
+                else if (e.PropertyName == nameof(FloatingWindowViewModel.IsWindowVisible))
+                {
+                    if (_vm.IsWindowVisible)
+                    {
+                        this.Show();
+                        this.WindowState = WindowState.Normal;
+                        this.Activate();
+                    }
+                    else
+                    {
+                        this.Hide();
+                    }
+                }
+                else if (e.PropertyName == nameof(FloatingWindowViewModel.InterfaceOpacity))
+                {
+                    UpdateInterfaceOpacity(_vm.InterfaceOpacity);
                 }
             };
             // Initial paint from VM state
@@ -102,29 +108,12 @@ namespace Buddie
         
         private void FloatingWindow_SourceInitialized(object? sender, EventArgs e)
         {
-            // 禁用点击穿透，允许鼠标操作界面
-            EnableClickThrough(false);
-        }
-        
-        /// <summary>
-        /// 设置窗口点击穿透
-        /// </summary>
-        /// <param name="enable">是否启用点击穿透</param>
-        private void EnableClickThrough(bool enable)
-        {
+            // 设置窗口句柄到ClickThroughService
             var hwnd = new WindowInteropHelper(this).Handle;
-            var extendedStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+            _clickThroughService.SetWindowHandle(hwnd);
             
-            if (enable)
-            {
-                SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle | WS_EX_TRANSPARENT);
-            }
-            else
-            {
-                SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle & ~WS_EX_TRANSPARENT);
-            }
-            
-            _isClickThrough = enable;
+            // 禁用点击穿透，允许鼠标操作界面
+            _clickThroughService.SetClickThrough(false);
         }
 
         private void UpdateCardDisplayFromViewModel()
@@ -146,7 +135,7 @@ namespace Buddie
             SettingsControl.Initialize(_appSettings);
             
             // 订阅设置控件事件
-            SettingsControl.SettingsClosed += (s, e) => EnableClickThrough(false);
+            SettingsControl.SettingsClosed += (s, e) => _clickThroughService.SetClickThrough(false);
             SettingsControl.ResetSettingsRequested += (s, e) => ResetSettings();
             SettingsControl.SettingsVisibilityChanged += (s, isVisible) => {
                 _vm.IsSettingsVisible = isVisible;
@@ -205,12 +194,12 @@ namespace Buddie
             // 初始化对话控件（MVVM）
             var dialogVm = new Buddie.ViewModels.DialogViewModel(_appSettings);
             DialogControl.InitializeViewModel(dialogVm);
-            DialogControl.DialogClosed += (s, e) => EnableClickThrough(false);
+            DialogControl.DialogClosed += (s, e) => _clickThroughService.SetClickThrough(false);
             DialogControl.DialogVisibilityChanged += (s, isVisible) => { _vm.IsDialogVisible = isVisible; };
             
             // 初始化卡片控件 - 通过命令绑定触发动作
-            cardControl.MouseEntered += (s, e) => EnableClickThrough(false);
-            cardControl.MouseLeft += (s, e) => EnableClickThrough(false);
+            cardControl.MouseEntered += (s, e) => _clickThroughService.SetClickThrough(false);
+            cardControl.MouseLeft += (s, e) => _clickThroughService.SetClickThrough(false);
             
             // 监听子控件的焦点事件以防止输入时透明化
             SubscribeToFocusEvents();
@@ -239,7 +228,7 @@ namespace Buddie
             showItem.Click += (sender, e) => {
                 if (!rightClickPressed)
                 {
-                    ShowWindow_Click(sender, e);
+                    _vm.ShowWindowCommand.Execute(null);
                 }
                 rightClickPressed = false;
             };
@@ -252,7 +241,7 @@ namespace Buddie
             hideItem.Click += (sender, e) => {
                 if (!rightClickPressed)
                 {
-                    HideWindow_Click(sender, e);
+                    _vm.HideWindowCommand.Execute(null);
                 }
                 rightClickPressed = false;
             };
@@ -267,63 +256,26 @@ namespace Buddie
             exitItem.Click += (sender, e) => {
                 if (!rightClickPressed)
                 {
-                    ExitApplication_Click(sender, e);
+                    _vm.ExitApplicationCommand.Execute(null);
                 }
                 rightClickPressed = false;
             };
             contextMenu.Items.Add(exitItem);
-            
-            trayIcon.ContextMenuStrip = contextMenu;
+            // 初始化托盘图标到ViewModel
+            _vm.InitializeTrayIcon(trayIcon);
             
             // 双击托盘图标显示窗口
             trayIcon.DoubleClick += (sender, e) => {
-                ShowWindow();
+                _vm.ShowWindowCommand.Execute(null);
             };
         }
 
-        private void ShowWindow_Click(object? sender, EventArgs e)
-        {
-            ShowWindow();
-        }
-
-        private void HideWindow_Click(object? sender, EventArgs e)
-        {
-            HideWindow();
-        }
-
-        private async void ExitApplication_Click(object? sender, EventArgs e)
-        {
-            // 保存所有设置到数据库
-            try
-            {
-                await _appSettings.SaveToDatabaseAsync();
-            }
-            catch (Exception)
-            {
-                // Handle save error silently during exit
-            }
-            
-            trayIcon?.Dispose();
-            System.Windows.Application.Current.Shutdown();
-        }
-
-        private void ShowWindow()
-        {
-            this.Show();
-            this.WindowState = WindowState.Normal;
-            this.Activate();
-        }
-
-        private void HideWindow()
-        {
-            this.Hide();
-        }
 
         protected override void OnClosing(CancelEventArgs e)
         {
             // 阻止窗口关闭，改为隐藏到托盘
             e.Cancel = true;
-            HideWindow();
+            this.Hide();
             
             // 保存设置到数据库 - 使用同步方式确保保存完成
             try
@@ -457,6 +409,23 @@ namespace Buddie
             _vm.BuildCardsFromAppSettings();
             UpdateCardDisplayFromViewModel();
         }
+        
+        /// <summary>
+        /// 更新展开界面的透明度
+        /// </summary>
+        /// <param name="opacity">透明度值</param>
+        private void UpdateInterfaceOpacity(double opacity)
+        {
+            // 只影响当前可见的界面
+            if (DialogControl.IsVisible)
+            {
+                DialogControl.SetOpacity(opacity);
+            }
+            if (SettingsControl.IsVisible)
+            {
+                SettingsControl.SetOpacity(opacity);
+            }
+        }
 
         /// <summary>
         /// 应用程序退出前保存设置
@@ -522,12 +491,12 @@ namespace Buddie
         /// </summary>
         private void SetUserInteracting(bool interacting)
         {
-            _isUserInteracting = interacting;
+            _vm.SetUserInteracting(interacting);
             
             if (interacting)
             {
                 // 用户开始交互，立即设置为不透明
-                UpdateInterfaceOpacity(1.0);
+                _vm.InterfaceOpacity = 1.0;
                 // 重置计时器
                 _interactionTimer?.Stop();
                 _interactionTimer?.Start();
@@ -542,7 +511,7 @@ namespace Buddie
                 
                 if (!windowBounds.Contains(mousePosition))
                 {
-                    UpdateInterfaceOpacity(0.2);
+                    _vm.InterfaceOpacity = 0.2;
                 }
             }
         }
@@ -575,10 +544,10 @@ namespace Buddie
                     delayTimer.Tick += (sender, args) =>
                     {
                         delayTimer.Stop();
-                        if (!IsAnyInputElementFocused())
-                        {
-                            SetUserInteracting(false);
-                        }
+                if (!IsAnyInputElementFocused())
+                {
+                    SetUserInteracting(false);
+                }
                     };
                     delayTimer.Start();
                 }
@@ -658,39 +627,5 @@ namespace Buddie
         
         #endregion
 
-        private void FloatingWindow_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            // 鼠标进入应用窗口时，将展开的界面设置为完全不透明
-            UpdateInterfaceOpacity(1.0);
-        }
-
-        private void FloatingWindow_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            // 鼠标离开应用窗口时，将展开的界面透明度调整为0.2
-            UpdateInterfaceOpacity(0.2);
-        }
-
-        /// <summary>
-        /// 更新展开界面的透明度
-        /// </summary>
-        /// <param name="opacity">透明度值</param>
-        private void UpdateInterfaceOpacity(double opacity)
-        {
-            // 如果用户正在交互，保持完全不透明
-            if (_isUserInteracting && opacity < 1.0)
-            {
-                opacity = 1.0;
-            }
-            
-            // 只影响当前可见的界面
-            if (DialogControl.IsVisible)
-            {
-                DialogControl.SetOpacity(opacity);
-            }
-            if (SettingsControl.IsVisible)
-            {
-                SettingsControl.SetOpacity(opacity);
-            }
-        }
     }
 }

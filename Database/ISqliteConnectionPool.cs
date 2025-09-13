@@ -1,10 +1,11 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 
 namespace Buddie.Database
 {
-    public interface IDisposableConnection
+    public interface IDisposableConnection : IDisposable
     {
         SqliteConnection Connection { get; }
     }

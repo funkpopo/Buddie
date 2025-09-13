@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Threading.Tasks;
 using Buddie.Database;
+using Buddie.Services.Tts; // For TtsChannelType
 using System.Windows.Documents;
 
 namespace Buddie
@@ -106,12 +107,7 @@ namespace Buddie
         AnthropicClaude
     }
 
-    public enum TtsChannelType
-    {
-        OpenAI,
-        ElevenLabs,
-        MiniMax
-    }
+    // TtsChannelType moved to Buddie.Services.Tts namespace
 
     public enum RealtimeChannelType
     {
