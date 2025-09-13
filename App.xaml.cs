@@ -96,12 +96,18 @@ namespace Buddie
                 await dbInitializer.InitializeAsync();
 
                 // Create and show main window
+                System.Diagnostics.Debug.WriteLine("Creating FloatingWindow...");
                 var floatingWindow = new FloatingWindow();
+                System.Diagnostics.Debug.WriteLine("FloatingWindow created successfully");
                 
                 // Load settings from database
+                System.Diagnostics.Debug.WriteLine("Loading settings from database...");
                 await floatingWindow.LoadSettingsFromDatabaseAsync();
+                System.Diagnostics.Debug.WriteLine("Settings loaded successfully");
                 
+                System.Diagnostics.Debug.WriteLine("Showing FloatingWindow...");
                 floatingWindow.Show();
+                System.Diagnostics.Debug.WriteLine("FloatingWindow shown successfully");
             },
             ExceptionHandlingService.HandlingStrategy.ShowMessage,
             new ExceptionHandlingService.ExceptionContext

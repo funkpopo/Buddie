@@ -34,7 +34,8 @@ namespace Buddie.Database
                 // 执行数据库初始化
                 await CreateTablesAsync(connection);
                 await CreateIndexesAsync(connection);
-                await MigrateDatabaseSchemaAsync(connection);
+                // 跳过迁移，直接使用新的表结构
+                // await MigrateDatabaseSchemaAsync(connection);
                 await InitializeDefaultSettingsAsync(connection);
 
                 // 执行 API Key 加密迁移
@@ -235,8 +236,20 @@ namespace Buddie.Database
             {
                 var columnName = ExtractColumnNameFromAlterStatement(migration.Value);
                 
-                // 检查列是否已存在（幂等性）
-                if (!existingColumns.Contains(columnName) && !await IsMigrationAppliedAsync(connection, migration.Key))
+                // 检查列是否已存在（幂等性）- 如果列已存在，跳过此迁移
+                if (existingColumns.Contains(columnName))
+                {
+                    // 列已存在，记录迁移为已应用（如果尚未记录）
+                    if (!await IsMigrationAppliedAsync(connection, migration.Key))
+                    {
+                        await RecordMigrationAsync(connection, migration.Key);
+                        Debug.WriteLine($"Column {columnName} already exists, marking migration {migration.Key} as applied");
+                    }
+                    continue;
+                }
+                
+                // 列不存在，检查迁移是否已记录
+                if (!await IsMigrationAppliedAsync(connection, migration.Key))
                 {
                     using var command = CreateCommand(connection, migration.Value);
                     await command.ExecuteNonQueryAsync();

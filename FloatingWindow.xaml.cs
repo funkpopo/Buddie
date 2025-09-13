@@ -28,7 +28,18 @@ namespace Buddie
         private readonly CardColorManager _colorManager = new CardColorManager();
         
         // 实时交互服务
-        private readonly RealtimeInteractionService _realtimeService = Buddie.App.GetService<Buddie.Services.RealtimeInteractionService>();
+        private RealtimeInteractionService? _realtimeService;
+        private RealtimeInteractionService RealtimeService
+        {
+            get
+            {
+                if (_realtimeService == null)
+                {
+                    _realtimeService = Buddie.App.GetService<Buddie.Services.RealtimeInteractionService>();
+                }
+                return _realtimeService;
+            }
+        }
         // Real-time interaction state is tracked in ViewModel
         
         // 用户交互状态管理通过ViewModel处理
@@ -37,18 +48,29 @@ namespace Buddie
 
         public FloatingWindow()
         {
+            System.Diagnostics.Debug.WriteLine("FloatingWindow constructor starting...");
+            
             InitializeComponent();
+            System.Diagnostics.Debug.WriteLine("InitializeComponent completed");
+            
             InitializeTrayIcon();
+            System.Diagnostics.Debug.WriteLine("InitializeTrayIcon completed");
             
             // ViewModel wiring
-            _vm = new FloatingWindowViewModel(_appSettings, _realtimeService);
+            System.Diagnostics.Debug.WriteLine("Creating FloatingWindowViewModel...");
+            _vm = new FloatingWindowViewModel(_appSettings, RealtimeService);
+            System.Diagnostics.Debug.WriteLine("FloatingWindowViewModel created");
+            
             this.DataContext = _vm;
+            System.Diagnostics.Debug.WriteLine("DataContext set");
             
             // Initialize ClickThroughService
             _clickThroughService = new ClickThroughService();
             _vm.SetClickThroughService(_clickThroughService);
+            System.Diagnostics.Debug.WriteLine("ClickThroughService initialized");
             
             InitializeControls();
+            System.Diagnostics.Debug.WriteLine("InitializeControls completed");
             
             // Initial cards sync to view is handled by ViewModel
 

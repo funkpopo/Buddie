@@ -660,7 +660,19 @@ namespace Buddie
         private ObservableCollection<OpenApiConfiguration> _apiConfigurations = new ObservableCollection<OpenApiConfiguration>();
         private ObservableCollection<TtsConfiguration> _ttsConfigurations = new ObservableCollection<TtsConfiguration>();
         private ObservableCollection<RealtimeConfiguration> _realtimeConfigurations = new ObservableCollection<RealtimeConfiguration>();
-        private DatabaseService _databaseService = Buddie.App.GetService<Buddie.Database.DatabaseService>();
+        private DatabaseService? _databaseService;
+        
+        private DatabaseService DatabaseService
+        {
+            get
+            {
+                if (_databaseService == null)
+                {
+                    _databaseService = Buddie.App.GetService<Buddie.Database.DatabaseService>();
+                }
+                return _databaseService;
+            }
+        }
 
         // TTS缓存设置
         private int _maxTtsCacheCount = 1000;
@@ -751,7 +763,7 @@ namespace Buddie
             try
             {
                 // Load app settings
-                var dbAppSettings = await _databaseService.GetAppSettingsAsync();
+                var dbAppSettings = await DatabaseService.GetAppSettingsAsync();
                 if (dbAppSettings != null)
                 {
                     IsTopmost = dbAppSettings.IsTopmost;
@@ -761,7 +773,7 @@ namespace Buddie
                 }
 
                 // Load API configurations
-                var dbApiConfigs = await _databaseService.GetApiConfigurationsAsync();
+                var dbApiConfigs = await DatabaseService.GetApiConfigurationsAsync();
                 ApiConfigurations.Clear();
                 foreach (var dbConfig in dbApiConfigs)
                 {
@@ -769,7 +781,7 @@ namespace Buddie
                 }
 
                 // Load TTS configurations
-                var dbTtsConfigs = await _databaseService.GetTtsConfigurationsAsync();
+                var dbTtsConfigs = await DatabaseService.GetTtsConfigurationsAsync();
                 TtsConfigurations.Clear();
                 foreach (var dbConfig in dbTtsConfigs)
                 {
@@ -813,7 +825,7 @@ namespace Buddie
                     EnableAnimation = EnableAnimation,
                     IsDarkTheme = IsDarkTheme
                 };
-                await _databaseService.SaveAppSettingsAsync(dbAppSettings);
+                await DatabaseService.SaveAppSettingsAsync(dbAppSettings);
 
                 // Save API configurations
                 foreach (var config in ApiConfigurations)
@@ -821,7 +833,7 @@ namespace Buddie
                     if (config.IsSaved)
                     {
                         var dbConfig = config.ToDbModel();
-                        var savedId = await _databaseService.SaveApiConfigurationAsync(dbConfig);
+                        var savedId = await DatabaseService.SaveApiConfigurationAsync(dbConfig);
                         config.Id = savedId;
                     }
                 }
@@ -834,7 +846,7 @@ namespace Buddie
                         try
                         {
                             var dbConfig = config.ToDbModel();
-                            var savedId = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
+                            var savedId = await DatabaseService.SaveTtsConfigurationAsync(dbConfig);
                             config.Id = savedId;
                         }
                         catch (Exception)
@@ -856,7 +868,7 @@ namespace Buddie
             try
             {
                 var dbConfig = config.ToDbModel();
-                var id = await _databaseService.SaveApiConfigurationAsync(dbConfig);
+                var id = await DatabaseService.SaveApiConfigurationAsync(dbConfig);
                 config.Id = id;
                 config.IsSaved = true;
             }
@@ -872,7 +884,7 @@ namespace Buddie
             try
             {
                 var dbConfig = config.ToDbModel();
-                var id = await _databaseService.SaveTtsConfigurationAsync(dbConfig);
+                var id = await DatabaseService.SaveTtsConfigurationAsync(dbConfig);
                 config.Id = id;
                 config.IsSaved = true;
             }
@@ -889,7 +901,7 @@ namespace Buddie
             {
                 if (config.Id > 0)
                 {
-                    await _databaseService.DeleteApiConfigurationAsync(config.Id);
+                    await DatabaseService.DeleteApiConfigurationAsync(config.Id);
                 }
                 ApiConfigurations.Remove(config);
             }
@@ -906,7 +918,7 @@ namespace Buddie
             {
                 if (config.Id > 0)
                 {
-                    await _databaseService.DeleteTtsConfigurationAsync(config.Id);
+                    await DatabaseService.DeleteTtsConfigurationAsync(config.Id);
                 }
                 TtsConfigurations.Remove(config);
             }
