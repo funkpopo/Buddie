@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
+using Buddie.Security;
 
 namespace Buddie.Database
 {
@@ -209,7 +210,9 @@ namespace Buddie.Database
 
                 command.Parameters.AddWithValue("@Name", config.Name ?? string.Empty);
                 command.Parameters.AddWithValue("@ApiUrl", config.ApiUrl ?? string.Empty);
-                command.Parameters.AddWithValue("@ApiKey", config.ApiKey ?? string.Empty);
+                // 加密 API Key 后存储
+                var encryptedKey = ApiKeyProtection.Protect(config.DecryptedApiKey);
+                command.Parameters.AddWithValue("@ApiKey", encryptedKey);
                 command.Parameters.AddWithValue("@ModelName", config.ModelName ?? string.Empty);
                 command.Parameters.AddWithValue("@IsStreamingEnabled", config.IsStreamingEnabled);
                 command.Parameters.AddWithValue("@IsMultimodalEnabled", config.IsMultimodalEnabled);
@@ -333,7 +336,9 @@ namespace Buddie.Database
 
                 command.Parameters.AddWithValue("@Name", config.Name ?? string.Empty);
                 command.Parameters.AddWithValue("@ApiUrl", config.ApiUrl ?? string.Empty);
-                command.Parameters.AddWithValue("@ApiKey", config.ApiKey ?? string.Empty);
+                // 加密 API Key 后存储
+                var encryptedKey = ApiKeyProtection.Protect(config.DecryptedApiKey);
+                command.Parameters.AddWithValue("@ApiKey", encryptedKey);
                 command.Parameters.AddWithValue("@Model", config.Model ?? string.Empty);
                 command.Parameters.AddWithValue("@Voice", config.Voice ?? string.Empty);
                 command.Parameters.AddWithValue("@Speed", config.Speed);

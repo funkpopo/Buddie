@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Buddie.Security;
 
 namespace Buddie.Database
 {
@@ -10,6 +11,7 @@ namespace Buddie.Database
         private string _name = "";
         private string _apiUrl = "";
         private string _apiKey = "";
+        private string? _decryptedApiKey; // 缓存解密后的值
         private string _modelName = "";
         private bool _isStreamingEnabled = true;
         private bool _isMultimodalEnabled = false;
@@ -36,11 +38,38 @@ namespace Buddie.Database
             set => SetProperty(ref _apiUrl, value);
         }
 
+        // 数据库存储的加密 API Key
         public string ApiKey
         {
             get => _apiKey;
-            set => SetProperty(ref _apiKey, value);
+            set
+            {
+                SetProperty(ref _apiKey, value);
+                _decryptedApiKey = null; // 清除缓存
+            }
         }
+
+        // 获取解密后的 API Key（不存储到数据库）
+        public string DecryptedApiKey
+        {
+            get
+            {
+                if (_decryptedApiKey == null && !string.IsNullOrEmpty(_apiKey))
+                {
+                    _decryptedApiKey = ApiKeyProtection.Unprotect(_apiKey);
+                }
+                return _decryptedApiKey ?? string.Empty;
+            }
+            set
+            {
+                _decryptedApiKey = value;
+                // 加密后存储到 ApiKey 属性
+                ApiKey = ApiKeyProtection.Protect(value);
+            }
+        }
+
+        // 用于显示的掩码 API Key
+        public string MaskedApiKey => ApiKeyProtection.Mask(DecryptedApiKey);
 
         public string ModelName
         {
@@ -108,6 +137,7 @@ namespace Buddie.Database
         private string _name = "";
         private string _apiUrl = "";
         private string _apiKey = "";
+        private string? _decryptedApiKey; // 缓存解密后的值
         private string _model = "";
         private string _voice = "";
         private double _speed = 1.0;
@@ -135,11 +165,38 @@ namespace Buddie.Database
             set => SetProperty(ref _apiUrl, value);
         }
 
+        // 数据库存储的加密 API Key
         public string ApiKey
         {
             get => _apiKey;
-            set => SetProperty(ref _apiKey, value);
+            set
+            {
+                SetProperty(ref _apiKey, value);
+                _decryptedApiKey = null; // 清除缓存
+            }
         }
+
+        // 获取解密后的 API Key（不存储到数据库）
+        public string DecryptedApiKey
+        {
+            get
+            {
+                if (_decryptedApiKey == null && !string.IsNullOrEmpty(_apiKey))
+                {
+                    _decryptedApiKey = ApiKeyProtection.Unprotect(_apiKey);
+                }
+                return _decryptedApiKey ?? string.Empty;
+            }
+            set
+            {
+                _decryptedApiKey = value;
+                // 加密后存储到 ApiKey 属性
+                ApiKey = ApiKeyProtection.Protect(value);
+            }
+        }
+
+        // 用于显示的掩码 API Key
+        public string MaskedApiKey => ApiKeyProtection.Mask(DecryptedApiKey);
 
         public string Model
         {

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Collections.Generic;
 using Buddie.Services.ExceptionHandling;
+using Buddie.Security;
 
 namespace Buddie.Services.Tts
 {
@@ -141,7 +142,7 @@ namespace Buddie.Services.Tts
                 var httpClient = Buddie.App.GetService<System.Net.Http.IHttpClientFactory>().CreateClient();
                 httpClient.Timeout = TimeSpan.FromSeconds(30);
                 
-                // 设置请求头
+                // 设置请求头（使用原始 API Key，不记录）
                 httpClient.DefaultRequestHeaders.Clear();
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
                 
@@ -224,7 +225,7 @@ namespace Buddie.Services.Tts
             Debug.WriteLine("=== MiniMax TTS 诊断信息 ===");
             Debug.WriteLine($"配置名称: {config.Name}");
             Debug.WriteLine($"API URL: {config.ApiUrl}");
-            Debug.WriteLine($"API Key: {config.ApiKey?.Substring(0, Math.Min(10, config.ApiKey?.Length ?? 0))}...");
+            Debug.WriteLine($"API Key (Masked): {ApiKeyProtection.Mask(config.ApiKey)}");
             Debug.WriteLine($"模型: {config.Model}");
             Debug.WriteLine($"语音: {config.Voice}");
             Debug.WriteLine($"语速: {config.Speed}");

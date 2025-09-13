@@ -262,18 +262,20 @@ namespace Buddie
         // Convert to database model
         public DbApiConfiguration ToDbModel()
         {
-            return new DbApiConfiguration
+            var dbModel = new DbApiConfiguration
             {
                 Id = this.Id,
                 Name = this.Name,
                 ApiUrl = this.ApiUrl,
-                ApiKey = this.ApiKey,
+                // Use DecryptedApiKey property which handles encryption
+                DecryptedApiKey = this.ApiKey,
                 ModelName = this.ModelName,
                 IsStreamingEnabled = this.IsStreamingEnabled,
                 IsMultimodalEnabled = this.IsMultimodalEnabled,
                 ChannelType = (int)this.ChannelType,
                 SupportsThinking = this.SupportsThinking
             };
+            return dbModel;
         }
 
         // Create from database model
@@ -284,7 +286,8 @@ namespace Buddie
                 Id = dbModel.Id,
                 Name = dbModel.Name,
                 ApiUrl = dbModel.ApiUrl,
-                ApiKey = dbModel.ApiKey,
+                // Use DecryptedApiKey to get the unencrypted value
+                ApiKey = dbModel.DecryptedApiKey,
                 ModelName = dbModel.ModelName,
                 IsStreamingEnabled = dbModel.IsStreamingEnabled,
                 IsMultimodalEnabled = dbModel.IsMultimodalEnabled,
@@ -590,12 +593,13 @@ namespace Buddie
         // Convert to database model
         public DbTtsConfiguration ToDbModel()
         {
-            return new DbTtsConfiguration
+            var dbModel = new DbTtsConfiguration
             {
                 Id = this.Id,
                 Name = this.Name ?? "",
                 ApiUrl = this.ApiUrl ?? "",
-                ApiKey = this.ApiKey ?? "",
+                // Use DecryptedApiKey property which handles encryption
+                DecryptedApiKey = this.ApiKey ?? "",
                 Model = this.Model ?? "",
                 Voice = this.Voice ?? "",
                 Speed = this.Speed,
@@ -603,6 +607,7 @@ namespace Buddie
                 IsActive = this.IsActive,
                 ChannelType = (int)this.ChannelType
             };
+            return dbModel;
         }
 
         // Create from database model
@@ -614,7 +619,8 @@ namespace Buddie
                 Name = dbModel.Name,
                 ChannelType = dbModel.ChannelType.HasValue ? (TtsChannelType)dbModel.ChannelType.Value : TtsChannelType.OpenAI,
                 ApiUrl = dbModel.ApiUrl,
-                ApiKey = dbModel.ApiKey,
+                // Use DecryptedApiKey to get the unencrypted value
+                ApiKey = dbModel.DecryptedApiKey,
                 Model = dbModel.Model,
                 Voice = dbModel.Voice,
                 Speed = dbModel.Speed,
@@ -633,7 +639,8 @@ namespace Buddie
                 Name = dbModel.Name,
                 ChannelType = TtsChannelType.OpenAI, // 旧版本默认为OpenAI
                 ApiUrl = dbModel.ApiUrl,
-                ApiKey = dbModel.ApiKey,
+                // Use DecryptedApiKey to get the unencrypted value
+                ApiKey = dbModel.DecryptedApiKey,
                 Model = dbModel.Model,
                 Voice = dbModel.Voice,
                 Speed = dbModel.Speed,

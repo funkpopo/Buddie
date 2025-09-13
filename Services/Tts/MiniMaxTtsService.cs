@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Buddie.Services.ExceptionHandling;
+using Buddie.Security;
 
 namespace Buddie.Services.Tts
 {
@@ -441,7 +442,7 @@ namespace Buddie.Services.Tts
                 // 从API Key中提取纯API Key部分（去除GroupId）
                 var pureApiKey = ExtractPureApiKey(config.ApiKey);
                 _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {pureApiKey}");
-                Debug.WriteLine($"MiniMax 设置Authorization头: Bearer {pureApiKey.Substring(0, Math.Min(10, pureApiKey.Length))}...");
+                Debug.WriteLine($"MiniMax 设置Authorization头: Bearer {ApiKeyProtection.Mask(pureApiKey)}");
             }
             else
             {

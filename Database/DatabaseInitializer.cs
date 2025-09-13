@@ -11,12 +11,14 @@ namespace Buddie.Database
     {
         private readonly IDatabasePathProvider _pathProvider;
         private readonly DatabaseService _databaseService;
+        private readonly ISqliteConnectionPool _connectionPool;
         private const int CommandTimeoutSeconds = 30; // 默认命令超时时间
 
-        public DatabaseInitializer(IDatabasePathProvider pathProvider, DatabaseService databaseService)
+        public DatabaseInitializer(IDatabasePathProvider pathProvider, DatabaseService databaseService, ISqliteConnectionPool connectionPool)
         {
             _pathProvider = pathProvider;
             _databaseService = databaseService;
+            _connectionPool = connectionPool;
         }
 
         public async Task InitializeAsync()
@@ -34,6 +36,10 @@ namespace Buddie.Database
                 await CreateIndexesAsync(connection);
                 await MigrateDatabaseSchemaAsync(connection);
                 await InitializeDefaultSettingsAsync(connection);
+
+                // 执行 API Key 加密迁移
+                var migration = new DatabaseMigration(_connectionPool);
+                await migration.MigrateApiKeysToEncryptedFormatAsync();
 
                 Debug.WriteLine($"Database initialized at: {_pathProvider.DatabasePath}");
             }, "初始化数据库");
