@@ -2,139 +2,126 @@ using Microsoft.Data.Sqlite;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Buddie.Services.ExceptionHandling;
 
 namespace Buddie.Database
 {
     /// <summary>
-    /// 简化的SQLite连接池，针对SQLite的文件锁特性进行优化
-    /// SQLite最佳实践：使用单连接或短连接，避免过多并发连接
+    /// 简化的SQLite连接管理器，遵循SQLite最佳实践
+    /// 使用短连接模式，每个操作创建新连接，操作完成后立即释放
+    /// 通过信号量序列化写操作，避免并发冲突
     /// </summary>
     public sealed class SqliteConnectionPool : ISqliteConnectionPool, IDisposable
     {
         private readonly IDatabasePathProvider _pathProvider;
-        private readonly SemaphoreSlim _connectionSemaphore;
-        private SqliteConnection? _sharedConnection;
-        private readonly object _lockObject = new();
+        private readonly SemaphoreSlim _writeSemaphore;
         private bool _disposed;
         
-        // SQLite建议的配置
-        private const int BusyTimeoutMs = 30000; // 30秒的忙等待超时
-        private const int MaxConcurrentOperations = 1; // SQLite写操作是串行的，限制为1个并发
+        // SQLite推荐配置
+        private const int BusyTimeoutMs = 30000; // 30秒忙等待超时
+        private const int MaxWriteOperations = 1; // 序列化写操作
 
         public SqliteConnectionPool(IDatabasePathProvider pathProvider)
         {
             _pathProvider = pathProvider ?? throw new ArgumentNullException(nameof(pathProvider));
-            _connectionSemaphore = new SemaphoreSlim(MaxConcurrentOperations, MaxConcurrentOperations);
+            _writeSemaphore = new SemaphoreSlim(MaxWriteOperations, MaxWriteOperations);
         }
 
         /// <summary>
-        /// 获取数据库连接
-        /// 使用短连接模式，每次操作都创建新连接
+        /// 获取数据库连接（短连接模式）
+        /// 每次创建新连接，使用完后立即释放
         /// </summary>
         public async Task<IDisposableConnection> GetConnectionAsync(CancellationToken cancellationToken = default)
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(SqliteConnectionPool));
 
-            // 等待获取连接权限（串行化写操作）
-            await _connectionSemaphore.WaitAsync(cancellationToken);
+            // 序列化写操作
+            await _writeSemaphore.WaitAsync(cancellationToken);
 
             try
             {
-                // 创建新的短连接
-                var connection = new SqliteConnection(_pathProvider.ConnectionString);
-                
-                // 设置SQLite推荐的参数
-                await connection.OpenAsync(cancellationToken);
-                
-                // 设置忙等待超时，避免SQLITE_BUSY错误
-                using (var cmd = connection.CreateCommand())
-                {
-                    cmd.CommandText = $"PRAGMA busy_timeout = {BusyTimeoutMs};";
-                    await cmd.ExecuteNonQueryAsync(cancellationToken);
-                    
-                    // 启用WAL模式以提升并发性能
-                    cmd.CommandText = "PRAGMA journal_mode = WAL;";
-                    await cmd.ExecuteNonQueryAsync(cancellationToken);
-                    
-                    // 设置同步模式为NORMAL以平衡性能和安全性
-                    cmd.CommandText = "PRAGMA synchronous = NORMAL;";
-                    await cmd.ExecuteNonQueryAsync(cancellationToken);
-                }
-                
-                var connectionId = Guid.NewGuid().ToString();
-                return new DisposableConnection(connection, connectionId, this);
+                // 创建并配置新连接
+                var connection = await CreateAndConfigureConnectionAsync(cancellationToken);
+                return new DisposableConnection(connection, this);
             }
             catch
             {
-                _connectionSemaphore.Release();
+                _writeSemaphore.Release();
                 throw;
             }
         }
 
         /// <summary>
-        /// 获取共享的只读连接（用于频繁的读操作）
+        /// 创建并配置SQLite连接
         /// </summary>
-        public Task<SqliteConnection> GetSharedReadConnectionAsync()
+        private async Task<SqliteConnection> CreateAndConfigureConnectionAsync(CancellationToken cancellationToken)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(SqliteConnectionPool));
-
-            if (_sharedConnection == null || _sharedConnection.State != System.Data.ConnectionState.Open)
+            var connection = new SqliteConnection(_pathProvider.ConnectionString);
+            
+            try
             {
-                lock (_lockObject)
+                await connection.OpenAsync(cancellationToken);
+                
+                // 应用SQLite优化配置
+                using (var cmd = connection.CreateCommand())
                 {
-                    if (_sharedConnection == null || _sharedConnection.State != System.Data.ConnectionState.Open)
-                    {
-                        _sharedConnection?.Dispose();
-                        _sharedConnection = new SqliteConnection(_pathProvider.ConnectionString);
-                        _sharedConnection.Open();
-                        
-                        // 配置只读连接
-                        using (var cmd = _sharedConnection.CreateCommand())
-                        {
-                            cmd.CommandText = "PRAGMA query_only = true;";
-                            cmd.ExecuteNonQuery();
-                            
-                            cmd.CommandText = $"PRAGMA busy_timeout = {BusyTimeoutMs};";
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
+                    // 设置忙等待超时
+                    cmd.CommandText = $"PRAGMA busy_timeout = {BusyTimeoutMs};";
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    
+                    // 启用WAL模式（写前日志）提升并发读性能
+                    cmd.CommandText = "PRAGMA journal_mode = WAL;";
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    
+                    // 同步模式设为NORMAL，平衡性能和数据安全
+                    cmd.CommandText = "PRAGMA synchronous = NORMAL;";
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    
+                    // 设置缓存大小（2MB）
+                    cmd.CommandText = "PRAGMA cache_size = -2000;";
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    
+                    // 启用外键约束
+                    cmd.CommandText = "PRAGMA foreign_keys = ON;";
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
                 }
+                
+                return connection;
             }
-
-            return Task.FromResult(_sharedConnection);
+            catch
+            {
+                connection?.Dispose();
+                throw;
+            }
         }
 
         /// <summary>
-        /// 释放连接
+        /// 释放连接并解除写锁
         /// </summary>
-        internal void ReleaseConnection(string connectionId, SqliteConnection connection)
+        internal void ReleaseConnection(SqliteConnection connection)
         {
             try
             {
-                // 短连接模式：直接关闭并释放连接
                 connection?.Close();
                 connection?.Dispose();
             }
             finally
             {
-                _connectionSemaphore.Release();
+                _writeSemaphore.Release();
             }
         }
 
         /// <summary>
-        /// 获取连接池统计信息
+        /// 获取统计信息
         /// </summary>
         public (int Available, int InUse, int Total, int MaxConnections) GetStatistics()
         {
-            var inUse = MaxConcurrentOperations - _connectionSemaphore.CurrentCount;
+            var inUse = MaxWriteOperations - _writeSemaphore.CurrentCount;
             return (
-                Available: _connectionSemaphore.CurrentCount,
+                Available: _writeSemaphore.CurrentCount,
                 InUse: inUse,
-                Total: inUse + (_sharedConnection != null ? 1 : 0),
-                MaxConnections: MaxConcurrentOperations
+                Total: inUse,
+                MaxConnections: MaxWriteOperations
             );
         }
 
@@ -144,34 +131,24 @@ namespace Buddie.Database
                 return;
 
             _disposed = true;
-
-            _connectionSemaphore?.Dispose();
+            _writeSemaphore?.Dispose();
             
-            lock (_lockObject)
-            {
-                _sharedConnection?.Close();
-                _sharedConnection?.Dispose();
-                _sharedConnection = null;
-            }
-
-            System.Diagnostics.Debug.WriteLine("SQLite connection pool disposed");
+            System.Diagnostics.Debug.WriteLine("SQLite connection manager disposed");
         }
     }
 
     /// <summary>
-    /// 可释放的连接实现
+    /// 可释放的连接包装器
     /// </summary>
-    internal class DisposableConnection : IDisposableConnection
+    internal sealed class DisposableConnection : IDisposableConnection
     {
         public SqliteConnection Connection { get; }
-        private readonly string _connectionId;
         private readonly SqliteConnectionPool _pool;
         private bool _disposed;
 
-        public DisposableConnection(SqliteConnection connection, string connectionId, SqliteConnectionPool pool)
+        public DisposableConnection(SqliteConnection connection, SqliteConnectionPool pool)
         {
             Connection = connection ?? throw new ArgumentNullException(nameof(connection));
-            _connectionId = connectionId ?? throw new ArgumentNullException(nameof(connectionId));
             _pool = pool ?? throw new ArgumentNullException(nameof(pool));
         }
 
@@ -181,7 +158,7 @@ namespace Buddie.Database
                 return;
 
             _disposed = true;
-            _pool.ReleaseConnection(_connectionId, Connection);
+            _pool.ReleaseConnection(Connection);
         }
     }
 }

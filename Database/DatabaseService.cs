@@ -12,11 +12,24 @@ namespace Buddie.Database
     {
         private readonly ISqliteConnectionPool _connectionPool;
         private bool _disposed;
+        private const int CommandTimeoutSeconds = 30; // 默认SQL命令超时时间
 
         public DatabaseService(ISqliteConnectionPool connectionPool)
         {
             _connectionPool = connectionPool;
         }
+        
+        /// <summary>
+        /// 创建SQLite命令并设置超时
+        /// </summary>
+        private SqliteCommand CreateCommand(SqliteConnection connection, string commandText)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = commandText;
+            command.CommandTimeout = CommandTimeoutSeconds;
+            return command;
+        }
+        
         private static DateTime ParseDateTime(string dateTimeStr)
         {
             if (string.IsNullOrEmpty(dateTimeStr) || dateTimeStr == "0")
@@ -36,63 +49,81 @@ namespace Buddie.Database
 
         public async Task<DbAppSettings?> GetAppSettingsAsync()
         {
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
-
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT * FROM AppSettings LIMIT 1";
-
-            using var reader = await command.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
+            try
             {
-                return new DbAppSettings
-                {
-                    Id = reader.GetInt32(0),
-                    IsTopmost = reader.GetBoolean(1),
-                    ShowInTaskbar = reader.GetBoolean(2),
-                    EnableAnimation = reader.GetBoolean(3),
-                    IsDarkTheme = reader.GetBoolean(4),
-                    UpdatedAt = ParseDateTime(reader.GetString(5))
-                };
-            }
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
 
-            return null;
+                using var command = CreateCommand(connection, "SELECT * FROM AppSettings LIMIT 1");
+
+                using var reader = await command.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    return new DbAppSettings
+                    {
+                        Id = reader.GetInt32(0),
+                        IsTopmost = reader.GetBoolean(1),
+                        ShowInTaskbar = reader.GetBoolean(2),
+                        EnableAnimation = reader.GetBoolean(3),
+                        IsDarkTheme = reader.GetBoolean(4),
+                        UpdatedAt = ParseDateTime(reader.GetString(5))
+                    };
+                }
+
+                return null;
+            }
+            catch (SqliteException ex)
+            {
+                throw new InvalidOperationException($"Failed to get app settings: {ex.Message}", ex);
+            }
         }
 
         public async Task SaveAppSettingsAsync(DbAppSettings settings)
         {
+            if (settings == null)
+                throw new ArgumentNullException(nameof(settings));
+                
             settings.UpdatedAt = DateTime.UtcNow;
 
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
-
-            using var command = connection.CreateCommand();
-            if (settings.Id == 0)
+            try
             {
-                // Insert new settings
-                command.CommandText = @"
-                    INSERT INTO AppSettings (IsTopmost, ShowInTaskbar, EnableAnimation, IsDarkTheme, UpdatedAt)
-                    VALUES (@IsTopmost, @ShowInTaskbar, @EnableAnimation, @IsDarkTheme, @UpdatedAt)";
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
+
+                using var command = connection.CreateCommand();
+                command.CommandTimeout = CommandTimeoutSeconds;
+                
+                if (settings.Id == 0)
+                {
+                    // Insert new settings
+                    command.CommandText = @"
+                        INSERT INTO AppSettings (IsTopmost, ShowInTaskbar, EnableAnimation, IsDarkTheme, UpdatedAt)
+                        VALUES (@IsTopmost, @ShowInTaskbar, @EnableAnimation, @IsDarkTheme, @UpdatedAt)";
+                }
+                else
+                {
+                    // Update existing settings
+                    command.CommandText = @"
+                        UPDATE AppSettings 
+                        SET IsTopmost = @IsTopmost, ShowInTaskbar = @ShowInTaskbar, 
+                            EnableAnimation = @EnableAnimation, IsDarkTheme = @IsDarkTheme, 
+                            UpdatedAt = @UpdatedAt 
+                        WHERE Id = @Id";
+                    command.Parameters.AddWithValue("@Id", settings.Id);
+                }
+
+                command.Parameters.AddWithValue("@IsTopmost", settings.IsTopmost);
+                command.Parameters.AddWithValue("@ShowInTaskbar", settings.ShowInTaskbar);
+                command.Parameters.AddWithValue("@EnableAnimation", settings.EnableAnimation);
+                command.Parameters.AddWithValue("@IsDarkTheme", settings.IsDarkTheme);
+                command.Parameters.AddWithValue("@UpdatedAt", settings.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                await command.ExecuteNonQueryAsync();
             }
-            else
+            catch (SqliteException ex)
             {
-                // Update existing settings
-                command.CommandText = @"
-                    UPDATE AppSettings 
-                    SET IsTopmost = @IsTopmost, ShowInTaskbar = @ShowInTaskbar, 
-                        EnableAnimation = @EnableAnimation, IsDarkTheme = @IsDarkTheme, 
-                        UpdatedAt = @UpdatedAt 
-                    WHERE Id = @Id";
-                command.Parameters.AddWithValue("@Id", settings.Id);
+                throw new InvalidOperationException($"Failed to save app settings: {ex.Message}", ex);
             }
-
-            command.Parameters.AddWithValue("@IsTopmost", settings.IsTopmost);
-            command.Parameters.AddWithValue("@ShowInTaskbar", settings.ShowInTaskbar);
-            command.Parameters.AddWithValue("@EnableAnimation", settings.EnableAnimation);
-            command.Parameters.AddWithValue("@IsDarkTheme", settings.IsDarkTheme);
-            command.Parameters.AddWithValue("@UpdatedAt", settings.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
-
-            await command.ExecuteNonQueryAsync();
         }
 
         #endregion
@@ -103,93 +134,117 @@ namespace Buddie.Database
         {
             var configurations = new List<DbApiConfiguration>();
 
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
-
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT * FROM ApiConfigurations ORDER BY CreatedAt";
-
-            using var reader = await command.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            try
             {
-                configurations.Add(new DbApiConfiguration
-                {
-                    Id = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    ApiUrl = reader.GetString(2),
-                    ApiKey = reader.GetString(3),
-                    ModelName = reader.GetString(4),
-                    IsStreamingEnabled = reader.GetBoolean(5),
-                    IsMultimodalEnabled = reader.GetBoolean(6),
-                    ChannelType = reader.GetInt32(7),
-                    SupportsThinking = reader.GetBoolean(8),
-                    CreatedAt = ParseDateTime(reader.GetString(9)),
-                    UpdatedAt = ParseDateTime(reader.GetString(10))
-                });
-            }
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
 
-            return configurations;
+                using var command = CreateCommand(connection, "SELECT * FROM ApiConfigurations ORDER BY CreatedAt");
+
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    configurations.Add(new DbApiConfiguration
+                    {
+                        Id = reader.GetInt32(0),
+                        Name = reader.GetString(1),
+                        ApiUrl = reader.GetString(2),
+                        ApiKey = reader.GetString(3),
+                        ModelName = reader.GetString(4),
+                        IsStreamingEnabled = reader.GetBoolean(5),
+                        IsMultimodalEnabled = reader.GetBoolean(6),
+                        ChannelType = reader.GetInt32(7),
+                        SupportsThinking = reader.GetBoolean(8),
+                        CreatedAt = ParseDateTime(reader.GetString(9)),
+                        UpdatedAt = ParseDateTime(reader.GetString(10))
+                    });
+                }
+
+                return configurations;
+            }
+            catch (SqliteException ex)
+            {
+                throw new InvalidOperationException($"Failed to get API configurations: {ex.Message}", ex);
+            }
         }
 
         public async Task<int> SaveApiConfigurationAsync(DbApiConfiguration config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+                
             config.UpdatedAt = DateTime.UtcNow;
 
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
-
-            using var command = connection.CreateCommand();
-            if (config.Id == 0)
+            try
             {
-                // Insert new configuration
-                config.CreatedAt = DateTime.UtcNow;
-                command.CommandText = @"
-                    INSERT INTO ApiConfigurations (Name, ApiUrl, ApiKey, ModelName, IsStreamingEnabled, 
-                                                 IsMultimodalEnabled, ChannelType, SupportsThinking, CreatedAt, UpdatedAt)
-                    VALUES (@Name, @ApiUrl, @ApiKey, @ModelName, @IsStreamingEnabled, 
-                           @IsMultimodalEnabled, @ChannelType, @SupportsThinking, @CreatedAt, @UpdatedAt);
-                    SELECT last_insert_rowid();";
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
+
+                using var command = connection.CreateCommand();
+                command.CommandTimeout = CommandTimeoutSeconds;
+                
+                if (config.Id == 0)
+                {
+                    // Insert new configuration
+                    config.CreatedAt = DateTime.UtcNow;
+                    command.CommandText = @"
+                        INSERT INTO ApiConfigurations (Name, ApiUrl, ApiKey, ModelName, IsStreamingEnabled, 
+                                                     IsMultimodalEnabled, ChannelType, SupportsThinking, CreatedAt, UpdatedAt)
+                        VALUES (@Name, @ApiUrl, @ApiKey, @ModelName, @IsStreamingEnabled, 
+                               @IsMultimodalEnabled, @ChannelType, @SupportsThinking, @CreatedAt, @UpdatedAt);
+                        SELECT last_insert_rowid();";
+                }
+                else
+                {
+                    // Update existing configuration
+                    command.CommandText = @"
+                        UPDATE ApiConfigurations 
+                        SET Name = @Name, ApiUrl = @ApiUrl, ApiKey = @ApiKey, ModelName = @ModelName,
+                            IsStreamingEnabled = @IsStreamingEnabled, IsMultimodalEnabled = @IsMultimodalEnabled,
+                            ChannelType = @ChannelType, SupportsThinking = @SupportsThinking, UpdatedAt = @UpdatedAt
+                        WHERE Id = @Id;
+                        SELECT @Id;";
+                    command.Parameters.AddWithValue("@Id", config.Id);
+                }
+
+                command.Parameters.AddWithValue("@Name", config.Name ?? string.Empty);
+                command.Parameters.AddWithValue("@ApiUrl", config.ApiUrl ?? string.Empty);
+                command.Parameters.AddWithValue("@ApiKey", config.ApiKey ?? string.Empty);
+                command.Parameters.AddWithValue("@ModelName", config.ModelName ?? string.Empty);
+                command.Parameters.AddWithValue("@IsStreamingEnabled", config.IsStreamingEnabled);
+                command.Parameters.AddWithValue("@IsMultimodalEnabled", config.IsMultimodalEnabled);
+                command.Parameters.AddWithValue("@ChannelType", config.ChannelType);
+                command.Parameters.AddWithValue("@SupportsThinking", config.SupportsThinking);
+                command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+                command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                var result = await command.ExecuteScalarAsync();
+                var id = Convert.ToInt32(result);
+                config.Id = id;
+                return id;
             }
-            else
+            catch (SqliteException ex)
             {
-                // Update existing configuration
-                command.CommandText = @"
-                    UPDATE ApiConfigurations 
-                    SET Name = @Name, ApiUrl = @ApiUrl, ApiKey = @ApiKey, ModelName = @ModelName,
-                        IsStreamingEnabled = @IsStreamingEnabled, IsMultimodalEnabled = @IsMultimodalEnabled,
-                        ChannelType = @ChannelType, SupportsThinking = @SupportsThinking, UpdatedAt = @UpdatedAt
-                    WHERE Id = @Id;
-                    SELECT @Id;";
-                command.Parameters.AddWithValue("@Id", config.Id);
+                throw new InvalidOperationException($"Failed to save API configuration: {ex.Message}", ex);
             }
-
-            command.Parameters.AddWithValue("@Name", config.Name);
-            command.Parameters.AddWithValue("@ApiUrl", config.ApiUrl);
-            command.Parameters.AddWithValue("@ApiKey", config.ApiKey);
-            command.Parameters.AddWithValue("@ModelName", config.ModelName);
-            command.Parameters.AddWithValue("@IsStreamingEnabled", config.IsStreamingEnabled);
-            command.Parameters.AddWithValue("@IsMultimodalEnabled", config.IsMultimodalEnabled);
-            command.Parameters.AddWithValue("@ChannelType", config.ChannelType);
-            command.Parameters.AddWithValue("@SupportsThinking", config.SupportsThinking);
-            command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
-            command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
-
-            var result = await command.ExecuteScalarAsync();
-            var id = Convert.ToInt32(result);
-            config.Id = id;
-            return id;
         }
 
         public async Task DeleteApiConfigurationAsync(int id)
         {
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
+            try
+            {
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
 
-            using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM ApiConfigurations WHERE Id = @Id";
-            command.Parameters.AddWithValue("@Id", id);
+                using var command = CreateCommand(connection, "DELETE FROM ApiConfigurations WHERE Id = @Id");
+                command.Parameters.AddWithValue("@Id", id);
 
-            await command.ExecuteNonQueryAsync();
+                await command.ExecuteNonQueryAsync();
+            }
+            catch (SqliteException ex)
+            {
+                throw new InvalidOperationException($"Failed to delete API configuration with ID {id}: {ex.Message}", ex);
+            }
         }
 
         #endregion
@@ -200,116 +255,121 @@ namespace Buddie.Database
         {
             var configurations = new List<DbTtsConfiguration>();
 
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
-
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT * FROM TtsConfigurations ORDER BY CreatedAt";
-
-            using var reader = await command.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            try
             {
-                var createdAtStr = reader.GetString(8); // Fixed: CreatedAt is at position 8, not 9
-                var updatedAtStr = reader.GetString(9); // Fixed: UpdatedAt is at position 9, not 10
-                
-                // 处理可能的无效日期格式
-                DateTime createdAt = DateTime.UtcNow;
-                DateTime updatedAt = DateTime.UtcNow;
-                
-                if (!string.IsNullOrEmpty(createdAtStr) && createdAtStr != "0")
-                {
-                    if (!DateTime.TryParse(createdAtStr, out createdAt))
-                    {
-                        createdAt = DateTime.UtcNow;
-                    }
-                }
-                
-                if (!string.IsNullOrEmpty(updatedAtStr) && updatedAtStr != "0")
-                {
-                    if (!DateTime.TryParse(updatedAtStr, out updatedAt))
-                    {
-                        updatedAt = DateTime.UtcNow;
-                    }
-                }
-                
-                var config = new DbTtsConfiguration
-                {
-                    Id = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    ApiUrl = reader.GetString(2),
-                    ApiKey = reader.GetString(3),
-                    Model = reader.GetString(4),
-                    Voice = reader.GetString(5),
-                    Speed = reader.GetDouble(6),
-                    IsStreamingEnabled = reader.GetBoolean(7),
-                    IsActive = reader.GetBoolean(10), // Fixed: IsActive is at position 10, not 8
-                    ChannelType = reader.IsDBNull(11) ? null : reader.GetInt32(11), // Also read ChannelType at position 11
-                    CreatedAt = createdAt,
-                    UpdatedAt = updatedAt
-                };
-                configurations.Add(config);
-            }
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
 
-            return configurations;
+                using var command = CreateCommand(connection, "SELECT * FROM TtsConfigurations ORDER BY CreatedAt");
+
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var createdAtStr = reader.GetString(8);
+                    var updatedAtStr = reader.GetString(9);
+                    
+                    var config = new DbTtsConfiguration
+                    {
+                        Id = reader.GetInt32(0),
+                        Name = reader.GetString(1),
+                        ApiUrl = reader.GetString(2),
+                        ApiKey = reader.GetString(3),
+                        Model = reader.GetString(4),
+                        Voice = reader.GetString(5),
+                        Speed = reader.GetDouble(6),
+                        IsStreamingEnabled = reader.GetBoolean(7),
+                        IsActive = reader.GetBoolean(10),
+                        ChannelType = reader.IsDBNull(11) ? null : reader.GetInt32(11),
+                        CreatedAt = ParseDateTime(createdAtStr),
+                        UpdatedAt = ParseDateTime(updatedAtStr)
+                    };
+                    configurations.Add(config);
+                }
+
+                return configurations;
+            }
+            catch (SqliteException ex)
+            {
+                throw new InvalidOperationException($"Failed to get TTS configurations: {ex.Message}", ex);
+            }
         }
 
         public async Task<int> SaveTtsConfigurationAsync(DbTtsConfiguration config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+                
             config.UpdatedAt = DateTime.UtcNow;
 
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
-
-            using var command = connection.CreateCommand();
-            if (config.Id == 0)
+            try
             {
-                // Insert new configuration
-                config.CreatedAt = DateTime.UtcNow;
-                command.CommandText = @"
-                    INSERT INTO TtsConfigurations (Name, ApiUrl, ApiKey, Model, Voice, Speed, IsStreamingEnabled, IsActive, ChannelType, CreatedAt, UpdatedAt)
-                    VALUES (@Name, @ApiUrl, @ApiKey, @Model, @Voice, @Speed, @IsStreamingEnabled, @IsActive, @ChannelType, @CreatedAt, @UpdatedAt);
-                    SELECT last_insert_rowid();";
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
+
+                using var command = connection.CreateCommand();
+                command.CommandTimeout = CommandTimeoutSeconds;
+                
+                if (config.Id == 0)
+                {
+                    // Insert new configuration
+                    config.CreatedAt = DateTime.UtcNow;
+                    command.CommandText = @"
+                        INSERT INTO TtsConfigurations (Name, ApiUrl, ApiKey, Model, Voice, Speed, IsStreamingEnabled, IsActive, ChannelType, CreatedAt, UpdatedAt)
+                        VALUES (@Name, @ApiUrl, @ApiKey, @Model, @Voice, @Speed, @IsStreamingEnabled, @IsActive, @ChannelType, @CreatedAt, @UpdatedAt);
+                        SELECT last_insert_rowid();";
+                }
+                else
+                {
+                    // Update existing configuration
+                    command.CommandText = @"
+                        UPDATE TtsConfigurations 
+                        SET Name = @Name, ApiUrl = @ApiUrl, ApiKey = @ApiKey, Model = @Model,
+                            Voice = @Voice, Speed = @Speed, IsStreamingEnabled = @IsStreamingEnabled, 
+                            IsActive = @IsActive, ChannelType = @ChannelType, UpdatedAt = @UpdatedAt
+                        WHERE Id = @Id;
+                        SELECT @Id;";
+                    command.Parameters.AddWithValue("@Id", config.Id);
+                }
+
+                command.Parameters.AddWithValue("@Name", config.Name ?? string.Empty);
+                command.Parameters.AddWithValue("@ApiUrl", config.ApiUrl ?? string.Empty);
+                command.Parameters.AddWithValue("@ApiKey", config.ApiKey ?? string.Empty);
+                command.Parameters.AddWithValue("@Model", config.Model ?? string.Empty);
+                command.Parameters.AddWithValue("@Voice", config.Voice ?? string.Empty);
+                command.Parameters.AddWithValue("@Speed", config.Speed);
+                command.Parameters.AddWithValue("@IsStreamingEnabled", config.IsStreamingEnabled);
+                command.Parameters.AddWithValue("@IsActive", config.IsActive);
+                command.Parameters.AddWithValue("@ChannelType", config.ChannelType ?? 0);
+                command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt == default ? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") : config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+                command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt == default ? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") : config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                var result = await command.ExecuteScalarAsync();
+                var id = Convert.ToInt32(result);
+                config.Id = id;
+                return id;
             }
-            else
+            catch (SqliteException ex)
             {
-                // Update existing configuration
-                command.CommandText = @"
-                    UPDATE TtsConfigurations 
-                    SET Name = @Name, ApiUrl = @ApiUrl, ApiKey = @ApiKey, Model = @Model,
-                        Voice = @Voice, Speed = @Speed, IsStreamingEnabled = @IsStreamingEnabled, IsActive = @IsActive, ChannelType = @ChannelType, UpdatedAt = @UpdatedAt
-                    WHERE Id = @Id;
-                    SELECT @Id;";
-                command.Parameters.AddWithValue("@Id", config.Id);
+                throw new InvalidOperationException($"Failed to save TTS configuration: {ex.Message}", ex);
             }
-
-            command.Parameters.AddWithValue("@Name", config.Name);
-            command.Parameters.AddWithValue("@ApiUrl", config.ApiUrl);
-            command.Parameters.AddWithValue("@ApiKey", config.ApiKey);
-            command.Parameters.AddWithValue("@Model", config.Model);
-            command.Parameters.AddWithValue("@Voice", config.Voice);
-            command.Parameters.AddWithValue("@Speed", config.Speed);
-            command.Parameters.AddWithValue("@IsStreamingEnabled", config.IsStreamingEnabled);
-            command.Parameters.AddWithValue("@IsActive", config.IsActive);
-            command.Parameters.AddWithValue("@ChannelType", config.ChannelType ?? 0); // Default to OpenAI if null
-            command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt == default ? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") : config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
-            command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt == default ? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") : config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
-
-            var result = await command.ExecuteScalarAsync();
-            var id = Convert.ToInt32(result);
-            config.Id = id;
-            return id;
         }
 
         public async Task DeleteTtsConfigurationAsync(int id)
         {
-            using var connectionWrapper = await _connectionPool.GetConnectionAsync();
-            var connection = connectionWrapper.Connection;
+            try
+            {
+                using var connectionWrapper = await _connectionPool.GetConnectionAsync();
+                var connection = connectionWrapper.Connection;
 
-            using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM TtsConfigurations WHERE Id = @Id";
-            command.Parameters.AddWithValue("@Id", id);
+                using var command = CreateCommand(connection, "DELETE FROM TtsConfigurations WHERE Id = @Id");
+                command.Parameters.AddWithValue("@Id", id);
 
-            await command.ExecuteNonQueryAsync();
+                await command.ExecuteNonQueryAsync();
+            }
+            catch (SqliteException ex)
+            {
+                throw new InvalidOperationException($"Failed to delete TTS configuration with ID {id}: {ex.Message}", ex);
+            }
         }
 
         #endregion
