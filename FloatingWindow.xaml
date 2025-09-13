@@ -33,7 +33,7 @@
         <!-- 卡片控件 -->
         <controls:CardControl x:Name="cardControl"
                               DialogCommand="{Binding ToggleDialogCommand}"
-                              BuddieCommand="{Binding ToggleRealtimeAsyncCommand}"
+                              BuddieCommand="{Binding ToggleRealtimeCommand}"
                               SettingsCommand="{Binding ToggleSettingsCommand}"
                               IsDialogOpen="{Binding IsDialogVisible}"
                               IsSettingsOpen="{Binding IsSettingsVisible}"
@@ -43,11 +43,11 @@
         
         <!-- 对话界面 -->
         <controls:DialogControl x:Name="DialogControl"
-                                Visibility="{Binding IsDialogVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                Visibility="{Binding DataContext.IsDialogVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}"/>
         
         <!-- 设置界面 -->
         <controls:SettingsControl x:Name="SettingsControl"
-                                  Visibility="{Binding IsSettingsVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                  Visibility="{Binding DataContext.IsSettingsVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
     </Grid>
 </Window>

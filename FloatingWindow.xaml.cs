@@ -62,17 +62,6 @@ namespace Buddie
                 throw;
             }
             
-            try
-            {
-                InitializeTrayIcon();
-                System.Diagnostics.Debug.WriteLine("InitializeTrayIcon completed");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"InitializeTrayIcon failed: {ex.Message}");
-                throw;
-            }
-            
             // ViewModel wiring
             System.Diagnostics.Debug.WriteLine("Creating FloatingWindowViewModel...");
             try
@@ -94,6 +83,18 @@ namespace Buddie
             _clickThroughService = new ClickThroughService();
             _vm.SetClickThroughService(_clickThroughService);
             System.Diagnostics.Debug.WriteLine("ClickThroughService initialized");
+
+            // Initialize tray icon after ViewModel is ready
+            try
+            {
+                InitializeTrayIcon();
+                System.Diagnostics.Debug.WriteLine("InitializeTrayIcon completed");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"InitializeTrayIcon failed: {ex.Message}");
+                throw;
+            }
             
             InitializeControls();
             System.Diagnostics.Debug.WriteLine("InitializeControls completed");
