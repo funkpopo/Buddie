@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Buddie.Database;
 using Buddie.Services.ExceptionHandling;
@@ -17,6 +18,7 @@ namespace Buddie
     {
         private IHost? _host;
         private IConfiguration? _configuration;
+        private ILogger<App>? _logger;
         public static IServiceProvider Services => ((App)Current)._host!.Services;
         public static T GetService<T>() where T : notnull => Services.GetRequiredService<T>();
         public static IConfiguration Configuration => ((App)Current)._configuration!;
@@ -32,10 +34,12 @@ namespace Buddie
                         config.SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
                               .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
                     })
-                    .ConfigureLogging(logging =>
+                    .ConfigureLogging((context, logging) =>
                     {
                         logging.ClearProviders();
+                        logging.AddConfiguration(context.Configuration.GetSection("Logging"));
                         logging.AddDebug();
+                        logging.AddConsole();
                     })
                     .ConfigureServices((context, services) =>
                     {
@@ -56,8 +60,8 @@ namespace Buddie
                         {
                             client.Timeout = TimeSpan.FromMinutes(timeoutMinutes);
                         })
-                        .AddPolicyHandler(GetRetryPolicy(retryCount, baseDelay))
-                        .AddPolicyHandler(GetCircuitBreakerPolicy(circuitBreakerThreshold, circuitBreakerDuration));
+                        .AddPolicyHandler((sp, request) => GetRetryPolicy(sp, retryCount, baseDelay))
+                        .AddPolicyHandler((sp, request) => GetCircuitBreakerPolicy(sp, circuitBreakerThreshold, circuitBreakerDuration));
                         
                         services.AddSingleton<IErrorNotifier, WpfErrorNotifier>();
                         
@@ -81,49 +85,50 @@ namespace Buddie
                     .Build();
 
                 await _host.StartAsync();
-                System.Diagnostics.Debug.WriteLine("Host started successfully");
+                _logger = _host.Services.GetRequiredService<Microsoft.Extensions.Logging.ILogger<App>>();
+                _logger.LogInformation("Host started successfully");
 
                 // Wire ExceptionHandlingService with notifier + logger
-                System.Diagnostics.Debug.WriteLine("Getting IErrorNotifier...");
+                _logger.LogDebug("Getting IErrorNotifier...");
                 var notifier = _host.Services.GetRequiredService<IErrorNotifier>();
-                System.Diagnostics.Debug.WriteLine("Got IErrorNotifier successfully");
+                _logger.LogDebug("Got IErrorNotifier successfully");
                 
-                System.Diagnostics.Debug.WriteLine("Getting ILoggerFactory...");
+                _logger.LogDebug("Getting ILoggerFactory...");
                 var loggerFactory = _host.Services.GetRequiredService<ILoggerFactory>();
-                System.Diagnostics.Debug.WriteLine("Got ILoggerFactory successfully");
+                _logger.LogDebug("Got ILoggerFactory successfully");
                 
-                System.Diagnostics.Debug.WriteLine("Configuring ExceptionHandlingService...");
+                _logger.LogInformation("Configuring ExceptionHandlingService...");
                 ExceptionHandlingService.Configure(notifier, loggerFactory);
-                System.Diagnostics.Debug.WriteLine("ExceptionHandlingService configured successfully");
+                _logger.LogInformation("ExceptionHandlingService configured successfully");
 
                 // Set up global exception handlers
-                System.Diagnostics.Debug.WriteLine("Setting up global exception handlers...");
+                _logger.LogInformation("Setting up global exception handlers...");
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
                 DispatcherUnhandledException += App_DispatcherUnhandledException;
-                System.Diagnostics.Debug.WriteLine("Global exception handlers set up successfully");
+                _logger.LogInformation("Global exception handlers set up successfully");
                 
                 // Initialize database
-                System.Diagnostics.Debug.WriteLine("Getting IDatabaseInitializer...");
+                _logger.LogDebug("Getting IDatabaseInitializer...");
                 var dbInitializer = _host.Services.GetRequiredService<IDatabaseInitializer>();
-                System.Diagnostics.Debug.WriteLine("Got IDatabaseInitializer successfully");
+                _logger.LogDebug("Got IDatabaseInitializer successfully");
                 
-                System.Diagnostics.Debug.WriteLine("Initializing database...");
+                _logger.LogInformation("Initializing database...");
                 await dbInitializer.InitializeAsync();
-                System.Diagnostics.Debug.WriteLine("Database initialized successfully");
+                _logger.LogInformation("Database initialized successfully");
 
                 // Create and show main window
-                System.Diagnostics.Debug.WriteLine("Creating FloatingWindow...");
+                _logger.LogInformation("Creating FloatingWindow...");
                 var floatingWindow = new FloatingWindow();
-                System.Diagnostics.Debug.WriteLine("FloatingWindow created successfully");
+                _logger.LogInformation("FloatingWindow created successfully");
                 
                 // Load settings from database
-                System.Diagnostics.Debug.WriteLine("Loading settings from database...");
+                _logger.LogInformation("Loading settings from database...");
                 await floatingWindow.LoadSettingsFromDatabaseAsync();
-                System.Diagnostics.Debug.WriteLine("Settings loaded successfully");
+                _logger.LogInformation("Settings loaded successfully");
                 
-                System.Diagnostics.Debug.WriteLine("Showing FloatingWindow...");
+                _logger.LogInformation("Showing FloatingWindow...");
                 floatingWindow.Show();
-                System.Diagnostics.Debug.WriteLine("FloatingWindow shown successfully");
+                _logger.LogInformation("FloatingWindow shown successfully");
             },
             ExceptionHandlingService.HandlingStrategy.ShowMessage,
             new ExceptionHandlingService.ExceptionContext
@@ -199,25 +204,31 @@ namespace Buddie
         /// <summary>
         /// 配置 HTTP 重试策略
         /// </summary>
-        private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(int retryCount = 3, int baseDelaySeconds = 2)
+        private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(IServiceProvider sp, int retryCount = 3, int baseDelaySeconds = 2)
         {
+            var logger = sp.GetService<ILogger<App>>()
+                         ?? sp.GetService<ILoggerFactory>()?.CreateLogger("HttpPolicies")
+                         ?? NullLogger<App>.Instance;
             return HttpPolicyExtensions
                 .HandleTransientHttpError() // 处理 HttpRequestException, 5XX and 408
                 .OrResult(msg => !msg.IsSuccessStatusCode)
                 .WaitAndRetryAsync(
                     retryCount,
                     retryAttempt => TimeSpan.FromSeconds(Math.Pow(baseDelaySeconds, retryAttempt)), // 指数退避
-                    onRetry: (outcome, timespan, retryCount, context) =>
+                    onRetry: (outcome, timespan, attempt, context) =>
                     {
-                        System.Diagnostics.Debug.WriteLine($"HTTP 重试第 {retryCount} 次，等待 {timespan} 秒后重试...");
+                        logger.LogWarning("HTTP retry {Attempt} after {Delay}s; status={StatusCode}", attempt, timespan.TotalSeconds, (int?)outcome.Result?.StatusCode);
                     });
         }
         
         /// <summary>
         /// 配置熔断器策略
         /// </summary>
-        private static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy(int failureThreshold = 5, int durationSeconds = 30)
+        private static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy(IServiceProvider sp, int failureThreshold = 5, int durationSeconds = 30)
         {
+            var logger = sp.GetService<ILogger<App>>()
+                         ?? sp.GetService<ILoggerFactory>()?.CreateLogger("HttpPolicies")
+                         ?? NullLogger<App>.Instance;
             return HttpPolicyExtensions
                 .HandleTransientHttpError()
                 .CircuitBreakerAsync(
@@ -225,11 +236,11 @@ namespace Buddie
                     TimeSpan.FromSeconds(durationSeconds),
                     onBreak: (result, timespan) =>
                     {
-                        System.Diagnostics.Debug.WriteLine($"熔断器打开，将在 {timespan} 后恢复");
+                        logger.LogError("Circuit broken for {Duration}s; lastStatus={StatusCode}", timespan.TotalSeconds, (int?)result.Result?.StatusCode);
                     },
                     onReset: () =>
                     {
-                        System.Diagnostics.Debug.WriteLine("熔断器已重置");
+                        logger.LogInformation("Circuit reset");
                     });
         }
     }

@@ -3,6 +3,8 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Buddie.Services
 {
@@ -13,6 +15,7 @@ namespace Buddie.Services
         private readonly int _channels;
         private readonly int _bitsPerSample;
         private CancellationTokenSource? _cancellationTokenSource;
+        private readonly ILogger _logger;
 
         public event Action<byte[]>? OnAudioData;
 
@@ -21,6 +24,8 @@ namespace Buddie.Services
             _sampleRate = sampleRate;
             _channels = channels;
             _bitsPerSample = bitsPerSample;
+            var loggerFactory = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            _logger = (loggerFactory?.CreateLogger(typeof(RealtimeAudioCapture).FullName!)) ?? NullLogger.Instance;
         }
 
         public void StartCapture()
@@ -39,7 +44,7 @@ namespace Buddie.Services
                 _waveIn.RecordingStopped += OnRecordingStopped;
 
                 _waveIn.StartRecording();
-                System.Diagnostics.Debug.WriteLine("音频捕获已启动");
+                _logger.LogInformation("音频捕获已启动");
             }
             catch (Exception ex)
             {
@@ -53,11 +58,11 @@ namespace Buddie.Services
             {
                 _cancellationTokenSource?.Cancel();
                 _waveIn?.StopRecording();
-                System.Diagnostics.Debug.WriteLine("音频捕获已停止");
+                _logger.LogInformation("音频捕获已停止");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"停止音频捕获时出错: {ex.Message}");
+                _logger.LogError(ex, "停止音频捕获时出错: {Message}", ex.Message);
             }
         }
 
@@ -74,7 +79,7 @@ namespace Buddie.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"音频数据处理错误: {ex.Message}");
+                _logger.LogError(ex, "音频数据处理错误: {Message}", ex.Message);
             }
         }
 
@@ -82,11 +87,11 @@ namespace Buddie.Services
         {
             if (e.Exception != null)
             {
-                System.Diagnostics.Debug.WriteLine($"录音停止异常: {e.Exception.Message}");
+                _logger.LogError(e.Exception, "录音停止异常: {Message}", e.Exception.Message);
             }
             else
             {
-                System.Diagnostics.Debug.WriteLine("录音正常停止");
+                _logger.LogInformation("录音正常停止");
             }
         }
 
@@ -108,6 +113,7 @@ namespace Buddie.Services
         private readonly int _sampleRate;
         private readonly int _channels;
         private readonly int _bitsPerSample;
+        private readonly ILogger _logger;
         private volatile bool _isDisposed;
 
         // 中断标志
@@ -120,6 +126,8 @@ namespace Buddie.Services
             _bitsPerSample = bitsPerSample;
             _audioQueue = new ConcurrentQueue<byte[]>();
             _audioAvailableEvent = new AutoResetEvent(false);
+            var loggerFactory = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            _logger = (loggerFactory?.CreateLogger(typeof(RealtimeAudioPlayer).FullName!)) ?? NullLogger.Instance;
         }
 
         public void StartPlayback()
@@ -144,7 +152,7 @@ namespace Buddie.Services
                 };
                 _playbackThread.Start();
 
-                System.Diagnostics.Debug.WriteLine("音频播放已启动");
+                _logger.LogInformation("音频播放已启动");
             }
             catch (Exception ex)
             {
@@ -164,11 +172,11 @@ namespace Buddie.Services
                 _waveOut?.Dispose();
                 _waveProvider = null;
                 
-                System.Diagnostics.Debug.WriteLine("音频播放已停止");
+                _logger.LogInformation("音频播放已停止");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"停止音频播放时出错: {ex.Message}");
+                _logger.LogError(ex, "停止音频播放时出错: {Message}", ex.Message);
             }
         }
 
@@ -183,20 +191,20 @@ namespace Buddie.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"音频数据排队错误: {ex.Message}");
+                _logger.LogError(ex, "音频数据排队错误: {Message}", ex.Message);
             }
         }
 
         public void InterruptPlayback()
         {
-            System.Diagnostics.Debug.WriteLine("检测到语音输入，停止音频播放");
+            _logger.LogInformation("检测到语音输入，停止音频播放");
             _interruptPlayback = true;
             ClearAudioQueue();
         }
 
         public void ResumePlayback()
         {
-            System.Diagnostics.Debug.WriteLine("恢复音频播放");
+            _logger.LogInformation("恢复音频播放");
             _interruptPlayback = false;
         }
 
@@ -237,7 +245,7 @@ namespace Buddie.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"音频播放工作线程错误: {ex.Message}");
+                    _logger.LogError(ex, "音频播放工作线程错误: {Message}", ex.Message);
                     Thread.Sleep(100);
                 }
             }

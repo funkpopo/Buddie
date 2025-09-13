@@ -10,6 +10,7 @@ using ElevenLabs;
 using ElevenLabs.TextToSpeech;
 using ElevenLabs.Voices;
 using Buddie.Services.ExceptionHandling;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Services.Tts
 {
@@ -34,19 +35,19 @@ namespace Buddie.Services.Tts
                     throw new TtsException(SupportedChannelType, "ElevenLabs API Key 不能为空");
                 }
 
-                Debug.WriteLine($"ElevenLabs TTS 请求 - Voice: {config.Voice}, Model: {config.Model}, Speed: {config.Speed}");
-                Debug.WriteLine($"Text: {request.Text}");
+                _logger.LogInformation("ElevenLabs TTS: voice={Voice}, model={Model}, speed={Speed}", config.Voice, config.Model, config.Speed);
+                _logger.LogDebug("Text: {Text}", request.Text);
 
                 // 确定要使用的模型
                 var modelToUse = !string.IsNullOrEmpty(config.Model) ? config.Model : "eleven_multilingual_v2";
                 
                 // 构建API URL
                 var apiUrl = $"https://api.elevenlabs.io/v1/text-to-speech/{config.Voice}?output_format=mp3_44100_128";
-                Debug.WriteLine($"API URL: {apiUrl}");
+                _logger.LogInformation("API URL: {Url}", apiUrl);
 
                 // 创建请求体，包含完整的voice_settings，使用用户配置的语速
                 var voiceSpeed = config.Speed > 0 ? config.Speed : 1.0;
-                Debug.WriteLine($"使用语速设置: {voiceSpeed}");
+                _logger.LogDebug("Using speed: {Speed}", voiceSpeed);
                 
                 var requestBody = new
                 {
@@ -65,7 +66,7 @@ namespace Buddie.Services.Tts
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
                 });
 
-                Debug.WriteLine($"请求体: {jsonContent}");
+                _logger.LogDebug("请求体: {Body}", jsonContent);
 
                 // 发送HTTP请求（复用基类HttpClient）
                 _httpClient.DefaultRequestHeaders.Clear();
@@ -77,7 +78,7 @@ namespace Buddie.Services.Tts
                 if (response.IsSuccessStatusCode)
                 {
                     var audioData = await response.Content.ReadAsByteArrayAsync();
-                    Debug.WriteLine($"ElevenLabs TTS 响应成功，音频大小: {audioData.Length} bytes");
+                    _logger.LogInformation("ElevenLabs success, audio bytes={Size}", audioData.Length);
 
                     return new TtsResponse
                     {
@@ -91,7 +92,7 @@ namespace Buddie.Services.Tts
                 else
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    Debug.WriteLine($"ElevenLabs API 错误: {response.StatusCode} - {errorContent}");
+                    _logger.LogError("ElevenLabs API error: {Status} - {Body}", response.StatusCode, errorContent);
                     throw new TtsException(SupportedChannelType, 
                         $"ElevenLabs API请求失败: {response.StatusCode}", errorContent);
                 }
@@ -122,7 +123,7 @@ namespace Buddie.Services.Tts
                     _elevenLabsClient = new ElevenLabsClient(auth);
                     _currentApiKey = config.ApiKey;
                     
-                    Debug.WriteLine("ElevenLabs 客户端初始化成功");
+                    _logger.LogInformation("ElevenLabs client initialized");
                     
                     // 异步获取并记录默认语音设置（不阻塞主流程）
                     Task.Run(async () =>
@@ -227,12 +228,12 @@ namespace Buddie.Services.Tts
                         }
                     }
                     
-                    Debug.WriteLine($"获取到 {voiceIds.Count} 个语音");
+                    _logger.LogInformation("Voices fetched: {Count}", voiceIds.Count);
                     return voiceIds.ToArray();
                 }
                 else
                 {
-                    Debug.WriteLine($"获取语音列表失败: {response.StatusCode}");
+                    _logger.LogWarning("Get voices failed: {Status}", response.StatusCode);
                     return Array.Empty<string>();
                 }
             }, 
@@ -260,12 +261,12 @@ namespace Buddie.Services.Tts
                 if (response.IsSuccessStatusCode)
                 {
                     var jsonContent = await response.Content.ReadAsStringAsync();
-                    Debug.WriteLine($"ElevenLabs 默认语音设置: {jsonContent}");
+                    _logger.LogDebug("Default voice settings: {Body}", jsonContent);
                     return jsonContent;
                 }
                 else
                 {
-                    Debug.WriteLine($"获取默认语音设置失败: {response.StatusCode}");
+                    _logger.LogWarning("Get default voice settings failed: {Status}", response.StatusCode);
                     return string.Empty;
                 }
             },

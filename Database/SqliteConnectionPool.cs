@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Database
 {
@@ -15,15 +16,18 @@ namespace Buddie.Database
         private readonly IDatabasePathProvider _pathProvider;
         private readonly SemaphoreSlim _writeSemaphore;
         private bool _disposed;
+        private readonly Microsoft.Extensions.Logging.ILogger _logger;
         
         // SQLite推荐配置
         private const int BusyTimeoutMs = 30000; // 30秒忙等待超时
         private const int MaxWriteOperations = 1; // 序列化写操作
 
-        public SqliteConnectionPool(IDatabasePathProvider pathProvider)
+        public SqliteConnectionPool(IDatabasePathProvider pathProvider, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null)
         {
             _pathProvider = pathProvider ?? throw new ArgumentNullException(nameof(pathProvider));
             _writeSemaphore = new SemaphoreSlim(MaxWriteOperations, MaxWriteOperations);
+            _logger = (loggerFactory ?? Buddie.App.Services?.GetService(typeof(Microsoft.Extensions.Logging.ILoggerFactory)) as Microsoft.Extensions.Logging.ILoggerFactory)?.CreateLogger(typeof(SqliteConnectionPool).FullName!)
+                      ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
         }
 
         /// <summary>
@@ -133,7 +137,7 @@ namespace Buddie.Database
             _disposed = true;
             _writeSemaphore?.Dispose();
             
-            System.Diagnostics.Debug.WriteLine("SQLite connection manager disposed");
+            _logger.LogInformation("SQLite connection manager disposed");
         }
     }
 

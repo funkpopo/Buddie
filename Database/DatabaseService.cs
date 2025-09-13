@@ -6,18 +6,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
 using Buddie.Security;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Database
 {
     public class DatabaseService : IDisposable
     {
         private readonly ISqliteConnectionPool _connectionPool;
+        private readonly ILogger<DatabaseService> _logger;
         private bool _disposed;
         private const int CommandTimeoutSeconds = 30; // 默认SQL命令超时时间
 
-        public DatabaseService(ISqliteConnectionPool connectionPool)
+        public DatabaseService(ISqliteConnectionPool connectionPool, ILogger<DatabaseService> logger)
         {
             _connectionPool = connectionPool;
+            _logger = logger;
         }
         
         /// <summary>
@@ -650,7 +653,7 @@ namespace Buddie.Database
             command.Parameters.AddWithValue("@DaysToKeep", daysToKeep);
 
             var rowsAffected = await command.ExecuteNonQueryAsync();
-            System.Diagnostics.Debug.WriteLine($"Cleaned up {rowsAffected} old TTS audio entries");
+            _logger.LogInformation("Cleaned up {Count} old TTS audio entries", rowsAffected);
         }
 
         /// <summary>
@@ -687,11 +690,11 @@ namespace Buddie.Database
 
             // 检查当前缓存状态
             var (currentCount, currentSize) = await GetTtsCacheStatsAsync();
-            System.Diagnostics.Debug.WriteLine($"TTS Cache - Current: {currentCount} items, {currentSize / (1024 * 1024.0):F2} MB");
+            _logger.LogInformation("TTS Cache - Current: {Count} items, {SizeMB} MB", currentCount, currentSize / (1024 * 1024.0));
 
             if (currentCount <= maxCount && currentSize <= maxSizeBytes)
             {
-                System.Diagnostics.Debug.WriteLine("TTS Cache - No cleanup needed");
+                _logger.LogInformation("TTS Cache - No cleanup needed");
                 return;
             }
 
@@ -727,7 +730,7 @@ namespace Buddie.Database
             
             // 获取清理后的统计信息
             var (newCount, newSize) = await GetTtsCacheStatsAsync();
-            System.Diagnostics.Debug.WriteLine($"TTS Cache - Deleted {deletedCount} items, New stats: {newCount} items, {newSize / (1024 * 1024.0):F2} MB");
+            _logger.LogInformation("TTS Cache - Deleted {Deleted} items, New stats: {Count} items, {SizeMB} MB", deletedCount, newCount, newSize / (1024 * 1024.0));
         }
 
         /// <summary>
@@ -743,8 +746,8 @@ namespace Buddie.Database
                 // 然后应用LRU策略清理数量和大小
                 var maxSizeBytes = maxSizeMB * 1024 * 1024;
                 await CleanupTtsCacheByLruAsync(maxCount, maxSizeBytes);
-
-                System.Diagnostics.Debug.WriteLine("TTS Cache cleanup completed successfully");
+                
+                _logger.LogInformation("TTS Cache cleanup completed successfully");
             }, "TTS缓存清理");
         }
 

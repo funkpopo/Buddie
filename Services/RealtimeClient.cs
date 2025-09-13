@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Buddie.Services
 {
@@ -23,6 +25,7 @@ namespace Buddie.Services
         private readonly string _model;
         private readonly string _voice;
         private readonly TurnDetectionMode _turnDetectionMode;
+        private readonly ILogger _logger;
 
         public event Action<string>? OnTextDelta;
         public event Action<byte[]>? OnAudioDelta;
@@ -40,6 +43,8 @@ namespace Buddie.Services
             _model = model;
             _voice = voice;
             _turnDetectionMode = turnDetectionMode;
+            var loggerFactory = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            _logger = (loggerFactory?.CreateLogger(typeof(RealtimeClient).FullName!)) ?? NullLogger.Instance;
         }
 
         public async Task ConnectAsync()
@@ -195,7 +200,7 @@ namespace Buddie.Services
                         case "response.created":
                         case "response.done":
                             // 这些事件可以记录日志但不需要特殊处理
-                            System.Diagnostics.Debug.WriteLine($"收到事件: {eventType}");
+                            _logger.LogDebug("收到事件: {Event}", eventType);
                             break;
 
                         case "error":
@@ -210,11 +215,11 @@ namespace Buddie.Services
             }
             catch (JsonException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"JSON解析错误: {ex.Message}");
+                _logger.LogError(ex, "JSON解析错误: {Message}", ex.Message);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"消息处理错误: {ex.Message}");
+                _logger.LogError(ex, "消息处理错误: {Message}", ex.Message);
                 throw;
             }
 
@@ -237,7 +242,7 @@ namespace Buddie.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"关闭WebSocket时出错: {ex.Message}");
+                _logger.LogWarning(ex, "关闭WebSocket时出错: {Message}", ex.Message);
             }
         }
 

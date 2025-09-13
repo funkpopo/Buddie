@@ -7,11 +7,13 @@ using System.Collections.ObjectModel;
 using System.Windows.Media;
 using System.Linq;
 using Buddie.Services.ExceptionHandling;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Controls
 {
     public partial class RealtimeConfigControl : UserControl
     {
+        private readonly ILogger _logger = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) is ILoggerFactory lf ? lf.CreateLogger(typeof(RealtimeConfigControl).FullName!) : Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
         public event EventHandler<RealtimeConfiguration>? ConfigurationAdded;
         public event EventHandler<RealtimeConfiguration>? ConfigurationRemoved;
         public event EventHandler<RealtimeConfiguration>? ConfigurationUpdated;
@@ -74,7 +76,7 @@ namespace Buddie.Controls
             if (comboBox?.DataContext is RealtimeConfiguration config && comboBox.SelectedItem is RealtimeChannelInfo channelInfo)
             {
                 config.ChannelType = channelInfo.ChannelType;
-                System.Diagnostics.Debug.WriteLine($"实时交互渠道类型已更改为: {config.ChannelType}, 模型: {config.Model}");
+                _logger.LogInformation("实时交互渠道类型已更改为: {Type}, 模型: {Model}", config.ChannelType, config.Model);
             }
         }
 
@@ -163,7 +165,7 @@ namespace Buddie.Controls
                 var configurations = RealtimeConfigList.ItemsSource as ObservableCollection<RealtimeConfiguration>;
                 if (configurations == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("RealtimeConfigList.ItemsSource is null");
+                    _logger.LogWarning("RealtimeConfigList.ItemsSource is null");
                     return;
                 }
                 

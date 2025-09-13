@@ -1,11 +1,14 @@
 using System;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Buddie.Security
 {
     public static class ApiKeyProtection
     {
+        private static ILogger Logger => ((Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory)?.CreateLogger(typeof(ApiKeyProtection).FullName!)) ?? NullLogger.Instance;
         private static readonly byte[] _additionalEntropy = 
             { 0x42, 0x75, 0x64, 0x64, 0x69, 0x65, 0x41, 0x70, 0x69, 0x4B, 0x65, 0x79 }; // "BuddieApiKey"
 
@@ -29,7 +32,7 @@ namespace Buddie.Security
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to protect API key: {ex.Message}");
+                Logger.LogError(ex, "Failed to protect API key: {Message}", ex.Message);
                 // 如果加密失败，返回原始值（向后兼容）
                 return apiKey;
             }
@@ -59,7 +62,7 @@ namespace Buddie.Security
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to unprotect API key: {ex.Message}");
+                Logger.LogError(ex, "Failed to unprotect API key: {Message}", ex.Message);
                 // 如果解密失败，可能是未加密的旧数据，返回原始值
                 return protectedApiKey;
             }

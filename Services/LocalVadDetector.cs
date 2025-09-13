@@ -1,10 +1,12 @@
 using System;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Services
 {
     public class LocalVadDetector
     {
+        private readonly Microsoft.Extensions.Logging.ILogger _logger;
         private readonly double _threshold;
         private readonly int _minSpeechFrames;
         private readonly int _minSilenceFrames;
@@ -17,6 +19,8 @@ namespace Buddie.Services
 
         public LocalVadDetector(double threshold = 0.02, int minSpeechFrames = 3, int minSilenceFrames = 10)
         {
+            var loggerFactory = Buddie.App.Services?.GetService(typeof(Microsoft.Extensions.Logging.ILoggerFactory)) as Microsoft.Extensions.Logging.ILoggerFactory;
+            _logger = (loggerFactory?.CreateLogger(typeof(LocalVadDetector).FullName!)) ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
             _threshold = threshold;
             _minSpeechFrames = minSpeechFrames;
             _minSilenceFrames = minSilenceFrames;
@@ -61,7 +65,7 @@ namespace Buddie.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"VAD处理错误: {ex.Message}");
+                _logger.LogError(ex, "VAD处理错误: {Message}", ex.Message);
             }
         }
 

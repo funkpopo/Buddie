@@ -9,12 +9,14 @@ using Buddie.Services.ExceptionHandling;
 using Buddie.Services.Tts;
 using Buddie.ViewModels;
 using Buddie;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Controls
 {
     public partial class TtsConfigControl : UserControl
     {
         private TtsConfigViewModel? _vm;
+        private readonly ILogger _logger = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) is ILoggerFactory lf ? lf.CreateLogger(typeof(TtsConfigControl).FullName!) : Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
         public event EventHandler<TtsConfiguration>? ConfigurationAdded;
         public event EventHandler<TtsConfiguration>? ConfigurationRemoved;
         public event EventHandler<TtsConfiguration>? ConfigurationUpdated;
@@ -79,7 +81,7 @@ namespace Buddie.Controls
                 var configurations = TtsConfigList.ItemsSource as ObservableCollection<TtsConfiguration>;
                 if (configurations == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("TtsConfigList.ItemsSource is null");
+                    _logger.LogWarning("TtsConfigList.ItemsSource is null");
                     return;
                 }
                 
@@ -183,12 +185,12 @@ namespace Buddie.Controls
                             var (isValid, message) = await Buddie.Services.Tts.MiniMaxTtsValidator.ValidateConfigurationAsync(config);
                             if (!isValid)
                             {
-                                System.Diagnostics.Debug.WriteLine($"MiniMax配置验证失败: {message}");
+                                _logger.LogWarning("MiniMax配置验证失败: {Message}", message);
                             }
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"MiniMax配置验证异常: {ex.Message}");
+                            _logger.LogError(ex, "MiniMax配置验证异常: {Message}", ex.Message);
                         }
                     });
                     
@@ -318,7 +320,7 @@ namespace Buddie.Controls
                             }
                             catch (Exception ex)
                             {
-                                System.Diagnostics.Debug.WriteLine($"❌ 保存TTS配置激活状态失败: {ex.Message}");
+                                _logger.LogError(ex, "❌ 保存TTS配置激活状态失败: {Message}", ex.Message);
                             }
                         });
                         
@@ -327,7 +329,7 @@ namespace Buddie.Controls
                         {
                             if (t.IsFaulted)
                             {
-                                System.Diagnostics.Debug.WriteLine($"❌ TTS配置保存任务失败: {t.Exception?.GetBaseException().Message}");
+                                _logger.LogError(t.Exception?.GetBaseException(), "❌ TTS配置保存任务失败: {Message}", t.Exception?.GetBaseException().Message);
                             }
                         }, TaskContinuationOptions.OnlyOnFaulted);
                     }
@@ -351,7 +353,7 @@ namespace Buddie.Controls
             {
                 // SelectedValuePath="Tag" 会自动处理绑定到ChannelType属性
                 // UpdateDefaultsForChannel方法会在属性setter中自动调用
-                System.Diagnostics.Debug.WriteLine($"TTS渠道类型已更改为: {config.ChannelType}");
+                _logger.LogInformation("TTS渠道类型已更改为: {Type}", config.ChannelType);
                 
                 // 确保模型和语音字段被更新为新渠道的默认值
                 // 这是额外的保险措施，防止UI绑定问题
@@ -362,7 +364,7 @@ namespace Buddie.Controls
                     var newModel = preset.SupportedModels[0];
                     if (config.Model != newModel)
                     {
-                        System.Diagnostics.Debug.WriteLine($"强制更新模型: {config.Model} -> {newModel}");
+                        _logger.LogDebug("强制更新模型: {Old} -> {New}", config.Model, newModel);
                         config.Model = newModel;
                     }
                 }
@@ -372,7 +374,7 @@ namespace Buddie.Controls
                     var newVoice = preset.SupportedVoices[0];
                     if (config.Voice != newVoice)
                     {
-                        System.Diagnostics.Debug.WriteLine($"强制更新语音: {config.Voice} -> {newVoice}");
+                        _logger.LogDebug("强制更新语音: {Old} -> {New}", config.Voice, newVoice);
                         config.Voice = newVoice;
                     }
                 }
@@ -380,7 +382,7 @@ namespace Buddie.Controls
                 // 更新API URL
                 if (!string.IsNullOrEmpty(preset.DefaultApiUrl) && config.ApiUrl != preset.DefaultApiUrl)
                 {
-                    System.Diagnostics.Debug.WriteLine($"强制更新API URL: {config.ApiUrl} -> {preset.DefaultApiUrl}");
+                    _logger.LogDebug("强制更新API URL: {Old} -> {New}", config.ApiUrl, preset.DefaultApiUrl);
                     config.ApiUrl = preset.DefaultApiUrl;
                 }
             }

@@ -3,16 +3,21 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Buddie.Security;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Buddie.Database
 {
     public class DatabaseMigration
     {
         private readonly ISqliteConnectionPool _connectionPool;
+        private readonly ILogger _logger;
 
         public DatabaseMigration(ISqliteConnectionPool connectionPool)
         {
             _connectionPool = connectionPool;
+            var loggerFactory = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            _logger = (loggerFactory?.CreateLogger(typeof(DatabaseMigration).FullName!)) ?? NullLogger.Instance;
         }
 
         /// <summary>
@@ -22,7 +27,7 @@ namespace Buddie.Database
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("Starting API key encryption migration...");
+                _logger.LogInformation("Starting API key encryption migration...");
 
                 using var connectionWrapper = await _connectionPool.GetConnectionAsync();
                 var connection = connectionWrapper.Connection;
@@ -33,11 +38,11 @@ namespace Buddie.Database
                 // 迁移 TtsConfigurations 表中的 API Keys
                 await MigrateTtsConfigurationsAsync(connection);
 
-                System.Diagnostics.Debug.WriteLine("API key encryption migration completed successfully.");
+                _logger.LogInformation("API key encryption migration completed successfully.");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error during API key migration: {ex.Message}");
+                _logger.LogError(ex, "Error during API key migration: {Message}", ex.Message);
                 throw;
             }
         }
@@ -63,7 +68,7 @@ namespace Buddie.Database
                         // 加密未加密的 key
                         var encryptedKey = ApiKeyProtection.Protect(apiKey);
                         updates.Add((id, encryptedKey));
-                        System.Diagnostics.Debug.WriteLine($"Encrypting API key for ApiConfiguration ID: {id}");
+                        _logger.LogDebug("Encrypting API key for ApiConfiguration ID: {Id}", id);
                     }
                 }
             }
@@ -80,7 +85,7 @@ namespace Buddie.Database
 
             if (updates.Count > 0)
             {
-                System.Diagnostics.Debug.WriteLine($"Migrated {updates.Count} API keys in ApiConfigurations table.");
+                _logger.LogInformation("Migrated {Count} API keys in ApiConfigurations table.", updates.Count);
             }
         }
 
@@ -105,7 +110,7 @@ namespace Buddie.Database
                         // 加密未加密的 key
                         var encryptedKey = ApiKeyProtection.Protect(apiKey);
                         updates.Add((id, encryptedKey));
-                        System.Diagnostics.Debug.WriteLine($"Encrypting API key for TtsConfiguration ID: {id}");
+                        _logger.LogDebug("Encrypting API key for TtsConfiguration ID: {Id}", id);
                     }
                 }
             }
@@ -122,7 +127,7 @@ namespace Buddie.Database
 
             if (updates.Count > 0)
             {
-                System.Diagnostics.Debug.WriteLine($"Migrated {updates.Count} API keys in TtsConfigurations table.");
+                _logger.LogInformation("Migrated {Count} API keys in TtsConfigurations table.", updates.Count);
             }
         }
     }

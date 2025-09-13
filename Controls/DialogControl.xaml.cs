@@ -30,6 +30,7 @@ using System.Runtime.CompilerServices;
 using Buddie.Services.ExceptionHandling;
 using Buddie.Services;
 using Buddie.ViewModels;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Controls
 {
@@ -66,6 +67,7 @@ namespace Buddie.Controls
         
         // 当前API配置
         private OpenApiConfiguration? _currentApiConfiguration;
+        private readonly ILogger _logger = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) is ILoggerFactory lf ? lf.CreateLogger(typeof(DialogControl).FullName!) : Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
 
         #region Windows API for Multi-Monitor Support
         
@@ -118,7 +120,7 @@ namespace Buddie.Controls
                     var windowBounds = GetWindowScreenByPosition(mainWindow);
                     if (windowBounds.Width > 0 && windowBounds.Height > 0)
                     {
-                        System.Diagnostics.Debug.WriteLine($"DialogControl: 通过窗口位置检测到屏幕 = {windowBounds}");
+                        _logger.LogDebug("DialogControl: 通过窗口位置检测到屏幕 = {Bounds}", windowBounds);
                         return windowBounds;
                     }
 
@@ -128,12 +130,12 @@ namespace Buddie.Controls
                         var windowInteropHelper = new System.Windows.Interop.WindowInteropHelper(mainWindow);
                         var hwnd = windowInteropHelper.EnsureHandle();
                         
-                        System.Diagnostics.Debug.WriteLine($"DialogControl: 窗口句柄 = {hwnd}");
+                        _logger.LogDebug("DialogControl: 窗口句柄 = {Handle}", hwnd);
                         
                         if (hwnd != IntPtr.Zero)
                         {
                             var hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-                            System.Diagnostics.Debug.WriteLine($"DialogControl: 监视器句柄 = {hMonitor}");
+                            _logger.LogDebug("DialogControl: 监视器句柄 = {Handle}", hMonitor);
                             
                             if (hMonitor != IntPtr.Zero)
                             {
@@ -149,7 +151,7 @@ namespace Buddie.Controls
                                         monitorInfo.rcMonitor.Bottom - monitorInfo.rcMonitor.Top
                                     );
                                     
-                                    System.Diagnostics.Debug.WriteLine($"DialogControl: 通过Windows API检测到屏幕 = {screenBounds}");
+                                    _logger.LogDebug("DialogControl: 通过Windows API检测到屏幕 = {Bounds}", screenBounds);
                                     
                                     if (screenBounds.Width > 0 && screenBounds.Height > 0)
                                     {
@@ -161,17 +163,17 @@ namespace Buddie.Controls
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine("DialogControl: 窗口尚未加载完成，使用主屏幕");
+                        _logger.LogInformation("DialogControl: 窗口尚未加载完成，使用主屏幕");
                     }
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine("DialogControl: 无法获取主窗口");
+                    _logger.LogWarning("DialogControl: 无法获取主窗口");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"DialogControl: 获取当前窗口屏幕时出错 = {ex.Message}");
+                _logger.LogError(ex, "DialogControl: 获取当前窗口屏幕时出错 = {Message}", ex.Message);
                 ExceptionHandlingService.ExecuteSafely(() => 
                 {
                     throw ex;
@@ -183,7 +185,7 @@ namespace Buddie.Controls
             }
 
             // 如果检测失败，回退到主屏幕
-            System.Diagnostics.Debug.WriteLine("DialogControl: 回退到主屏幕");
+            _logger.LogInformation("DialogControl: 回退到主屏幕");
             return GetPrimaryScreenBounds();
         }
         
@@ -210,16 +212,16 @@ namespace Buddie.Controls
                 var centerX = (int)(windowLeft + windowWidth / 2);
                 var centerY = (int)(windowTop + windowHeight / 2);
                 
-                System.Diagnostics.Debug.WriteLine($"DialogControl: 窗口位置 = ({windowLeft}, {windowTop}), 尺寸 = ({windowWidth}, {windowHeight}), 中心点 = ({centerX}, {centerY})");
+                _logger.LogDebug("DialogControl: 窗口位置=({Left},{Top}), 尺寸=({W},{H}), 中心点=({CX},{CY})", windowLeft, windowTop, windowWidth, windowHeight, centerX, centerY);
                 
                 // 查找包含窗口中心点的屏幕
                 foreach (var screen in System.Windows.Forms.Screen.AllScreens)
                 {
-                    System.Diagnostics.Debug.WriteLine($"DialogControl: 检查屏幕 {screen.DeviceName} = {screen.Bounds}");
+                    _logger.LogTrace("DialogControl: 检查屏幕 {Device} = {Bounds}", screen.DeviceName, screen.Bounds);
                     
                     if (screen.Bounds.Contains(centerX, centerY))
                     {
-                        System.Diagnostics.Debug.WriteLine($"DialogControl: 找到匹配的屏幕 {screen.DeviceName} = {screen.Bounds}");
+                        _logger.LogDebug("DialogControl: 找到匹配的屏幕 {Device} = {Bounds}", screen.DeviceName, screen.Bounds);
                         return screen.Bounds;
                     }
                 }
@@ -231,13 +233,13 @@ namespace Buddie.Controls
                     
                 if (nearestScreen != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"DialogControl: 使用最近的屏幕 {nearestScreen.DeviceName} = {nearestScreen.Bounds}");
+                    _logger.LogDebug("DialogControl: 使用最近的屏幕 {Device} = {Bounds}", nearestScreen.DeviceName, nearestScreen.Bounds);
                     return nearestScreen.Bounds;
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"DialogControl: 通过窗口位置检测屏幕时出错 = {ex.Message}");
+                _logger.LogError(ex, "DialogControl: 通过窗口位置检测屏幕时出错 = {Message}", ex.Message);
             }
             
             return new Rectangle();
@@ -2972,7 +2974,7 @@ namespace Buddie.Controls
                     return ExceptionHandlingService.ExecuteSafely(() =>
                     {
                         // 使用预先获取的屏幕边界
-                        System.Diagnostics.Debug.WriteLine($"DialogControl: 使用屏幕边界进行截图 = {screenBounds}");
+                        _logger.LogDebug("DialogControl: 使用屏幕边界进行截图 = {Bounds}", screenBounds);
                         
                         // 创建位图
                         using var bitmap = new System.Drawing.Bitmap(screenBounds.Width, screenBounds.Height);
@@ -3030,7 +3032,7 @@ namespace Buddie.Controls
                 return ExceptionHandlingService.ExecuteSafely(() =>
                 {
                     // 使用预先获取的屏幕边界
-                    System.Diagnostics.Debug.WriteLine($"DialogControl: CaptureScreenAsync使用屏幕边界 = {screenBounds}");
+                    _logger.LogDebug("DialogControl: CaptureScreenAsync使用屏幕边界 = {Bounds}", screenBounds);
                     
                     // 创建位图
                     using var bitmap = new System.Drawing.Bitmap(screenBounds.Width, screenBounds.Height);

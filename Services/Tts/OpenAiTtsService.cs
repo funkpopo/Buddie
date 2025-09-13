@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using Buddie.Services.ExceptionHandling;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Services.Tts
 {
@@ -35,7 +36,7 @@ namespace Buddie.Services.Tts
                 };
 
                 var json = JsonSerializer.Serialize(requestBody);
-                Debug.WriteLine($"OpenAI 请求体: {json}");
+                _logger.LogDebug("OpenAI request body: {Body}", json);
 
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 

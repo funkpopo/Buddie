@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie.Database
 {
@@ -12,13 +13,15 @@ namespace Buddie.Database
         private readonly IDatabasePathProvider _pathProvider;
         private readonly DatabaseService _databaseService;
         private readonly ISqliteConnectionPool _connectionPool;
+        private readonly ILogger<DatabaseInitializer> _logger;
         private const int CommandTimeoutSeconds = 30; // 默认命令超时时间
 
-        public DatabaseInitializer(IDatabasePathProvider pathProvider, DatabaseService databaseService, ISqliteConnectionPool connectionPool)
+        public DatabaseInitializer(IDatabasePathProvider pathProvider, DatabaseService databaseService, ISqliteConnectionPool connectionPool, ILogger<DatabaseInitializer> logger)
         {
             _pathProvider = pathProvider;
             _databaseService = databaseService;
             _connectionPool = connectionPool;
+            _logger = logger;
         }
 
         public async Task InitializeAsync()
@@ -42,7 +45,7 @@ namespace Buddie.Database
                 var migration = new DatabaseMigration(_connectionPool);
                 await migration.MigrateApiKeysToEncryptedFormatAsync();
 
-                Debug.WriteLine($"Database initialized at: {_pathProvider.DatabasePath}");
+                _logger.LogInformation("Database initialized at: {Path}", _pathProvider.DatabasePath);
             }, "初始化数据库");
         }
 
@@ -166,7 +169,7 @@ namespace Buddie.Database
                     using var command = CreateCommand(connection, migration.Value);
                     await command.ExecuteNonQueryAsync();
                     await RecordMigrationAsync(connection, migration.Key);
-                    Debug.WriteLine($"Applied migration: {migration.Key}");
+                    _logger.LogInformation("Applied migration: {Name}", migration.Key);
                 }
             }
         }
@@ -189,7 +192,7 @@ namespace Buddie.Database
                     using var command = CreateCommand(connection, migration.Value);
                     await command.ExecuteNonQueryAsync();
                     await RecordMigrationAsync(connection, migration.Key);
-                    Debug.WriteLine($"Applied index migration: {migration.Key}");
+                    _logger.LogInformation("Applied index migration: {Name}", migration.Key);
                 }
             }
         }
@@ -243,7 +246,7 @@ namespace Buddie.Database
                     if (!await IsMigrationAppliedAsync(connection, migration.Key))
                     {
                         await RecordMigrationAsync(connection, migration.Key);
-                        Debug.WriteLine($"Column {columnName} already exists, marking migration {migration.Key} as applied");
+                        _logger.LogDebug("Column {Column} already exists, marking migration {Migration} as applied", columnName, migration.Key);
                     }
                     continue;
                 }
@@ -279,7 +282,7 @@ namespace Buddie.Database
             using var checkCommand = CreateCommand(connection, checkSql);
             var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
             
-            Debug.WriteLine($"Found {count} app settings records in database");
+            _logger.LogInformation("Found {Count} app settings records in database", count);
             
             if (count == 0)
             {
@@ -294,7 +297,7 @@ namespace Buddie.Database
                 insertCommand.Parameters.AddWithValue("@isDarkTheme", 0);
                 
                 await insertCommand.ExecuteNonQueryAsync();
-                Debug.WriteLine("Inserted default app settings into database");
+                _logger.LogInformation("Inserted default app settings into database");
             }
         }
 
@@ -317,7 +320,7 @@ namespace Buddie.Database
                 }
                 
                 System.IO.File.Copy(_pathProvider.DatabasePath, backupPath, true);
-                Debug.WriteLine($"Database backed up to: {backupPath}");
+                _logger.LogInformation("Database backed up to: {Path}", backupPath);
             }, "备份数据库");
         }
 
@@ -331,7 +334,7 @@ namespace Buddie.Database
                 }
                 
                 System.IO.File.Copy(backupPath, _pathProvider.DatabasePath, true);
-                Debug.WriteLine($"Database restored from: {backupPath}");
+                _logger.LogInformation("Database restored from: {Path}", backupPath);
             }, "恢复数据库");
         }
 
@@ -344,4 +347,3 @@ namespace Buddie.Database
         }
     }
 }
-

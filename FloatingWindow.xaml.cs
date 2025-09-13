@@ -14,6 +14,8 @@ using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
 using Buddie.Services;
 using Buddie.ViewModels;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Buddie
 {
@@ -26,6 +28,7 @@ namespace Buddie
         private readonly FloatingWindowViewModel _vm;
         private readonly AppSettings _appSettings = new AppSettings();
         private readonly CardColorManager _colorManager = new CardColorManager();
+        private readonly ILogger<FloatingWindow> _logger;
         
         // 实时交互服务
         private RealtimeInteractionService? _realtimeService;
@@ -48,56 +51,55 @@ namespace Buddie
 
         public FloatingWindow()
         {
-            System.Diagnostics.Debug.WriteLine("FloatingWindow constructor starting...");
+            _logger = Buddie.App.Services.GetRequiredService<ILoggerFactory>().CreateLogger<FloatingWindow>();
+            _logger.LogInformation("FloatingWindow constructor starting...");
             
             try
             {
                 InitializeComponent();
-                System.Diagnostics.Debug.WriteLine("InitializeComponent completed");
+                _logger.LogDebug("InitializeComponent completed");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"InitializeComponent failed: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                _logger.LogError(ex, "InitializeComponent failed: {Message}", ex.Message);
                 throw;
             }
             
             // ViewModel wiring
-            System.Diagnostics.Debug.WriteLine("Creating FloatingWindowViewModel...");
+            _logger.LogInformation("Creating FloatingWindowViewModel...");
             try
             {
                 _vm = new FloatingWindowViewModel(_appSettings, RealtimeService);
-                System.Diagnostics.Debug.WriteLine("FloatingWindowViewModel created");
+                _logger.LogInformation("FloatingWindowViewModel created");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FloatingWindowViewModel creation failed: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                _logger.LogError(ex, "FloatingWindowViewModel creation failed: {Message}", ex.Message);
                 throw;
             }
             
             this.DataContext = _vm;
-            System.Diagnostics.Debug.WriteLine("DataContext set");
+            _logger.LogDebug("DataContext set");
             
             // Initialize ClickThroughService
             _clickThroughService = new ClickThroughService();
             _vm.SetClickThroughService(_clickThroughService);
-            System.Diagnostics.Debug.WriteLine("ClickThroughService initialized");
+            _logger.LogInformation("ClickThroughService initialized");
 
             // Initialize tray icon after ViewModel is ready
             try
             {
                 InitializeTrayIcon();
-                System.Diagnostics.Debug.WriteLine("InitializeTrayIcon completed");
+                _logger.LogInformation("InitializeTrayIcon completed");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"InitializeTrayIcon failed: {ex.Message}");
+                _logger.LogError(ex, "InitializeTrayIcon failed: {Message}", ex.Message);
                 throw;
             }
             
             InitializeControls();
-            System.Diagnostics.Debug.WriteLine("InitializeControls completed");
+            _logger.LogDebug("InitializeControls completed");
             
             // Initial cards sync to view is handled by ViewModel
 
@@ -304,18 +306,13 @@ namespace Buddie
             try
             {
                 // 测试功能已移除
-                System.Diagnostics.Debug.WriteLine("=== 颜色管理器测试结果 ===");
-                System.Diagnostics.Debug.WriteLine("测试功能暂时不可用");
-                System.Diagnostics.Debug.WriteLine("=========================");
-                
-                #if DEBUG
-                Console.WriteLine("颜色管理器测试结果:");
-                Console.WriteLine("测试功能暂时不可用");
-                #endif
+                _logger.LogInformation("=== 颜色管理器测试结果 ===");
+                _logger.LogInformation("测试功能暂时不可用");
+                _logger.LogInformation("=========================");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"颜色管理器测试失败: {ex.Message}");
+                _logger.LogError(ex, "颜色管理器测试失败: {Message}", ex.Message);
             }
         }
         

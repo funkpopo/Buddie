@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using Buddie.Services.ExceptionHandling;
 using Buddie.Security;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Buddie.Services.Tts
 {
@@ -23,7 +25,9 @@ namespace Buddie.Services.Tts
         {
             return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                Debug.WriteLine("=== MiniMax TTS 配置验证开始 ===");
+                var loggerFactory = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+                var logger = (loggerFactory?.CreateLogger("MiniMaxTtsValidator")) ?? NullLogger.Instance;
+                logger.LogInformation("=== MiniMax TTS 配置验证开始 ===");
                 
                 // 1. 基本配置检查
                 var basicCheck = ValidateBasicConfiguration(config);
@@ -63,7 +67,9 @@ namespace Buddie.Services.Tts
         /// </summary>
         private static (bool IsValid, string Message) ValidateBasicConfiguration(TtsConfiguration config)
         {
-            Debug.WriteLine("🔍 检查基本配置...");
+            var loggerFactory = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            var logger = (loggerFactory?.CreateLogger("MiniMaxTtsValidator")) ?? NullLogger.Instance;
+            logger.LogInformation("🔍 检查基本配置...");
             
             if (config == null)
                 return (false, "配置对象为空");
@@ -95,7 +101,7 @@ namespace Buddie.Services.Tts
             if (config.Speed < 0.5 || config.Speed > 2.0)
                 return (false, "语速必须在0.5-2.0范围内");
                 
-            Debug.WriteLine("✅ 基本配置检查通过");
+            logger.LogInformation("✅ 基本配置检查通过");
             return (true, "基本配置正确");
         }
         
@@ -104,7 +110,9 @@ namespace Buddie.Services.Tts
         /// </summary>
         private static async Task<(bool IsValid, string Message)> ValidateNetworkConnectionAsync(string apiUrl)
         {
-            Debug.WriteLine("🔍 检查网络连接...");
+            var loggerFactory = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            var logger = (loggerFactory?.CreateLogger("MiniMaxTtsValidator")) ?? NullLogger.Instance;
+            logger.LogInformation("🔍 检查网络连接...");
             
             return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
@@ -115,10 +123,10 @@ namespace Buddie.Services.Tts
                 httpClient.Timeout = TimeSpan.FromSeconds(10);
                 
                 var response = await httpClient.GetAsync(baseUrl);
-                Debug.WriteLine($"网络连接测试: {response.StatusCode}");
+                logger.LogInformation("网络连接测试: {Status}", response.StatusCode);
                 
                 // 任何HTTP响应都表示网络连接正常
-                Debug.WriteLine("✅ 网络连接正常");
+                logger.LogInformation("✅ 网络连接正常");
                 return (true, "网络连接正常");
             },
             ExceptionHandlingService.HandlingStrategy.LogOnly,
@@ -135,7 +143,9 @@ namespace Buddie.Services.Tts
         /// </summary>
         private static async Task<(bool IsValid, string Message)> ValidateApiEndpointAsync(TtsConfiguration config)
         {
-            Debug.WriteLine("🔍 检查API端点...");
+            var loggerFactory = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            var logger = (loggerFactory?.CreateLogger("MiniMaxTtsValidator")) ?? NullLogger.Instance;
+            logger.LogInformation("🔍 检查API端点...");
             
             return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
@@ -162,15 +172,15 @@ namespace Buddie.Services.Tts
                 };
                 
                 var json = JsonSerializer.Serialize(testRequest);
-                Debug.WriteLine($"测试请求体: {json}");
+                logger.LogDebug("测试请求体: {Body}", json);
                 
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 var response = await httpClient.PostAsync(config.ApiUrl, content);
                 
-                Debug.WriteLine($"API响应状态: {response.StatusCode} {response.ReasonPhrase}");
+                logger.LogInformation("API响应状态: {Status} {Reason}", (int)response.StatusCode, response.ReasonPhrase);
                 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                Debug.WriteLine($"API响应内容: {responseContent}");
+                logger.LogDebug("API响应内容: {Body}", responseContent);
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -178,33 +188,33 @@ namespace Buddie.Services.Tts
                     var trimmedContent = responseContent.TrimStart();
                     if (trimmedContent.StartsWith("{") || trimmedContent.StartsWith("["))
                     {
-                        Debug.WriteLine("✅ API端点响应正常");
+                        logger.LogInformation("✅ API端点响应正常");
                         return (true, "API端点可以正常访问");
                     }
                     else
                     {
-                        Debug.WriteLine("⚠️ API返回非JSON格式响应");
+                        logger.LogWarning("⚠️ API返回非JSON格式响应");
                         return (false, $"API返回非JSON格式响应: {responseContent}");
                     }
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
-                    Debug.WriteLine("❌ API Key无效");
+                    logger.LogError("❌ API Key无效");
                     return (false, "API Key无效，请检查您的密钥是否正确");
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
                 {
-                    Debug.WriteLine("❌ 请求参数错误");
+                    logger.LogError("❌ 请求参数错误");
                     return (false, $"请求参数错误: {responseContent}");
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    Debug.WriteLine("❌ API端点不存在");
+                    logger.LogError("❌ API端点不存在");
                     return (false, "API端点不存在，请检查URL是否正确");
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ API请求失败: {response.StatusCode}");
+                    logger.LogError("❌ API请求失败: {Status}", response.StatusCode);
                     return (false, $"API请求失败: {response.StatusCode} - {responseContent}");
                 }
             },
@@ -222,15 +232,17 @@ namespace Buddie.Services.Tts
         /// </summary>
         public static void PrintDiagnosticInfo(TtsConfiguration config)
         {
-            Debug.WriteLine("=== MiniMax TTS 诊断信息 ===");
-            Debug.WriteLine($"配置名称: {config.Name}");
-            Debug.WriteLine($"API URL: {config.ApiUrl}");
-            Debug.WriteLine($"API Key (Masked): {ApiKeyProtection.Mask(config.ApiKey)}");
-            Debug.WriteLine($"模型: {config.Model}");
-            Debug.WriteLine($"语音: {config.Voice}");
-            Debug.WriteLine($"语速: {config.Speed}");
-            Debug.WriteLine($"渠道类型: {config.ChannelType}");
-            Debug.WriteLine("=========================");
+            var loggerFactory = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            var logger = (loggerFactory?.CreateLogger("MiniMaxTtsValidator")) ?? NullLogger.Instance;
+            logger.LogInformation("=== MiniMax TTS 诊断信息 ===");
+            logger.LogInformation("配置名称: {Name}", config.Name);
+            logger.LogInformation("API URL: {Url}", config.ApiUrl);
+            logger.LogInformation("API Key (Masked): {Key}", ApiKeyProtection.Mask(config.ApiKey));
+            logger.LogInformation("模型: {Model}", config.Model);
+            logger.LogInformation("语音: {Voice}", config.Voice);
+            logger.LogInformation("语速: {Speed}", config.Speed);
+            logger.LogInformation("渠道类型: {Type}", config.ChannelType);
+            logger.LogInformation("=========================");
         }
     }
 }

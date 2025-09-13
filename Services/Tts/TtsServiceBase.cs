@@ -4,6 +4,8 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Buddie.Services.Tts
 {
@@ -15,11 +17,14 @@ namespace Buddie.Services.Tts
         private bool _disposed = false;
         protected readonly HttpClient _httpClient;
         private readonly IHttpClientFactory? _httpClientFactory;
+        protected readonly ILogger _logger;
 
         protected TtsServiceBase()
         {
             // 尝试从DI容器获取IHttpClientFactory
             _httpClientFactory = App.Services?.GetService<IHttpClientFactory>();
+            var loggerFactory = App.Services?.GetService<ILoggerFactory>();
+            _logger = (loggerFactory?.CreateLogger(GetType().FullName ?? nameof(TtsServiceBase))) ?? NullLogger.Instance;
             
             if (_httpClientFactory != null)
             {
@@ -43,7 +48,7 @@ namespace Buddie.Services.Tts
             {
                 var stopwatch = Stopwatch.StartNew();
                 
-                Debug.WriteLine($"TTS [{SupportedChannelType}]: 开始处理请求，文本长度: {request.Text.Length}");
+                _logger.LogInformation("TTS {Channel}: start, textLength={Length}", SupportedChannelType, request.Text.Length);
 
                 // 验证配置
                 var validation = ValidateConfiguration(request.Configuration);
@@ -65,7 +70,7 @@ namespace Buddie.Services.Tts
                 stopwatch.Stop();
                 result.ProcessingTime = stopwatch.Elapsed;
                 
-                Debug.WriteLine($"TTS [{SupportedChannelType}]: 处理完成，音频大小: {result.AudioData.Length} bytes，耗时: {result.ProcessingTime.TotalMilliseconds}ms");
+                _logger.LogInformation("TTS {Channel}: done, size={SizeBytes}B, elapsedMs={Elapsed}", SupportedChannelType, result.AudioData.Length, result.ProcessingTime.TotalMilliseconds);
                 
                 return result;
             }, 

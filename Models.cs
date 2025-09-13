@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Buddie.Database;
 using Buddie.Services.Tts; // For TtsChannelType
 using System.Windows.Documents;
+using Microsoft.Extensions.Logging;
 
 namespace Buddie
 {
@@ -570,7 +571,13 @@ namespace Buddie
             // 更新默认语速
             Speed = preset.DefaultSpeed;
             
-            System.Diagnostics.Debug.WriteLine($"TTS渠道默认值已更新: {ChannelType}");
+            try
+            {
+                var loggerFactory = Buddie.App.Services?.GetService(typeof(Microsoft.Extensions.Logging.ILoggerFactory)) as Microsoft.Extensions.Logging.ILoggerFactory;
+                var logger = loggerFactory?.CreateLogger("TtsConfiguration") ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+                logger.LogInformation("TTS渠道默认值已更新: {Channel}", ChannelType);
+            }
+            catch { /* logging best-effort */ }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
