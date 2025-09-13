@@ -85,7 +85,7 @@ namespace Buddie
                 var channel = PresetChannels.GetPresetChannel(channelType);
                 return channel.Name;
             }
-            return "未知渠道";
+            return Localization.LocalizationManager.GetString("Channel_Unknown");
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -103,7 +103,7 @@ namespace Buddie
                 var channel = TtsPresetChannels.GetPresetChannel(ttsChannelType);
                 return channel.Name;
             }
-            return "未知TTS渠道";
+            return Localization.LocalizationManager.GetString("TtsChannel_Unknown");
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

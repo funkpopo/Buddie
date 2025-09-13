@@ -1,7 +1,8 @@
 <UserControl x:Class="Buddie.Controls.CardControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:Buddie.Controls">
+             xmlns:local="clr-namespace:Buddie.Controls"
+             xmlns:loc="clr-namespace:Buddie.Localization">
     
     
     <Grid>
@@ -73,7 +74,7 @@
                     <StackPanel VerticalAlignment="Center"
                                 HorizontalAlignment="Center">
                         <TextBlock x:Name="FrontText"
-                                   Text="卡片正面"
+                                   Text="{loc:Resx Card_Front}"
                                    FontSize="18"
                                    FontWeight="Bold"
                                    HorizontalAlignment="Center"
@@ -89,7 +90,7 @@
                             </TextBlock.Effect>
                         </TextBlock>
                         <TextBlock x:Name="FrontSubText"
-                                   Text="点击按钮翻转"
+                                   Text="{loc:Resx Card_Front_Sub}"
                                    FontSize="12"
                                    HorizontalAlignment="Center"
                                    Foreground="White">
@@ -112,7 +113,7 @@
                     <StackPanel VerticalAlignment="Center"
                                 HorizontalAlignment="Center">
                         <TextBlock x:Name="BackText"
-                                   Text="卡片背面"
+                                   Text="{loc:Resx Card_Back}"
                                    FontSize="18"
                                    FontWeight="Bold"
                                    HorizontalAlignment="Center"
@@ -128,7 +129,7 @@
                             </TextBlock.Effect>
                         </TextBlock>
                         <TextBlock x:Name="BackSubText"
-                                   Text="再次点击翻回"
+                                   Text="{loc:Resx Card_Back_Sub}"
                                    FontSize="12"
                                    HorizontalAlignment="Center"
                                    Foreground="White">
@@ -161,7 +162,7 @@
                             FontSize="14"
                             Command="{Binding DialogCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             Cursor="Hand"
-                            ToolTip="对话"
+                            ToolTip="{loc:Resx Tooltip_Chat}"
                             Style="{StaticResource CircularButtonStyle}"/>
                     <Button x:Name="BuddieButton"
                             Content="🤖"
@@ -174,7 +175,7 @@
                             FontSize="14"
                             Command="{Binding BuddieCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             Cursor="Hand"
-                            ToolTip="Buddie实时交互"
+                            ToolTip="{loc:Resx Tooltip_Realtime}"
                             Style="{StaticResource CircularButtonStyle}"/>
                     <Button x:Name="SettingsButton"
                             Content="⚙"
@@ -187,7 +188,7 @@
                             FontSize="14"
                             Command="{Binding SettingsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             Cursor="Hand"
-                            ToolTip="设置"
+                            ToolTip="{loc:Resx Settings_Title}"
                             Style="{StaticResource CircularButtonStyle}"/>
                 </StackPanel>
                 <!-- 卡片信息显示 - 位于卡片右下角 -->
@@ -199,7 +200,7 @@
                         CornerRadius="8"
                         Padding="4,2">
                     <TextBlock x:Name="CardInfo"
-                               Text="卡片 1 / 4"
+                               Text="{loc:Resx Card_Info_Default}"
                                Foreground="#333333"
                                FontSize="10"
                                FontWeight="Medium"/>
@@ -222,7 +223,7 @@
                 FontWeight="Bold"
                 Command="{Binding PreviousCardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                 Cursor="Hand"
-                ToolTip="上一张卡片 / 翻转卡片（当卡片已翻转时）">
+                ToolTip="{loc:Resx Tooltip_Card_PrevOrFlip}">
             <Button.Style>
                 <Style TargetType="Button">
                     <Setter Property="Template">
@@ -277,7 +278,7 @@
                 FontWeight="Bold"
                 Command="{Binding NextCardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                 Cursor="Hand"
-                ToolTip="下一张卡片 / 翻转卡片（当卡片已翻转时）">
+                ToolTip="{loc:Resx Tooltip_Card_NextOrFlip}">
             <Button.Style>
                 <Style TargetType="Button">
                     <Setter Property="Template">

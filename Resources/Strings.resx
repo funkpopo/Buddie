@@ -85,6 +85,53 @@
   <data name="Tray_Exit" xml:space="preserve">
     <value>退出</value>
   </data>
+  <!-- Settings -->
+  <data name="Settings_Title" xml:space="preserve"><value>设置</value></data>
+  <data name="Settings_Tab_General" xml:space="preserve"><value>基本设置</value></data>
+  <data name="Settings_Tab_Api" xml:space="preserve"><value>对话模型设置</value></data>
+  <data name="Settings_Tab_TTS" xml:space="preserve"><value>TTS设置</value></data>
+  <data name="Settings_Tab_Realtime" xml:space="preserve"><value>实时交互设置</value></data>
+  <data name="Settings_Sec_Appearance" xml:space="preserve"><value>外观设置</value></data>
+  <data name="Settings_TopMost" xml:space="preserve"><value>始终置顶</value></data>
+  <data name="Settings_TopMost_Desc" xml:space="preserve"><value>窗口始终保持在其他窗口之上</value></data>
+  <data name="Settings_ShowInTaskbar" xml:space="preserve"><value>在任务栏显示</value></data>
+  <data name="Settings_ShowInTaskbar_Desc" xml:space="preserve"><value>在Windows任务栏中显示应用图标</value></data>
+  <data name="Settings_DarkMode" xml:space="preserve"><value>夜间模式</value></data>
+  <data name="Settings_DarkMode_Desc" xml:space="preserve"><value>启用深色主题界面</value></data>
+  <data name="Settings_Sec_Others" xml:space="preserve"><value>其他设置</value></data>
+  <data name="Settings_ResetAll" xml:space="preserve"><value>重置所有设置</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>界面语言</value></data>
+  <data name="Settings_Language_Desc" xml:space="preserve"><value>选择界面语言</value></data>
+  <data name="Lang_English" xml:space="preserve"><value>English</value></data>
+  <data name="Lang_ChineseSimplified" xml:space="preserve"><value>简体中文</value></data>
+  <!-- CardControl -->
+  <data name="Card_Front" xml:space="preserve"><value>卡片正面</value></data>
+  <data name="Card_Front_Sub" xml:space="preserve"><value>点击按钮翻转</value></data>
+  <data name="Card_Back" xml:space="preserve"><value>卡片背面</value></data>
+  <data name="Card_Back_Sub" xml:space="preserve"><value>再次点击翻回</value></data>
+  <data name="Tooltip_Chat" xml:space="preserve"><value>对话</value></data>
+  <data name="Tooltip_Realtime" xml:space="preserve"><value>Buddie实时交互</value></data>
+  <data name="Card_Info_Default" xml:space="preserve"><value>卡片 1 / 4</value></data>
+  <data name="Tooltip_Card_PrevOrFlip" xml:space="preserve"><value>上一张卡片 / 翻转卡片（当卡片已翻转时）</value></data>
+  <data name="Tooltip_Card_NextOrFlip" xml:space="preserve"><value>下一张卡片 / 翻转卡片（当卡片已翻转时）</value></data>
+  <!-- Converters unknowns -->
+  <data name="Channel_Unknown" xml:space="preserve"><value>未知渠道</value></data>
+  <data name="TtsChannel_Unknown" xml:space="preserve"><value>未知TTS渠道</value></data>
+  <!-- ApiConfig messages -->
+  <data name="ApiConfig_Validation_MissingFields" xml:space="preserve"><value>请填写完整的配置信息（配置名称、API URL、模型名称为必填项）</value></data>
+  <data name="Confirm_DeleteConfig_Title" xml:space="preserve"><value>确认删除</value></data>
+  <data name="Confirm_DeleteConfig_Message" xml:space="preserve"><value>确定要删除该配置吗？</value></data>
+  <data name="ApiConfig_Test_InProgress" xml:space="preserve"><value>正在测试...</value></data>
+  <data name="ApiConfig_Test_Canceled" xml:space="preserve"><value>测试被取消</value></data>
+  <data name="ApiConfig_Test_Success" xml:space="preserve"><value>连接成功 ({0}ms)</value></data>
+  <data name="ApiConfig_Test_InvalidResponse" xml:space="preserve"><value>响应格式异常 ({0}ms)</value></data>
+  <data name="ApiConfig_DefaultName" xml:space="preserve"><value>配置 {0}</value></data>
+  <!-- TTS validation -->
+  <data name="Tts_ElevenLabs_InvalidUrl" xml:space="preserve"><value>ElevenLabs API URL 应包含 {voice_id} 占位符</value></data>
+  <data name="Tts_ElevenLabs_InvalidVoiceId" xml:space="preserve"><value>ElevenLabs Voice ID 应为20位字符</value></data>
+  <data name="Tts_OpenAI_InvalidVoice" xml:space="preserve"><value>请使用有效的 OpenAI 语音（alloy、echo、fable、onyx、nova、shimmer）</value></data>
+  <data name="Tts_MiniMax_InvalidApiUrl" xml:space="preserve"><value>请使用有效的 MiniMax API URL</value></data>
+  <data name="Tts_MiniMax_SpeedRange" xml:space="preserve"><value>MiniMax TTS 语速范围为 0.5-2.0</value></data>
   <data name="TTS_Header" xml:space="preserve">
     <value>TTS 配置</value>
   </data>

@@ -84,6 +84,53 @@
   <data name="Tray_Exit" xml:space="preserve">
     <value>Exit</value>
   </data>
+  <!-- Settings -->
+  <data name="Settings_Title" xml:space="preserve"><value>Settings</value></data>
+  <data name="Settings_Tab_General" xml:space="preserve"><value>General</value></data>
+  <data name="Settings_Tab_Api" xml:space="preserve"><value>Chat Model</value></data>
+  <data name="Settings_Tab_TTS" xml:space="preserve"><value>TTS</value></data>
+  <data name="Settings_Tab_Realtime" xml:space="preserve"><value>Realtime</value></data>
+  <data name="Settings_Sec_Appearance" xml:space="preserve"><value>Appearance</value></data>
+  <data name="Settings_TopMost" xml:space="preserve"><value>Always on Top</value></data>
+  <data name="Settings_TopMost_Desc" xml:space="preserve"><value>Keep this window above others</value></data>
+  <data name="Settings_ShowInTaskbar" xml:space="preserve"><value>Show in Taskbar</value></data>
+  <data name="Settings_ShowInTaskbar_Desc" xml:space="preserve"><value>Display app icon in Windows taskbar</value></data>
+  <data name="Settings_DarkMode" xml:space="preserve"><value>Dark Mode</value></data>
+  <data name="Settings_DarkMode_Desc" xml:space="preserve"><value>Enable the dark theme</value></data>
+  <data name="Settings_Sec_Others" xml:space="preserve"><value>Other</value></data>
+  <data name="Settings_ResetAll" xml:space="preserve"><value>Reset All Settings</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>Language</value></data>
+  <data name="Settings_Language_Desc" xml:space="preserve"><value>Choose interface language</value></data>
+  <data name="Lang_English" xml:space="preserve"><value>English</value></data>
+  <data name="Lang_ChineseSimplified" xml:space="preserve"><value>Chinese (Simplified)</value></data>
+  <!-- CardControl -->
+  <data name="Card_Front" xml:space="preserve"><value>Front</value></data>
+  <data name="Card_Front_Sub" xml:space="preserve"><value>Click the button to flip</value></data>
+  <data name="Card_Back" xml:space="preserve"><value>Back</value></data>
+  <data name="Card_Back_Sub" xml:space="preserve"><value>Click again to flip back</value></data>
+  <data name="Tooltip_Chat" xml:space="preserve"><value>Chat</value></data>
+  <data name="Tooltip_Realtime" xml:space="preserve"><value>Buddie Realtime</value></data>
+  <data name="Card_Info_Default" xml:space="preserve"><value>Card 1 / 4</value></data>
+  <data name="Tooltip_Card_PrevOrFlip" xml:space="preserve"><value>Previous card / Flip (if flipped)</value></data>
+  <data name="Tooltip_Card_NextOrFlip" xml:space="preserve"><value>Next card / Flip (if flipped)</value></data>
+  <!-- Converters unknowns -->
+  <data name="Channel_Unknown" xml:space="preserve"><value>Unknown channel</value></data>
+  <data name="TtsChannel_Unknown" xml:space="preserve"><value>Unknown TTS channel</value></data>
+  <!-- ApiConfig messages -->
+  <data name="ApiConfig_Validation_MissingFields" xml:space="preserve"><value>Please fill in all required fields (Name, API URL and Model are required).</value></data>
+  <data name="Confirm_DeleteConfig_Title" xml:space="preserve"><value>Confirm Delete</value></data>
+  <data name="Confirm_DeleteConfig_Message" xml:space="preserve"><value>Delete this configuration?</value></data>
+  <data name="ApiConfig_Test_InProgress" xml:space="preserve"><value>Testing...</value></data>
+  <data name="ApiConfig_Test_Canceled" xml:space="preserve"><value>Test canceled</value></data>
+  <data name="ApiConfig_Test_Success" xml:space="preserve"><value>Connected ({0}ms)</value></data>
+  <data name="ApiConfig_Test_InvalidResponse" xml:space="preserve"><value>Invalid response ({0}ms)</value></data>
+  <data name="ApiConfig_DefaultName" xml:space="preserve"><value>Config {0}</value></data>
+  <!-- TTS validation -->
+  <data name="Tts_ElevenLabs_InvalidUrl" xml:space="preserve"><value>ElevenLabs API URL must contain {voice_id}</value></data>
+  <data name="Tts_ElevenLabs_InvalidVoiceId" xml:space="preserve"><value>ElevenLabs Voice ID must be 20 characters</value></data>
+  <data name="Tts_OpenAI_InvalidVoice" xml:space="preserve"><value>Please use a valid OpenAI voice (alloy, echo, fable, onyx, nova, shimmer)</value></data>
+  <data name="Tts_MiniMax_InvalidApiUrl" xml:space="preserve"><value>Please use a valid MiniMax API URL</value></data>
+  <data name="Tts_MiniMax_SpeedRange" xml:space="preserve"><value>MiniMax speed range is 0.5–2.0</value></data>
   <data name="TTS_Header" xml:space="preserve">
     <value>TTS Configuration</value>
   </data>

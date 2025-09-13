@@ -87,7 +87,7 @@ namespace Buddie.Controls
                 
                 var newConfig = new TtsConfiguration
                 {
-                    Name = $"TTS配置 {configurations.Count + 1}",
+                    Name = $"TTS {configurations.Count + 1}",
                     ChannelType = TtsChannelType.OpenAI,
                     IsEditMode = true,
                     IsSaved = false,
@@ -125,7 +125,7 @@ namespace Buddie.Controls
 
                 if (missingFields.Count > 0)
                 {
-                    var message = $"请填写以下必填项：\n• {string.Join("\n• ", missingFields)}";
+                    var message = $"{Buddie.Localization.LocalizationManager.GetString("ApiConfig_Validation_MissingFields")}\n• {string.Join("\n• ", missingFields)}";
                     UserFriendlyErrorService.ShowError(new InvalidOperationException(message), "TTS Validation");
                     return;
                 }
@@ -154,10 +154,10 @@ namespace Buddie.Controls
             {
                 case TtsChannelType.ElevenLabs:
                     if (!config.ApiUrl.Contains("{voice_id}"))
-                        return "ElevenLabs API URL 应包含 {voice_id} 占位符";
+                        return Buddie.Localization.LocalizationManager.GetString("Tts_ElevenLabs_InvalidUrl");
                     
                     if (config.Voice.Length != 20)
-                        return "ElevenLabs Voice ID 应为20位字符";
+                        return Buddie.Localization.LocalizationManager.GetString("Tts_ElevenLabs_InvalidVoiceId");
                     
                     break;
 
@@ -165,17 +165,17 @@ namespace Buddie.Controls
                     if (!config.Voice.Equals("alloy") && !config.Voice.Equals("echo") && 
                         !config.Voice.Equals("fable") && !config.Voice.Equals("onyx") && 
                         !config.Voice.Equals("nova") && !config.Voice.Equals("shimmer"))
-                        return "请使用有效的 OpenAI 语音（alloy、echo、fable、onyx、nova、shimmer）";
+                        return Buddie.Localization.LocalizationManager.GetString("Tts_OpenAI_InvalidVoice");
                     
                     break;
 
                 case TtsChannelType.MiniMax:
                     // MiniMax特定验证
                     if (string.IsNullOrWhiteSpace(config.ApiUrl) || !config.ApiUrl.Contains("minimax"))
-                        return "请使用有效的 MiniMax API URL";
+                        return Buddie.Localization.LocalizationManager.GetString("Tts_MiniMax_InvalidApiUrl");
                     
                     if (config.Speed < 0.5 || config.Speed > 2.0)
-                        return "MiniMax TTS 语速范围为 0.5-2.0";
+                        return Buddie.Localization.LocalizationManager.GetString("Tts_MiniMax_SpeedRange");
                     
                     // 异步验证MiniMax配置（可选）
                     _ = Task.Run(async () =>

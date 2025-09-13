@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using Buddie.Services.ExceptionHandling;
+using Buddie.Localization;
 
 namespace Buddie.Controls
 {
@@ -58,7 +59,7 @@ namespace Buddie.Controls
 
             var newConfig = new OpenApiConfiguration
             {
-                Name = $"配置 {configurations.Count + 1}",
+                Name = string.Format(LocalizationManager.GetString("ApiConfig_DefaultName"), configurations.Count + 1),
                 ApiUrl = "https://api.openai.com/v1/chat/completions",
                 ModelName = "", // 空的模型名称，让用户手动填写
                 IsStreamingEnabled = true,
@@ -84,11 +85,7 @@ namespace Buddie.Controls
                     string.IsNullOrWhiteSpace(config.ApiUrl) || 
                     string.IsNullOrWhiteSpace(config.ModelName))
                 {
-                    MessageBox.Show(
-                        "请填写完整的配置信息（配置名称、API URL、模型名称为必填项）", 
-                        "验证错误", 
-                        MessageBoxButton.OK, 
-                        MessageBoxImage.Warning);
+                    UserFriendlyErrorService.ShowError(new InvalidOperationException(LocalizationManager.GetString("ApiConfig_Validation_MissingFields")), "API Config Validation");
                     return;
                 }
 
@@ -136,8 +133,8 @@ namespace Buddie.Controls
             if (button?.DataContext is OpenApiConfiguration config)
             {
                 var result = MessageBox.Show(
-                    $"确定要删除配置 \"{config.Name}\" 吗？", 
-                    "确认删除", 
+                    string.Format(LocalizationManager.GetString("Confirm_DeleteConfig_Message")), 
+                    LocalizationManager.GetString("Confirm_DeleteConfig_Title"), 
                     MessageBoxButton.YesNo, 
                     MessageBoxImage.Question);
                 
@@ -185,7 +182,7 @@ namespace Buddie.Controls
                 string.IsNullOrWhiteSpace(config.ModelName))
             {
                 config.TestStatus = TestStatus.Failed;
-                config.TestMessage = "配置信息不完整";
+                config.TestMessage = LocalizationManager.GetString("ApiConfig_Validation_MissingFields");
                 return;
             }
 
@@ -208,7 +205,7 @@ namespace Buddie.Controls
                 try
                 {
                     config.TestStatus = TestStatus.Testing;
-                    config.TestMessage = "正在测试...";
+                    config.TestMessage = LocalizationManager.GetString("ApiConfig_Test_InProgress");
 
                     var requestData = new
                     {
@@ -250,12 +247,12 @@ namespace Buddie.Controls
                         if (isValidResponse)
                         {
                             config.TestStatus = TestStatus.Success;
-                            config.TestMessage = $"连接成功 ({delayMs}ms)";
+                            config.TestMessage = string.Format(LocalizationManager.GetString("ApiConfig_Test_Success"), delayMs);
                         }
                         else
                         {
                             config.TestStatus = TestStatus.Failed;
-                            config.TestMessage = $"响应格式异常 ({delayMs}ms)";
+                            config.TestMessage = string.Format(LocalizationManager.GetString("ApiConfig_Test_InvalidResponse"), delayMs);
                         }
                     }
                     else
@@ -268,7 +265,7 @@ namespace Buddie.Controls
                 {
                     stopwatch.Stop();
                     config.TestStatus = TestStatus.Failed;
-                    config.TestMessage = "测试被取消";
+                    config.TestMessage = LocalizationManager.GetString("ApiConfig_Test_Canceled");
                 }
                 finally
                 {

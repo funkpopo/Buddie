@@ -4,6 +4,9 @@ using System.Windows.Controls;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using System.Linq;
+using System.Globalization;
+using System.Windows.Markup;
+using Buddie.Localization;
 
 namespace Buddie.Controls
 {
@@ -116,6 +119,46 @@ namespace Buddie.Controls
                 // 实时交互配置激活
                 RealtimeConfigurationActivated?.Invoke(this, config);
             };
+
+            // 设置语言下拉默认项
+            try
+            {
+                var currentTag = LocalizationManager.CurrentCulture.IetfLanguageTag;
+                if (LanguageComboBox != null)
+                {
+                    foreach (var item in LanguageComboBox.Items.OfType<ComboBoxItem>())
+                    {
+                        if ((item.Tag as string)?.Equals(currentTag, StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            LanguageComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (LanguageComboBox?.SelectedItem is ComboBoxItem item && item.Tag is string cultureTag && !string.IsNullOrWhiteSpace(cultureTag))
+            {
+                try
+                {
+                    var culture = new CultureInfo(cultureTag);
+                    LocalizationManager.CurrentCulture = culture;
+
+                    var window = Window.GetWindow(this);
+                    if (window != null)
+                    {
+                        window.Language = XmlLanguage.GetLanguage(culture.IetfLanguageTag);
+                    }
+                }
+                catch
+                {
+                    // ignore invalid culture
+                }
+            }
         }
         
         public void RefreshTtsConfigurations(ObservableCollection<TtsConfiguration> ttsConfigurations)
