@@ -81,19 +81,35 @@ namespace Buddie
                     .Build();
 
                 await _host.StartAsync();
+                System.Diagnostics.Debug.WriteLine("Host started successfully");
 
                 // Wire ExceptionHandlingService with notifier + logger
+                System.Diagnostics.Debug.WriteLine("Getting IErrorNotifier...");
                 var notifier = _host.Services.GetRequiredService<IErrorNotifier>();
+                System.Diagnostics.Debug.WriteLine("Got IErrorNotifier successfully");
+                
+                System.Diagnostics.Debug.WriteLine("Getting ILoggerFactory...");
                 var loggerFactory = _host.Services.GetRequiredService<ILoggerFactory>();
+                System.Diagnostics.Debug.WriteLine("Got ILoggerFactory successfully");
+                
+                System.Diagnostics.Debug.WriteLine("Configuring ExceptionHandlingService...");
                 ExceptionHandlingService.Configure(notifier, loggerFactory);
+                System.Diagnostics.Debug.WriteLine("ExceptionHandlingService configured successfully");
 
                 // Set up global exception handlers
+                System.Diagnostics.Debug.WriteLine("Setting up global exception handlers...");
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
                 DispatcherUnhandledException += App_DispatcherUnhandledException;
+                System.Diagnostics.Debug.WriteLine("Global exception handlers set up successfully");
                 
                 // Initialize database
+                System.Diagnostics.Debug.WriteLine("Getting IDatabaseInitializer...");
                 var dbInitializer = _host.Services.GetRequiredService<IDatabaseInitializer>();
+                System.Diagnostics.Debug.WriteLine("Got IDatabaseInitializer successfully");
+                
+                System.Diagnostics.Debug.WriteLine("Initializing database...");
                 await dbInitializer.InitializeAsync();
+                System.Diagnostics.Debug.WriteLine("Database initialized successfully");
 
                 // Create and show main window
                 System.Diagnostics.Debug.WriteLine("Creating FloatingWindow...");

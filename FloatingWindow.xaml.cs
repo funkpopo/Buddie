@@ -50,16 +50,42 @@ namespace Buddie
         {
             System.Diagnostics.Debug.WriteLine("FloatingWindow constructor starting...");
             
-            InitializeComponent();
-            System.Diagnostics.Debug.WriteLine("InitializeComponent completed");
+            try
+            {
+                InitializeComponent();
+                System.Diagnostics.Debug.WriteLine("InitializeComponent completed");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"InitializeComponent failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw;
+            }
             
-            InitializeTrayIcon();
-            System.Diagnostics.Debug.WriteLine("InitializeTrayIcon completed");
+            try
+            {
+                InitializeTrayIcon();
+                System.Diagnostics.Debug.WriteLine("InitializeTrayIcon completed");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"InitializeTrayIcon failed: {ex.Message}");
+                throw;
+            }
             
             // ViewModel wiring
             System.Diagnostics.Debug.WriteLine("Creating FloatingWindowViewModel...");
-            _vm = new FloatingWindowViewModel(_appSettings, RealtimeService);
-            System.Diagnostics.Debug.WriteLine("FloatingWindowViewModel created");
+            try
+            {
+                _vm = new FloatingWindowViewModel(_appSettings, RealtimeService);
+                System.Diagnostics.Debug.WriteLine("FloatingWindowViewModel created");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"FloatingWindowViewModel creation failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw;
+            }
             
             this.DataContext = _vm;
             System.Diagnostics.Debug.WriteLine("DataContext set");
