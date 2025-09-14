@@ -4,7 +4,9 @@
       "Bash(dotnet clean:*)",
       "Bash(dotnet add package:*)",
       "Bash(dotnet build)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(sed:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": [],

@@ -150,4 +150,37 @@
   <data name="Inactive" xml:space="preserve">
     <value>未激活</value>
   </data>
+  <!-- ApiConfig labels -->
+  <data name="ApiConfig_ChannelType" xml:space="preserve">
+    <value>渠道类型</value>
+  </data>
+  <data name="ApiConfig_Model" xml:space="preserve">
+    <value>模型</value>
+  </data>
+  <data name="ApiConfig_Multimodal" xml:space="preserve">
+    <value>多模态</value>
+  </data>
+  <data name="ApiConfig_ReasoningMode" xml:space="preserve">
+    <value>思维模式</value>
+  </data>
+  <data name="ApiConfig_TestStatus" xml:space="preserve">
+    <value>测试状态</value>
+  </data>
+  <!-- TtsConfig labels -->
+  <data name="TtsConfig_ChannelType" xml:space="preserve">
+    <value>渠道类型</value>
+  </data>
+  <data name="TtsConfig_Model" xml:space="preserve">
+    <value>模型</value>
+  </data>
+  <data name="TtsConfig_Voice" xml:space="preserve">
+    <value>语音</value>
+  </data>
+  <data name="TtsConfig_ActivationStatus" xml:space="preserve">
+    <value>激活状态</value>
+  </data>
+  <!-- RealtimeConfig labels -->
+  <data name="RealtimeConfig_SampleRate" xml:space="preserve">
+    <value>采样率</value>
+  </data>
 </root>

@@ -1,7 +1,8 @@
 <UserControl x:Class="Buddie.Controls.RealtimeConfigControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:Buddie">
+             xmlns:local="clr-namespace:Buddie"
+             xmlns:loc="clr-namespace:Buddie.Localization">
     
     <StackPanel Margin="15">
         <Grid>
@@ -446,7 +447,7 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
-                                            <Run Text="模型: "/><Run Text="{Binding Model}"/>
+                                            <Run Text="{loc:Resx TtsConfig_Model}"/><Run Text=": "/><Run Text="{Binding Model}"/>
                                         </TextBlock>
                                         <TextBlock FontSize="12">
                                             <TextBlock.Style>
@@ -460,7 +461,7 @@
                                                 </Style>
                                             </TextBlock.Style>
                                             <Run Text="VAD: "/><Run Text="{Binding VadMode}"/>
-                                            <Run Text="  采样率: "/><Run Text="{Binding SampleRate}"/>Hz
+                                            <Run Text="{loc:Resx RealtimeConfig_SampleRate}"/><Run Text=": "/><Run Text="{Binding SampleRate}"/>Hz
                                         </TextBlock>
                                     </StackPanel>
                                     

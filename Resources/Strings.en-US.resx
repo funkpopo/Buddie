@@ -149,4 +149,37 @@
   <data name="Inactive" xml:space="preserve">
     <value>Inactive</value>
   </data>
+  <!-- ApiConfig labels -->
+  <data name="ApiConfig_ChannelType" xml:space="preserve">
+    <value>Channel Type</value>
+  </data>
+  <data name="ApiConfig_Model" xml:space="preserve">
+    <value>Model</value>
+  </data>
+  <data name="ApiConfig_Multimodal" xml:space="preserve">
+    <value>Multimodal</value>
+  </data>
+  <data name="ApiConfig_ReasoningMode" xml:space="preserve">
+    <value>Reasoning Mode</value>
+  </data>
+  <data name="ApiConfig_TestStatus" xml:space="preserve">
+    <value>Test Status</value>
+  </data>
+  <!-- TtsConfig labels -->
+  <data name="TtsConfig_ChannelType" xml:space="preserve">
+    <value>Channel Type</value>
+  </data>
+  <data name="TtsConfig_Model" xml:space="preserve">
+    <value>Model</value>
+  </data>
+  <data name="TtsConfig_Voice" xml:space="preserve">
+    <value>Voice</value>
+  </data>
+  <data name="TtsConfig_ActivationStatus" xml:space="preserve">
+    <value>Activation Status</value>
+  </data>
+  <!-- RealtimeConfig labels -->
+  <data name="RealtimeConfig_SampleRate" xml:space="preserve">
+    <value>Sample Rate</value>
+  </data>
 </root>

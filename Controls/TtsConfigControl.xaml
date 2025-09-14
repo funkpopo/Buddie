@@ -538,8 +538,7 @@
                                     <StackPanel Grid.Row="1" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,8">
-                                        <TextBlock Text="渠道类型: "
-                                                   FontWeight="Bold">
+                                        <TextBlock FontWeight="Bold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="#6C757D"/>
@@ -550,6 +549,8 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
+                                            <Run Text="{loc:Resx TtsConfig_ChannelType}"/>
+                                            <Run Text=": "/>
                                         </TextBlock>
                                         <TextBlock Text="{Binding ChannelType}">
                                             <TextBlock.Style>
@@ -598,11 +599,8 @@
                                     </StackPanel>
                                     
                                     <!-- 模型 -->
-                                    <StackPanel Grid.Row="3" Grid.Column="0"
-                                                Orientation="Horizontal"
-                                                Margin="0,0,0,8">
-                                        <TextBlock Text="模型: "
-                                                   FontWeight="Bold">
+                                    <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock FontWeight="Bold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="#6C757D"/>
@@ -613,6 +611,8 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
+                                            <Run Text="{loc:Resx TtsConfig_Model}"/>
+                                            <Run Text=": "/>
                                         </TextBlock>
                                         <TextBlock Text="{Binding Model}">
                                             <TextBlock.Style>
@@ -632,8 +632,7 @@
                                     <StackPanel Grid.Row="4" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,8">
-                                        <TextBlock Text="语音: "
-                                                   FontWeight="Bold">
+                                        <TextBlock FontWeight="Bold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="#6C757D"/>
@@ -644,6 +643,8 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
+                                            <Run Text="{loc:Resx TtsConfig_Voice}"/>
+                                            <Run Text=": "/>
                                         </TextBlock>
                                         <TextBlock Text="{Binding Voice}">
                                             <TextBlock.Style>
@@ -663,8 +664,7 @@
                                     <StackPanel Grid.Row="5" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,15">
-                                        <TextBlock Text="激活状态: "
-                                                   FontWeight="Bold">
+                                        <TextBlock FontWeight="Bold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="#6C757D"/>
@@ -675,6 +675,8 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
+                                            <Run Text="{loc:Resx TtsConfig_ActivationStatus}"/>
+                                            <Run Text=": "/>
                                         </TextBlock>
                                         <TextBlock>
                                             <TextBlock.Style>
