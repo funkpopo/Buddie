@@ -19,8 +19,23 @@ namespace Buddie
         private IHost? _host;
         private IConfiguration? _configuration;
         private ILogger<App>? _logger;
-        public static IServiceProvider Services => ((App)Current)._host!.Services;
-        public static T GetService<T>() where T : notnull => Services.GetRequiredService<T>();
+        private static IServiceProvider? _services; // Static backing field for test scenarios
+
+        public static IServiceProvider? Services
+        {
+            get
+            {
+                // Try to get from test-assigned services first
+                if (_services != null)
+                    return _services;
+
+                // Otherwise, get from running app
+                return Current != null ? ((App)Current)._host?.Services : null;
+            }
+            set => _services = value; // Allow test to set services (only for testing purposes)
+        }
+
+        public static T GetService<T>() where T : notnull => Services!.GetRequiredService<T>();
         public static IConfiguration Configuration => ((App)Current)._configuration!;
 
         protected override async void OnStartup(StartupEventArgs e)

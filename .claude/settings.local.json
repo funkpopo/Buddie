@@ -6,7 +6,8 @@
       "Bash(dotnet build)",
       "Bash(dotnet build:*)",
       "Bash(sed:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(dotnet test:*)"
     ],
     "deny": [],
     "ask": [],
