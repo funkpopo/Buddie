@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
@@ -18,6 +19,21 @@ namespace Buddie.Services.Tts
         protected readonly HttpClient _httpClient;
         private readonly IHttpClientFactory? _httpClientFactory;
         protected readonly ILogger _logger;
+        private static readonly IDictionary<string, string> _contentTypeToExtension = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            ["audio/mpeg"] = ".mp3",
+            ["audio/mp3"] = ".mp3",
+            ["audio/wav"] = ".wav",
+            ["audio/x-wav"] = ".wav",
+            ["audio/wave"] = ".wav",
+            ["audio/ogg"] = ".ogg",
+            ["audio/opus"] = ".opus",
+            ["audio/webm"] = ".webm",
+            ["audio/aac"] = ".aac",
+            ["audio/mp4"] = ".m4a",
+            ["audio/x-m4a"] = ".m4a",
+            ["audio/flac"] = ".flac"
+        };
 
         protected TtsServiceBase()
         {
@@ -137,6 +153,7 @@ namespace Buddie.Services.Tts
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("TTS HTTP失败: {Status} {Reason}. Body: {Preview}", (int)response.StatusCode, response.ReasonPhrase, errorContent?.Length > 500 ? errorContent.Substring(0, 500) + "..." : errorContent);
                 return new TtsResponse
                 {
                     IsSuccess = false,
@@ -144,6 +161,65 @@ namespace Buddie.Services.Tts
                     ErrorDetails = errorContent
                 };
             }
+        }
+
+        /// <summary>
+        /// 根据Content-Type和可选的音频字节推断合适的文件扩展名。
+        /// </summary>
+        public static string GetAudioExtension(string? contentType, byte[]? audioBytes = null)
+        {
+            if (!string.IsNullOrWhiteSpace(contentType))
+            {
+                // 去掉可能的参数部分，例如: audio/ogg; codecs=opus
+                var typeOnly = contentType.Split(';')[0].Trim();
+                if (_contentTypeToExtension.TryGetValue(typeOnly, out var ext))
+                {
+                    return ext;
+                }
+
+                // 宽松匹配常见关键词
+                var lower = contentType.ToLowerInvariant();
+                if (lower.Contains("mp3") || lower.Contains("mpeg")) return ".mp3";
+                if (lower.Contains("wav")) return ".wav";
+                if (lower.Contains("ogg")) return ".ogg";
+                if (lower.Contains("opus")) return ".opus";
+                if (lower.Contains("aac")) return ".aac";
+                if (lower.Contains("webm")) return ".webm";
+                if (lower.Contains("flac")) return ".flac";
+                if (lower.Contains("mp4") || lower.Contains("m4a")) return ".m4a";
+            }
+
+            // 简单的字节特征检测（可选）
+            if (audioBytes != null)
+            {
+                try
+                {
+                    if (audioBytes.Length >= 12)
+                    {
+                        var header = System.Text.Encoding.ASCII.GetString(audioBytes, 0, 4);
+                        if (header == "RIFF")
+                        {
+                            var format = System.Text.Encoding.ASCII.GetString(audioBytes, 8, 4);
+                            if (format == "WAVE") return ".wav";
+                        }
+                    }
+
+                    if (audioBytes.Length >= 3)
+                    {
+                        var id3 = System.Text.Encoding.ASCII.GetString(audioBytes, 0, 3);
+                        if (id3 == "ID3") return ".mp3";
+                    }
+
+                    if (audioBytes.Length >= 2)
+                    {
+                        if (audioBytes[0] == 0xFF && (audioBytes[1] & 0xE0) == 0xE0) return ".mp3";
+                    }
+                }
+                catch { /* best-effort */ }
+            }
+
+            // 默认回退
+            return ".mp3";
         }
 
         public virtual void Dispose()

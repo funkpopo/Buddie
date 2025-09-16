@@ -460,15 +460,7 @@ namespace Buddie.ViewModels
 
         private static string GetAudioExtension(byte[] audioBytes, string? contentType)
         {
-            if (!string.IsNullOrEmpty(contentType))
-            {
-                if (contentType.Contains("mpeg") || contentType.Contains("mp3")) return ".mp3";
-                if (contentType.Contains("wav")) return ".wav";
-                if (contentType.Contains("ogg")) return ".ogg";
-                if (contentType.Contains("aac")) return ".aac";
-            }
-            // Fallback to mp3
-            return ".mp3";
+            return Buddie.Services.Tts.TtsServiceBase.GetAudioExtension(contentType, audioBytes);
         }
 
         private static string GenerateHash(string input)

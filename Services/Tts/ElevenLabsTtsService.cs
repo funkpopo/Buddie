@@ -26,83 +26,44 @@ namespace Buddie.Services.Tts
 
         protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request)
         {
-            return await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
+            var config = request.Configuration;
+
+            // 统一通过基类的HttpClient+Headers策略
+            SetupHttpHeaders(config);
+
+            _logger.LogInformation("ElevenLabs TTS: voice={Voice}, model={Model}, speed={Speed}", config.Voice, config.Model, config.Speed);
+            _logger.LogTrace("Text: {Text}", request.Text);
+
+            var modelToUse = !string.IsNullOrEmpty(config.Model) ? config.Model : "eleven_multilingual_v2";
+
+            // 优先使用配置的ApiUrl（需包含{voice_id}），否则回退到默认格式
+            var apiUrl = !string.IsNullOrWhiteSpace(config.ApiUrl) && config.ApiUrl.Contains("{voice_id}")
+                ? config.ApiUrl.Replace("{voice_id}", config.Voice ?? string.Empty)
+                : $"https://api.elevenlabs.io/v1/text-to-speech/{config.Voice}?output_format=mp3_44100_128";
+            _logger.LogDebug("ElevenLabs request URL: {Url}", apiUrl);
+
+            var voiceSpeed = config.Speed > 0 ? config.Speed : 1.0;
+            var requestBody = new
             {
-                var config = request.Configuration;
-                
-                if (string.IsNullOrEmpty(config.ApiKey))
+                text = request.Text,
+                model_id = modelToUse,
+                voice_settings = new
                 {
-                    throw new TtsException(SupportedChannelType, "ElevenLabs API Key 不能为空");
+                    stability = 0.5,
+                    speed = voiceSpeed,
+                    similarity_boost = 0.75
                 }
+            };
 
-                _logger.LogInformation("ElevenLabs TTS: voice={Voice}, model={Model}, speed={Speed}", config.Voice, config.Model, config.Speed);
-                _logger.LogDebug("Text: {Text}", request.Text);
+            var jsonContent = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+            _logger.LogTrace("ElevenLabs request body: {Body}", jsonContent);
 
-                // 确定要使用的模型
-                var modelToUse = !string.IsNullOrEmpty(config.Model) ? config.Model : "eleven_multilingual_v2";
-                
-                // 构建API URL
-                var apiUrl = $"https://api.elevenlabs.io/v1/text-to-speech/{config.Voice}?output_format=mp3_44100_128";
-                _logger.LogInformation("API URL: {Url}", apiUrl);
-
-                // 创建请求体，包含完整的voice_settings，使用用户配置的语速
-                var voiceSpeed = config.Speed > 0 ? config.Speed : 1.0;
-                _logger.LogDebug("Using speed: {Speed}", voiceSpeed);
-                
-                var requestBody = new
-                {
-                    text = request.Text,
-                    model_id = modelToUse,
-                    voice_settings = new
-                    {
-                        stability = 0.5,
-                        speed = voiceSpeed,
-                        similarity_boost = 0.75
-                    }
-                };
-
-                var jsonContent = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
-                });
-
-                _logger.LogDebug("请求体: {Body}", jsonContent);
-
-                // 发送HTTP请求（复用基类HttpClient）
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
-
-                var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync(apiUrl, content);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var audioData = await response.Content.ReadAsByteArrayAsync();
-                    _logger.LogInformation("ElevenLabs success, audio bytes={Size}", audioData.Length);
-
-                    return new TtsResponse
-                    {
-                        IsSuccess = true,
-                        AudioData = audioData,
-                        ContentType = response.Content.Headers.ContentType?.MediaType ?? "audio/mpeg",
-                        ErrorMessage = null,
-                        ErrorDetails = null
-                    };
-                }
-                else
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("ElevenLabs API error: {Status} - {Body}", response.StatusCode, errorContent);
-                    throw new TtsException(SupportedChannelType, 
-                        $"ElevenLabs API请求失败: {response.StatusCode}", errorContent);
-                }
-            }, 
-            new TtsResponse 
-            { 
-                IsSuccess = false, 
-                ErrorMessage = "ElevenLabs TTS服务调用失败" 
-            },
-            "ElevenLabs TTS API调用");
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(apiUrl, content);
+            return await ProcessHttpResponseAsync(response);
         }
 
         private void InitializeClient(TtsConfiguration config)
@@ -147,8 +108,12 @@ namespace Buddie.Services.Tts
 
         protected override void SetupHttpHeaders(TtsConfiguration config)
         {
-            // ElevenLabs-DotNet包会自动处理请求头设置
-            // 这里不需要手动设置
+            // 统一清理并设置所需头
+            _httpClient.DefaultRequestHeaders.Clear();
+            if (!string.IsNullOrEmpty(config.ApiKey))
+            {
+                _httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+            }
         }
 
         public override TtsValidationResult ValidateConfiguration(TtsConfiguration configuration)
