@@ -120,7 +120,7 @@ namespace Buddie.Database
                 command.Parameters.AddWithValue("@ShowInTaskbar", settings.ShowInTaskbar);
                 command.Parameters.AddWithValue("@EnableAnimation", settings.EnableAnimation);
                 command.Parameters.AddWithValue("@IsDarkTheme", settings.IsDarkTheme);
-                command.Parameters.AddWithValue("@UpdatedAt", settings.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+                command.Parameters.AddWithValue("@UpdatedAt", settings.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
 
                 await command.ExecuteNonQueryAsync();
             }
@@ -221,11 +221,11 @@ namespace Buddie.Database
                 command.Parameters.AddWithValue("@IsMultimodalEnabled", config.IsMultimodalEnabled);
                 command.Parameters.AddWithValue("@ChannelType", config.ChannelType);
                 command.Parameters.AddWithValue("@SupportsThinking", config.SupportsThinking);
-                command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
-                command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+                command.Parameters.AddWithValue("@CreatedAt", config.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
+                command.Parameters.AddWithValue("@UpdatedAt", config.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
 
                 var result = await command.ExecuteScalarAsync();
-                var id = Convert.ToInt32(result);
+                var id = Convert.ToInt32(result, System.Globalization.CultureInfo.InvariantCulture);
                 config.Id = id;
                 return id;
             }

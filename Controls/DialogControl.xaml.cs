@@ -34,7 +34,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Buddie.Controls
 {
-    public partial class DialogControl : System.Windows.Controls.UserControl
+    public partial class DialogControl : System.Windows.Controls.UserControl, IDisposable
     {
         private DialogViewModel? _viewModel;
         // NAudio-based audio player
@@ -49,6 +49,7 @@ namespace Buddie.Controls
         
         private CancellationTokenSource? _currentRequest;
         private bool _isSending = false;
+        private bool _disposed = false;
         private bool _isSidebarVisible = false;
         private readonly List<string> _conversationHistory = new List<string>();
         private readonly MarkdownPipeline _markdownPipeline;
@@ -78,7 +79,7 @@ namespace Buddie.Controls
             _screenService = screenService;
             _imageService = imageService;
             _databaseService = databaseService;
-            _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+            _logger = (Microsoft.Extensions.Logging.ILogger?)logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
             _ttsServiceResolver = ttsServiceResolver;
             _httpClientFactory = httpClientFactory;
             _audioPlaybackService = audioPlaybackService;
@@ -793,7 +794,7 @@ namespace Buddie.Controls
                 var trimmedLine = line.Trim();
 
                 // 处理代码块
-                if (trimmedLine.StartsWith("<pre>") || trimmedLine.Contains("<pre>"))
+                if (trimmedLine.StartsWith("<pre>", StringComparison.Ordinal) || trimmedLine.Contains("<pre>"))
                 {
                     FinalizeParagraph(flowDocument, ref currentParagraph);
                     inCodeBlock = true;
@@ -803,7 +804,7 @@ namespace Buddie.Controls
                     codeLanguage = m.Success ? m.Groups[1].Value.ToLowerInvariant() : null;
                     continue;
                 }
-                else if (trimmedLine.StartsWith("</pre>") || trimmedLine.Contains("</pre>"))
+                else if (trimmedLine.StartsWith("</pre>", StringComparison.Ordinal) || trimmedLine.Contains("</pre>"))
                 {
                     if (inCodeBlock && codeBlockContent.Length > 0)
                     {
@@ -833,7 +834,7 @@ namespace Buddie.Controls
                 }
 
                 // 处理标题
-                if (trimmedLine.StartsWith("<h"))
+                if (trimmedLine.StartsWith("<h", StringComparison.Ordinal))
                 {
                     FinalizeParagraph(flowDocument, ref currentParagraph);
                     CreateHeading(flowDocument, trimmedLine);
@@ -842,7 +843,7 @@ namespace Buddie.Controls
                 }
 
                 // 处理列表项
-                if (trimmedLine.StartsWith("<li>"))
+                if (trimmedLine.StartsWith("<li>", StringComparison.Ordinal))
                 {
                     if (!inList)
                     {
@@ -852,7 +853,7 @@ namespace Buddie.Controls
                     CreateListItem(flowDocument, trimmedLine);
                     continue;
                 }
-                else if (inList && !trimmedLine.StartsWith("<li>"))
+                else if (inList && !trimmedLine.StartsWith("<li>", StringComparison.Ordinal))
                 {
                     inList = false;
                 }
@@ -869,8 +870,8 @@ namespace Buddie.Controls
                 if (i < lines.Length - 1 && !string.IsNullOrWhiteSpace(lines[i + 1]?.Trim()))
                 {
                     var nextTrimmed = lines[i + 1].Trim();
-                    if (!nextTrimmed.StartsWith("<h") && !nextTrimmed.StartsWith("<li>") && 
-                        !nextTrimmed.StartsWith("<pre>") && !nextTrimmed.StartsWith("</pre>"))
+                    if (!nextTrimmed.StartsWith("<h", StringComparison.Ordinal) && !nextTrimmed.StartsWith("<li>", StringComparison.Ordinal) && 
+                        !nextTrimmed.StartsWith("<pre>", StringComparison.Ordinal) && !nextTrimmed.StartsWith("</pre>", StringComparison.Ordinal))
                     {
                         currentParagraph.Inlines.Add(new LineBreak());
                     }
@@ -970,9 +971,9 @@ namespace Buddie.Controls
         private void CreateHeading(FlowDocument flowDocument, string headingHtml)
         {
             var text = System.Text.RegularExpressions.Regex.Replace(headingHtml, "<[^>]*>", "");
-            var headingSize = headingHtml.StartsWith("<h1") ? 18 : 
-                             headingHtml.StartsWith("<h2") ? 16 : 
-                             headingHtml.StartsWith("<h3") ? 14 : 13;
+            var headingSize = headingHtml.StartsWith("<h1", StringComparison.Ordinal) ? 18 : 
+                             headingHtml.StartsWith("<h2", StringComparison.Ordinal) ? 16 : 
+                             headingHtml.StartsWith("<h3", StringComparison.Ordinal) ? 14 : 13;
             
             var headingParagraph = new Paragraph(new Run(text))
             {
@@ -1033,7 +1034,7 @@ namespace Buddie.Controls
         private bool LooksLikeJson(string text)
         {
             var t = text.TrimStart();
-            return t.StartsWith("{") || t.StartsWith("[");
+            return t.StartsWith("{", StringComparison.Ordinal) || t.StartsWith("[", StringComparison.Ordinal);
         }
 
         private void AppendJsonHighlightedRuns(Paragraph para, string code, bool isDark)
@@ -1055,7 +1056,7 @@ namespace Buddie.Controls
                 para.Inlines.Add(new Run("\"" + m.Groups["key"].Value + "\"") { Foreground = keyBrush });
                 para.Inlines.Add(new Run(": ") { Foreground = defBrush });
                 var v = m.Groups["value"].Value;
-                if (v.StartsWith("\"")) para.Inlines.Add(new Run(v) { Foreground = strBrush });
+                if (v.StartsWith("\"", StringComparison.Ordinal)) para.Inlines.Add(new Run(v) { Foreground = strBrush });
                 else if (v == "true" || v == "false" || v == "null") para.Inlines.Add(new Run(v) { Foreground = boolBrush });
                 else para.Inlines.Add(new Run(v) { Foreground = numBrush });
                 lastIndex = m.Index + m.Length;
@@ -1773,7 +1774,7 @@ namespace Buddie.Controls
             {
                 _currentRequest?.Token.ThrowIfCancellationRequested();
                 
-                if (line.StartsWith("data:"))
+                if (line.StartsWith("data:", StringComparison.Ordinal))
                 {
                     ProcessStreamDataLine(line, channelType);
                 }
@@ -2194,7 +2195,7 @@ namespace Buddie.Controls
                 }
                 else
                 {
-                    throw new Exception($"TTS服务失败: {ttsResponse.ErrorMessage}");
+                    throw new InvalidOperationException($"TTS服务失败: {ttsResponse.ErrorMessage}");
                 }
             }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
             {
@@ -2335,18 +2336,10 @@ namespace Buddie.Controls
         {
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                // 释放音频资源
-                if (_currentAudioPlayer != null)
+                // 释放音频资源（通过统一的音频播放服务）
+                if (_audioPlaybackService != null)
                 {
-                    _currentAudioPlayer.Stop();
-                    await Task.Run(() => _currentAudioPlayer.Dispose());
-                    _currentAudioPlayer = null;
-                }
-                
-                if (_currentAudioReader != null)
-                {
-                    await Task.Run(() => _currentAudioReader.Dispose());
-                    _currentAudioReader = null;
+                    await _audioPlaybackService.StopAsync();
                 }
                 
                 // 清理临时文件
@@ -3254,6 +3247,31 @@ namespace Buddie.Controls
                 DialogInput.Text = "请继续。";
             }
             SendMessage_Click(this, new RoutedEventArgs());
+        }
+
+        #endregion
+
+        #region IDisposable Implementation
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Dispose managed resources
+                    _currentRequest?.Cancel();
+                    _currentRequest?.Dispose();
+                }
+
+                _disposed = true;
+            }
         }
 
         #endregion

@@ -17,9 +17,8 @@ namespace Buddie.Services.Http
             int retryCount = 3,
             int baseDelaySeconds = 2)
         {
-            var logger = sp.GetService(typeof(ILogger<HttpPolicies>)) as ILogger<HttpPolicies>
-                         ?? (sp.GetService(typeof(ILoggerFactory)) as ILoggerFactory)?.CreateLogger<HttpPolicies>()
-                         ?? NullLogger<HttpPolicies>.Instance;
+            var loggerFactory = sp.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            var logger = (loggerFactory?.CreateLogger("HttpPolicies")) ?? NullLogger.Instance;
 
             return HttpPolicyExtensions
                 .HandleTransientHttpError() // HttpRequestException, 5XX, 408
@@ -45,9 +44,8 @@ namespace Buddie.Services.Http
             int failureThreshold = 5,
             int durationSeconds = 30)
         {
-            var logger = sp.GetService(typeof(ILogger<HttpPolicies>)) as ILogger<HttpPolicies>
-                         ?? (sp.GetService(typeof(ILoggerFactory)) as ILoggerFactory)?.CreateLogger<HttpPolicies>()
-                         ?? NullLogger<HttpPolicies>.Instance;
+            var loggerFactory = sp.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            var logger = (loggerFactory?.CreateLogger("HttpPolicies")) ?? NullLogger.Instance;
 
             return HttpPolicyExtensions
                 .HandleTransientHttpError()
@@ -68,4 +66,3 @@ namespace Buddie.Services.Http
         }
     }
 }
-

@@ -20,9 +20,10 @@ using Buddie;
 
 namespace Buddie.ViewModels
 {
-    public partial class DialogViewModel : ObservableObject
+    public partial class DialogViewModel : ObservableObject, IDisposable
     {
         private readonly AppSettings _appSettings;
+        private bool _disposed = false;
         private readonly DatabaseService _databaseService = Buddie.App.GetService<DatabaseService>();
         private readonly ITtsServiceResolver _ttsServiceResolver = Buddie.App.GetService<ITtsServiceResolver>();
         private readonly System.Net.Http.IHttpClientFactory _httpClientFactory = Buddie.App.GetService<System.Net.Http.IHttpClientFactory>();
@@ -388,7 +389,7 @@ namespace Buddie.ViewModels
                 }
                 else
                 {
-                    throw new Exception(response.ErrorMessage ?? "TTS服务失败");
+                    throw new InvalidOperationException(response.ErrorMessage ?? "TTS服务失败");
                 }
             }, "TTS语音合成");
         }
@@ -576,5 +577,32 @@ namespace Buddie.ViewModels
                 Content = content;
             }
         }
+
+        #region IDisposable Implementation
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Dispose managed resources
+                    _currentRequest?.Cancel();
+                    _currentRequest?.Dispose();
+                    _ttsCts?.Cancel();
+                    _ttsCts?.Dispose();
+                }
+
+                _disposed = true;
+            }
+        }
+
+        #endregion
     }
 }

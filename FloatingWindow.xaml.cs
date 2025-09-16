@@ -21,7 +21,7 @@ namespace Buddie
 {
     
 
-    public partial class FloatingWindow : Window
+    public partial class FloatingWindow : Window, IDisposable
     {
         private NotifyIcon? trayIcon;
         private readonly IClickThroughService _clickThroughService;
@@ -29,6 +29,7 @@ namespace Buddie
         private readonly AppSettings _appSettings = new AppSettings();
         private readonly CardColorManager _colorManager = new CardColorManager();
         private readonly ILogger<FloatingWindow> _logger;
+        private bool _disposed = false;
         
         // 实时交互服务
         private RealtimeInteractionService? _realtimeService;
@@ -623,6 +624,30 @@ namespace Buddie
             return IsInputElementOrChild(focusedElement);
         }
         
+        #endregion
+
+        #region IDisposable Implementation
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Dispose managed resources
+                    trayIcon?.Dispose();
+                }
+
+                _disposed = true;
+            }
+        }
+
         #endregion
 
     }

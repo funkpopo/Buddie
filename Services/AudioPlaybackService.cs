@@ -24,7 +24,7 @@ namespace Buddie.Services
 
         public AudioPlaybackService(ILoggerFactory? loggerFactory = null)
         {
-            _logger = (loggerFactory?.CreateLogger<AudioPlaybackService>()) ?? NullLogger.Instance;
+            _logger = (loggerFactory?.CreateLogger("AudioPlaybackService")) ?? NullLogger.Instance;
             ExceptionHandlingService.ExecuteSafely(() => MediaFoundationApi.Startup(),
                 ExceptionHandlingService.HandlingStrategy.LogOnly,
                 new ExceptionHandlingService.ExceptionContext { Component = nameof(AudioPlaybackService), Operation = "NAudio Startup" });
@@ -182,4 +182,3 @@ namespace Buddie.Services
         }
     }
 }
-

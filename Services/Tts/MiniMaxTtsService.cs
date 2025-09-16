@@ -20,7 +20,7 @@ namespace Buddie.Services.Tts
     /// 支持非流式语音合成，音频格式为WAV
     /// API文档: https://platform.minimaxi.com/document/%E5%90%8C%E6%AD%A5%E8%AF%AD%E9%9F%B3%E5%90%88%E6%88%90
     /// </summary>
-    public class MiniMaxTtsService : TtsServiceBase
+    public partial class MiniMaxTtsService : TtsServiceBase
     {
         public override TtsChannelType SupportedChannelType => TtsChannelType.MiniMax;
 
@@ -43,8 +43,8 @@ namespace Buddie.Services.Tts
                 // 构建完整的API URL，包含GroupId参数
                 var apiUrl = BuildApiUrl(config);
                 
-                _logger.LogDebug("MiniMax request body: {Body}", json);
-                _logger.LogInformation("MiniMax request URL: {Url}", apiUrl);
+                Log.MiniMaxRequestBody(_logger, json);
+                Log.MiniMaxRequestUrl(_logger, apiUrl);
 
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -62,7 +62,7 @@ namespace Buddie.Services.Tts
         /// <summary>
         /// 创建MiniMax API请求体，强制使用WAV格式和非流式
         /// </summary>
-        private object CreateRequestBody(TtsRequest request)
+        private Dictionary<string, object> CreateRequestBody(TtsRequest request)
         {
             var config = request.Configuration;
             
@@ -100,21 +100,23 @@ namespace Buddie.Services.Tts
             };
 
             // 确保所有必需字段都不为空
-            _logger.LogDebug("MiniMax 参数检查: model={Model}, textLen={Len}, voice_id={Voice}, speed={Speed}, format={Fmt}, output_format={OutFmt}, stream={Stream}",
-                requestBody["model"], cleanText?.Length ?? 0,
-                ((Dictionary<string, object>)requestBody["voice_setting"])["voice_id"],
-                ((Dictionary<string, object>)requestBody["voice_setting"])["speed"],
-                ((Dictionary<string, object>)requestBody["audio_setting"])["format"],
-                requestBody["output_format"], requestBody["stream"]);
+            var model = (string)requestBody["model"]; 
+            var textLen = cleanText?.Length ?? 0;
+            var voiceId = (string)((Dictionary<string, object>)requestBody["voice_setting"])["voice_id"];
+            var speed = (double)((Dictionary<string, object>)requestBody["voice_setting"])["speed"];
+            var fmt = (string)((Dictionary<string, object>)requestBody["audio_setting"])["format"];
+            var outFmt = (string)requestBody["output_format"];
+            var stream = (bool)requestBody["stream"];
+            Log.MiniMaxParamCheck(_logger, model, textLen, voiceId, speed, fmt, outFmt, stream);
             
             // 验证关键字段不为空
             if (string.IsNullOrEmpty(requestBody["model"]?.ToString()))
-                _logger.LogWarning("MiniMax: model 字段为空");
+                Log.MiniMaxModelEmpty(_logger);
             if (string.IsNullOrEmpty(requestBody["text"]?.ToString()))
-                _logger.LogWarning("MiniMax: text 字段为空");
+                Log.MiniMaxTextEmpty(_logger);
             var voiceSetting = (Dictionary<string, object>)requestBody["voice_setting"];
             if (string.IsNullOrEmpty(voiceSetting["voice_id"]?.ToString()))
-                _logger.LogWarning("MiniMax: voice_id 字段为空");
+                Log.MiniMaxVoiceIdEmpty(_logger);
 
             return requestBody;
         }
@@ -147,23 +149,23 @@ namespace Buddie.Services.Tts
             if (!string.IsNullOrEmpty(apiKey))
             {
                 // 格式1: API_KEY|GROUP_ID
-                if (apiKey.Contains("|"))
+                if (apiKey.Contains('|'))
                 {
                     var parts = apiKey.Split('|');
                     if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[1]))
                     {
-                        _logger.LogDebug("Extracted GroupId from API key (format1)");
+                        Log.ExtractedGroupIdFormat1(_logger);
                         return parts[1].Trim();
                     }
                 }
                 
                 // 格式2: GROUP_ID:API_KEY
-                if (apiKey.Contains(":"))
+                if (apiKey.Contains(':'))
                 {
                     var parts = apiKey.Split(':');
                     if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[0]))
                     {
-                        _logger.LogDebug("Extracted GroupId from API key (format2)");
+                        Log.ExtractedGroupIdFormat2(_logger);
                         return parts[0].Trim();
                     }
                 }
@@ -175,7 +177,7 @@ namespace Buddie.Services.Tts
                              "格式2: YOUR_GROUP_ID:YOUR_API_KEY\n" +
                              "您可以在MiniMax控制台找到您的GroupId";
             
-            _logger.LogError("MiniMax: {Message}", errorMessage);
+            Log.MiniMaxMessageError(_logger, errorMessage);
             throw new TtsException(SupportedChannelType, errorMessage);
         }
 
@@ -186,12 +188,12 @@ namespace Buddie.Services.Tts
         {
             var response = await _httpClient.PostAsync(apiUrl, content, cancellationToken);
             
-            _logger.LogInformation("MiniMax status: {Status} {Reason}", (int)response.StatusCode, response.ReasonPhrase);
-            _logger.LogDebug("MiniMax headers: {Headers}", response.Headers);
+            Log.MiniMaxStatus(_logger, (int)response.StatusCode, response.ReasonPhrase);
+            Log.MiniMaxHeaders(_logger, response.Headers?.ToString() ?? string.Empty);
             
             if (response.IsSuccessStatusCode)
             {
-                var responseContent = await response.Content.ReadAsStringAsync();
+                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 
                 // 先检查响应内容是否为空或明显不是JSON
                 if (string.IsNullOrWhiteSpace(responseContent))
@@ -206,13 +208,13 @@ namespace Buddie.Services.Tts
                 
                 // 检查响应是否以JSON开头
                 var trimmedContent = responseContent.TrimStart();
-                if (!trimmedContent.StartsWith("{") && !trimmedContent.StartsWith("["))
+                if (!trimmedContent.StartsWith('{') && !trimmedContent.StartsWith('['))
                 {
                     // 截取前500字符用于日志与错误显示
                     var shortContent = responseContent.Length > 500 
-                        ? responseContent.Substring(0, 500) + "..." 
+                        ? string.Concat(responseContent.AsSpan(0, 500), "...") 
                         : responseContent;
-                    _logger.LogWarning("MiniMax returned non-JSON response: {Preview}", shortContent);
+                    Log.MiniMaxReturnedNonJson(_logger, shortContent);
                     
                     return new TtsResponse
                     {
@@ -224,7 +226,7 @@ namespace Buddie.Services.Tts
                 
                 try
                 {
-                    _logger.LogDebug("MiniMax response JSON: {Content}", responseContent);
+                    Log.MiniMaxResponseJson(_logger, responseContent);
                     
                     using var document = JsonDocument.Parse(responseContent);
                     var root = document.RootElement;
@@ -238,7 +240,7 @@ namespace Buddie.Services.Tts
                             var errorMsg = baseResp.TryGetProperty("status_msg", out var statusMsg) 
                                 ? statusMsg.GetString() : "未知错误";
                             
-                            _logger.LogError("MiniMax API error: status_code={StatusCode}, status_msg={Msg}", statusCode.GetInt32(), errorMsg);
+                            Log.MiniMaxApiError(_logger, statusCode.GetInt32(), errorMsg ?? string.Empty);
                             
                             return new TtsResponse
                             {
@@ -311,7 +313,7 @@ namespace Buddie.Services.Tts
             }
             else
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 Debug.WriteLine($"MiniMax HTTP错误: {response.StatusCode}");
                 Debug.WriteLine($"错误响应内容: {errorContent}");
                 
@@ -327,7 +329,7 @@ namespace Buddie.Services.Tts
         /// <summary>
         /// 检测音频数据的实际格式
         /// </summary>
-        private string DetectAudioFormat(byte[] audioData)
+        private static string DetectAudioFormat(byte[] audioData)
         {
             if (audioData.Length >= 12)
             {
@@ -389,12 +391,12 @@ namespace Buddie.Services.Tts
                     bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
                 }
                 
-                _logger.LogDebug("Hex decoded: chars={Chars} bytes={Bytes}", hex.Length, bytes.Length);
+                Log.HexDecoded(_logger, hex.Length, bytes.Length);
                 return bytes;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Hex decode failed: {Msg}", ex.Message);
+                Log.HexDecodeFailed(_logger, ex, ex.Message);
                 throw new ArgumentException($"十六进制转换失败: {ex.Message}", ex);
             }
         }
@@ -413,17 +415,17 @@ namespace Buddie.Services.Tts
             cleanText = cleanText.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
             
             // 移除多余的空格
-            cleanText = Regex.Replace(cleanText, @"\s+", " ").Trim();
+            cleanText = MultiSpaceRegex().Replace(cleanText, " ").Trim();
             
             // 限制长度（MiniMax可能有文本长度限制）
             if (cleanText.Length > 1000)
             {
-                cleanText = cleanText.Substring(0, 1000);
-                _logger.LogDebug("Text truncated to 1000 characters");
+                cleanText = cleanText[..1000];
+                Log.TextTruncated1000(_logger);
             }
             
-            _logger.LogTrace("Original text: {Text}", text);
-            _logger.LogTrace("Cleaned text: {Text}", cleanText);
+            Log.OriginalText(_logger, text ?? string.Empty);
+            Log.CleanedText(_logger, cleanText);
             
             return cleanText;
         }
@@ -441,32 +443,32 @@ namespace Buddie.Services.Tts
                 // 从API Key中提取纯API Key部分（去除GroupId）
                 var pureApiKey = ExtractPureApiKey(config.ApiKey);
                 _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {pureApiKey}");
-                _logger.LogDebug("MiniMax set Authorization: Bearer {Masked}", ApiKeyProtection.Mask(pureApiKey));
+                Log.MiniMaxAuthSet(_logger, ApiKeyProtection.Mask(pureApiKey));
             }
             else
             {
-                _logger.LogWarning("MiniMax warning: API Key is empty");
+                Log.MiniMaxApiKeyEmpty(_logger);
             }
             
-            _logger.LogDebug("MiniMax headers configured");
+            Log.MiniMaxHeadersConfigured(_logger);
         }
         
         /// <summary>
         /// 从完整的API Key字符串中提取纯API Key部分
         /// </summary>
-        private string ExtractPureApiKey(string apiKey)
+        private static string ExtractPureApiKey(string apiKey)
         {
             if (string.IsNullOrEmpty(apiKey))
                 return apiKey;
                 
             // 格式1: API_KEY|GROUP_ID - 取第一部分
-            if (apiKey.Contains("|"))
+            if (apiKey.Contains('|'))
             {
                 return apiKey.Split('|')[0].Trim();
             }
             
             // 格式2: GROUP_ID:API_KEY - 取第二部分
-            if (apiKey.Contains(":"))
+            if (apiKey.Contains(':'))
             {
                 var parts = apiKey.Split(':');
                 if (parts.Length >= 2)
@@ -507,7 +509,7 @@ namespace Buddie.Services.Tts
                 // 验证API Key和GroupId
                 if (!string.IsNullOrEmpty(configuration.ApiKey))
                 {
-                    if (!configuration.ApiKey.Contains("|") && !configuration.ApiKey.Contains(":"))
+                    if (!configuration.ApiKey.Contains('|') && !configuration.ApiKey.Contains(':'))
                     {
                         result.AddWarning("MiniMax需要GroupId。支持格式: YOUR_API_KEY|YOUR_GROUP_ID 或 YOUR_GROUP_ID:YOUR_API_KEY");
                     }
@@ -518,6 +520,85 @@ namespace Buddie.Services.Tts
         }
 
 
+    }
+}
+
+// Source-generated helpers for logging and regex
+namespace Buddie.Services.Tts
+{
+    public partial class MiniMaxTtsService
+    {
+        [GeneratedRegex("\\s+")]
+        private static partial Regex MultiSpaceRegex();
+
+        private static partial class Log
+        {
+            [LoggerMessage(EventId = 1, Level = LogLevel.Debug, Message = "MiniMax request body: {Body}")]
+            public static partial void MiniMaxRequestBody(ILogger logger, string body);
+
+            [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "MiniMax request URL: {Url}")]
+            public static partial void MiniMaxRequestUrl(ILogger logger, string url);
+
+            [LoggerMessage(EventId = 3, Level = LogLevel.Debug, Message = "MiniMax 参数检查: model={Model}, textLen={Len}, voice_id={Voice}, speed={Speed}, format={Fmt}, output_format={OutFmt}, stream={Stream}")]
+            public static partial void MiniMaxParamCheck(ILogger logger, string model, int len, string voice, double speed, string fmt, string outFmt, bool stream);
+
+            [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "MiniMax: model 字段为空")]
+            public static partial void MiniMaxModelEmpty(ILogger logger);
+
+            [LoggerMessage(EventId = 5, Level = LogLevel.Warning, Message = "MiniMax: text 字段为空")]
+            public static partial void MiniMaxTextEmpty(ILogger logger);
+
+            [LoggerMessage(EventId = 6, Level = LogLevel.Warning, Message = "MiniMax: voice_id 字段为空")]
+            public static partial void MiniMaxVoiceIdEmpty(ILogger logger);
+
+            [LoggerMessage(EventId = 7, Level = LogLevel.Debug, Message = "Extracted GroupId from API key (format1)")]
+            public static partial void ExtractedGroupIdFormat1(ILogger logger);
+
+            [LoggerMessage(EventId = 8, Level = LogLevel.Debug, Message = "Extracted GroupId from API key (format2)")]
+            public static partial void ExtractedGroupIdFormat2(ILogger logger);
+
+            [LoggerMessage(EventId = 9, Level = LogLevel.Error, Message = "MiniMax: {Message}")]
+            public static partial void MiniMaxMessageError(ILogger logger, string message);
+
+            [LoggerMessage(EventId = 10, Level = LogLevel.Information, Message = "MiniMax status: {Status} {Reason}")]
+            public static partial void MiniMaxStatus(ILogger logger, int status, string? reason);
+
+            [LoggerMessage(EventId = 11, Level = LogLevel.Debug, Message = "MiniMax headers: {Headers}")]
+            public static partial void MiniMaxHeaders(ILogger logger, string headers);
+
+            [LoggerMessage(EventId = 12, Level = LogLevel.Warning, Message = "MiniMax returned non-JSON response: {Preview}")]
+            public static partial void MiniMaxReturnedNonJson(ILogger logger, string preview);
+
+            [LoggerMessage(EventId = 13, Level = LogLevel.Debug, Message = "MiniMax response JSON: {Content}")]
+            public static partial void MiniMaxResponseJson(ILogger logger, string content);
+
+            [LoggerMessage(EventId = 14, Level = LogLevel.Error, Message = "MiniMax API error: status_code={StatusCode}, status_msg={Msg}")]
+            public static partial void MiniMaxApiError(ILogger logger, int statusCode, string msg);
+
+            [LoggerMessage(EventId = 15, Level = LogLevel.Debug, Message = "Hex decoded: chars={Chars} bytes={Bytes}")]
+            public static partial void HexDecoded(ILogger logger, int chars, int bytes);
+
+            [LoggerMessage(EventId = 16, Level = LogLevel.Error, Message = "Hex decode failed: {Msg}")]
+            public static partial void HexDecodeFailed(ILogger logger, Exception ex, string msg);
+
+            [LoggerMessage(EventId = 17, Level = LogLevel.Debug, Message = "Text truncated to 1000 characters")]
+            public static partial void TextTruncated1000(ILogger logger);
+
+            [LoggerMessage(EventId = 18, Level = LogLevel.Trace, Message = "Original text: {Text}")]
+            public static partial void OriginalText(ILogger logger, string text);
+
+            [LoggerMessage(EventId = 19, Level = LogLevel.Trace, Message = "Cleaned text: {Text}")]
+            public static partial void CleanedText(ILogger logger, string text);
+
+            [LoggerMessage(EventId = 20, Level = LogLevel.Debug, Message = "MiniMax set Authorization: Bearer {Masked}")]
+            public static partial void MiniMaxAuthSet(ILogger logger, string masked);
+
+            [LoggerMessage(EventId = 21, Level = LogLevel.Warning, Message = "MiniMax warning: API Key is empty")]
+            public static partial void MiniMaxApiKeyEmpty(ILogger logger);
+
+            [LoggerMessage(EventId = 22, Level = LogLevel.Debug, Message = "MiniMax headers configured")]
+            public static partial void MiniMaxHeadersConfigured(ILogger logger);
+        }
     }
 }
 

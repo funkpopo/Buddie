@@ -48,7 +48,7 @@ namespace Buddie.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"启动音频捕获失败: {ex.Message}", ex);
+                throw new InvalidOperationException($"启动音频捕获失败: {ex.Message}", ex);
             }
         }
 
@@ -156,7 +156,7 @@ namespace Buddie.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"启动音频播放失败: {ex.Message}", ex);
+                throw new InvalidOperationException($"启动音频播放失败: {ex.Message}", ex);
             }
         }
 

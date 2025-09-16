@@ -66,7 +66,7 @@ namespace Buddie.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"WebSocket连接失败: {ex.Message}", ex);
+                throw new InvalidOperationException($"WebSocket连接失败: {ex.Message}", ex);
             }
         }
 
@@ -151,7 +151,7 @@ namespace Buddie.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"消息处理失败: {ex.Message}", ex);
+                throw new InvalidOperationException($"消息处理失败: {ex.Message}", ex);
             }
         }
 
@@ -207,7 +207,7 @@ namespace Buddie.Services
                             if (root.TryGetProperty("error", out var errorElement))
                             {
                                 var errorMessage = errorElement.GetProperty("message").GetString();
-                                throw new Exception($"服务器错误: {errorMessage}");
+                                throw new InvalidOperationException($"服务器错误: {errorMessage}");
                             }
                             break;
                     }
