@@ -198,6 +198,13 @@ namespace Buddie
         private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             var notifier = _host?.Services.GetService<IErrorNotifier>();
+            var tmpl1 = Buddie.Localization.LocalizationManager.GetString("App_DispatcherUnhandledException_Format");
+            var localized1 = string.Format(tmpl1, e.Exception.Message);
+            notifier?.NotifyError(localized1, e.Exception,
+                new ExceptionHandlingService.ExceptionContext { Component = "App", Operation = "DispatcherUnhandledException" });
+            // Mark the exception as handled to prevent app crash
+            e.Handled = true;
+            return;
             notifier?.NotifyError($"发生未处理的异常:\n\n{e.Exception.Message}", e.Exception,
                 new ExceptionHandlingService.ExceptionContext { Component = "App", Operation = "DispatcherUnhandledException" });
 
@@ -211,6 +218,11 @@ namespace Buddie
             if (exception != null)
             {
                 var notifier = _host?.Services.GetService<IErrorNotifier>();
+                var tmpl2 = Buddie.Localization.LocalizationManager.GetString("App_UnhandledException_Format");
+                var localized2 = string.Format(tmpl2, exception.Message);
+                notifier?.NotifyError(localized2, exception,
+                    new ExceptionHandlingService.ExceptionContext { Component = "App", Operation = "UnhandledException" });
+                return;
                 notifier?.NotifyError($"发生严重错误:\n\n{exception.Message}\n\n应用程序将退出。", exception,
                     new ExceptionHandlingService.ExceptionContext { Component = "App", Operation = "UnhandledException" });
             }

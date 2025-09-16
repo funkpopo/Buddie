@@ -182,4 +182,30 @@
   <data name="RealtimeConfig_SampleRate" xml:space="preserve">
     <value>Sample Rate</value>
   </data>
+  <!-- DialogViewModel messages -->
+  <data name="Info_Title" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="Dialog_Tts_MissingConfig_Message" xml:space="preserve">
+    <value>No TTS configuration found. Please configure TTS in Settings and try again.</value>
+  </data>
+  <data name="Dialog_ConfigureApiFirst" xml:space="preserve">
+    <value>Please configure the API before starting a conversation.</value>
+  </data>
+  <!-- App.xaml.cs messages -->
+  <data name="App_DispatcherUnhandledException_Format" xml:space="preserve">
+    <value>An unhandled exception occurred:\n\n{0}</value>
+  </data>
+  <data name="App_UnhandledException_Format" xml:space="preserve">
+    <value>A fatal error occurred:\n\n{0}\n\nThe application will exit</value>
+  </data>
+  <data name="App_Startup_Operation" xml:space="preserve">
+    <value>Application startup</value>
+  </data>
+  <data name="App_Exit_SaveSettings_Operation" xml:space="preserve">
+    <value>Save settings</value>
+  </data>
+  <data name="App_CleanupTtsCache_Operation" xml:space="preserve">
+    <value>Clean TTS cache</value>
+  </data>
 </root>

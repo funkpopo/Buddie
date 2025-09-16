@@ -176,7 +176,7 @@ namespace Buddie.Controls
                 _logger.LogError(ex, "DialogControl: 获取当前窗口屏幕时出错 = {Message}", ex.Message);
                 ExceptionHandlingService.ExecuteSafely(() => 
                 {
-                    throw ex;
+                    throw;
                 }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
                 {
                     Component = "DialogControl",
@@ -300,7 +300,7 @@ namespace Buddie.Controls
                 // 使用ExceptionHandlingService处理异常
                 ExceptionHandlingService.ExecuteSafely(() => 
                 {
-                    throw ex; // 重新抛出以便正确处理
+                    throw; // 重新抛出以便正确处理
                 }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
                 {
                     Component = "DialogControl",

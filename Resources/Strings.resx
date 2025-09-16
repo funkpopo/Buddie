@@ -183,4 +183,30 @@
   <data name="RealtimeConfig_SampleRate" xml:space="preserve">
     <value>采样率</value>
   </data>
+  <!-- DialogViewModel messages -->
+  <data name="Info_Title" xml:space="preserve">
+    <value>��ʾ</value>
+  </data>
+  <data name="Dialog_Tts_MissingConfig_Message" xml:space="preserve">
+    <value>δ�ҵ� TTS ���ã�������������ҳ������ TTS �������ԡ�</value>
+  </data>
+  <data name="Dialog_ConfigureApiFirst" xml:space="preserve">
+    <value>�����ȷ��� API �������������Ի���</value>
+  </data>
+  <!-- App.xaml.cs messages -->
+  <data name="App_DispatcherUnhandledException_Format" xml:space="preserve">
+    <value>����δ�������쳣:\n\n{0}</value>
+  </data>
+  <data name="App_UnhandledException_Format" xml:space="preserve">
+    <value>���������ش���:\n\n{0}\n\nӦ�ó����˳���</value>
+  </data>
+  <data name="App_Startup_Operation" xml:space="preserve">
+    <value>Ӧ�ó�������</value>
+  </data>
+  <data name="App_Exit_SaveSettings_Operation" xml:space="preserve">
+    <value>��������</value>
+  </data>
+  <data name="App_CleanupTtsCache_Operation" xml:space="preserve">
+    <value>���� TTS ����</value>
+  </data>
 </root>

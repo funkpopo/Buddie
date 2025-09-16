@@ -164,6 +164,13 @@ namespace Buddie.ViewModels
                 var ttsConfig = _appSettings.GetActiveTtsConfiguration();
                 if (ttsConfig == null)
                 {
+                    var msg = Buddie.Localization.LocalizationManager.GetString("Dialog_Tts_MissingConfig_Message");
+                    var title = Buddie.Localization.LocalizationManager.GetString("Info_Title");
+                    MessageBox.Show(msg, title, MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                if (ttsConfig == null)
+                {
                     MessageBox.Show("未找到TTS配置，请先在设置中配置并激活TTS服务。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
@@ -193,6 +200,12 @@ namespace Buddie.ViewModels
         private async Task SendMessageToApiAsync(string message)
         {
             var apiConfig = CurrentApiConfiguration;
+            if (apiConfig == null)
+            {
+                var msg = Buddie.Localization.LocalizationManager.GetString("Dialog_ConfigureApiFirst");
+                ResponseReady?.Invoke(this, new NonStreamingResponseEventArgs(msg));
+                return;
+            }
             if (apiConfig == null)
             {
                 // Let the view handle user feedback

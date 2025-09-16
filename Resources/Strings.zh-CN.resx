@@ -150,4 +150,30 @@
   <data name="Inactive" xml:space="preserve">
     <value>未激活</value>
   </data>
+  <!-- DialogViewModel messages -->
+  <data name="Info_Title" xml:space="preserve">
+    <value>提示</value>
+  </data>
+  <data name="Dialog_Tts_MissingConfig_Message" xml:space="preserve">
+    <value>未找到 TTS 配置，请在设置页配置 TTS 后重试。</value>
+  </data>
+  <data name="Dialog_ConfigureApiFirst" xml:space="preserve">
+    <value>请先配置 API 后再进行对话。</value>
+  </data>
+  <!-- App.xaml.cs messages -->
+  <data name="App_DispatcherUnhandledException_Format" xml:space="preserve">
+    <value>发生未处理的异常:\n\n{0}</value>
+  </data>
+  <data name="App_UnhandledException_Format" xml:space="preserve">
+    <value>发生严重错误:\n\n{0}\n\n应用程序将退出</value>
+  </data>
+  <data name="App_Startup_Operation" xml:space="preserve">
+    <value>应用程序启动</value>
+  </data>
+  <data name="App_Exit_SaveSettings_Operation" xml:space="preserve">
+    <value>保存设置</value>
+  </data>
+  <data name="App_CleanupTtsCache_Operation" xml:space="preserve">
+    <value>清理 TTS 缓存</value>
+  </data>
 </root>
