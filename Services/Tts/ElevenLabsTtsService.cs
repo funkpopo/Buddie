@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using ElevenLabs;
@@ -24,7 +25,7 @@ namespace Buddie.Services.Tts
 
         public override TtsChannelType SupportedChannelType => TtsChannelType.ElevenLabs;
 
-        protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request)
+        protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request, CancellationToken cancellationToken = default)
         {
             var config = request.Configuration;
 
@@ -62,7 +63,7 @@ namespace Buddie.Services.Tts
             _logger.LogTrace("ElevenLabs request body: {Body}", jsonContent);
 
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync(apiUrl, content);
+            var response = await _httpClient.PostAsync(apiUrl, content, cancellationToken);
             return await ProcessHttpResponseAsync(response);
         }
 

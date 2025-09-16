@@ -2,6 +2,7 @@ using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using Buddie.Services.ExceptionHandling;
@@ -16,7 +17,7 @@ namespace Buddie.Services.Tts
     {
         public override TtsChannelType SupportedChannelType => TtsChannelType.OpenAI;
 
-        protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request)
+        protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request, CancellationToken cancellationToken = default)
         {
             return await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
             {
@@ -40,7 +41,7 @@ namespace Buddie.Services.Tts
 
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 
-                var response = await _httpClient.PostAsync(config.ApiUrl, content);
+                var response = await _httpClient.PostAsync(config.ApiUrl, content, cancellationToken);
                 var result = await ProcessHttpResponseAsync(response);
 
                 if (!result.IsSuccess)

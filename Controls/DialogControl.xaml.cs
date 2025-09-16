@@ -38,8 +38,7 @@ namespace Buddie.Controls
     {
         private DialogViewModel? _viewModel;
         // NAudio-based audio player
-        private WaveOutEvent? _currentAudioPlayer;
-        private AudioFileReader? _currentAudioReader;
+        private Buddie.Services.IAudioPlaybackService _audioPlaybackService = null!;
 
         // UI virtualization - ObservableCollection for messages
         public ObservableCollection<MessageDisplayModel> Messages { get; private set; }
@@ -74,7 +73,7 @@ namespace Buddie.Controls
         private System.Net.Http.IHttpClientFactory _httpClientFactory = null!;
 
         #region Screen/Image Services Injection
-        public void InitializeServices(IScreenService screenService, IImageService imageService, DatabaseService databaseService, ILogger<DialogControl> logger, Buddie.Services.Tts.ITtsServiceResolver ttsServiceResolver, System.Net.Http.IHttpClientFactory httpClientFactory)
+        public void InitializeServices(IScreenService screenService, IImageService imageService, DatabaseService databaseService, ILogger<DialogControl> logger, Buddie.Services.Tts.ITtsServiceResolver ttsServiceResolver, System.Net.Http.IHttpClientFactory httpClientFactory, Buddie.Services.IAudioPlaybackService audioPlaybackService)
         {
             _screenService = screenService;
             _imageService = imageService;
@@ -82,6 +81,7 @@ namespace Buddie.Controls
             _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
             _ttsServiceResolver = ttsServiceResolver;
             _httpClientFactory = httpClientFactory;
+            _audioPlaybackService = audioPlaybackService;
         }
         #endregion
 
@@ -136,8 +136,7 @@ namespace Buddie.Controls
                 .UseAdvancedExtensions()
                 .Build();
             
-            // 初始化NAudio MediaFoundation（用于MP3支持）
-            MediaFoundationApi.Startup();
+            // 媒体初始化由共享的 IAudioPlaybackService 管理
             
             // 加载对话历史
             LoadConversationHistory();
@@ -159,7 +158,7 @@ namespace Buddie.Controls
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            // 释放音频资源
+            // 释放音频资源（通过共享服务）
             ReleaseAudioResources();
             
             Hide();
@@ -1974,93 +1973,8 @@ namespace Buddie.Controls
         {
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                System.Diagnostics.Debug.WriteLine($"播放音频: NAudio处理 {audioBytes.Length} bytes");
-                
-                // 停止之前的播放
-                StopCurrentAudio();
-                
-                // 创建临时文件
-                var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Buddie");
-                Directory.CreateDirectory(appDataPath);
-                
-                // 根据ContentType或字节数据确定文件扩展名
-                string extension = GetAudioExtension(audioBytes, contentType);
-                var tempFile = Path.Combine(appDataPath, $"audio_{Guid.NewGuid()}{extension}");
-                await File.WriteAllBytesAsync(tempFile, audioBytes);
-                
-                System.Diagnostics.Debug.WriteLine($"播放音频: 临时文件创建 {tempFile}");
-                
-                // 尝试使用NAudio播放
-                var success = await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
-                {
-                    // 使用NAudio播放音频
-                    _currentAudioReader = new AudioFileReader(tempFile);
-                    _currentAudioPlayer = new WaveOutEvent();
-                    
-                    // 设置播放完成事件
-                    _currentAudioPlayer.PlaybackStopped += async (sender, e) =>
-                    {
-                        await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
-                        {
-                            await CleanupAudioResourcesAsync(tempFile);
-                            
-                            if (e.Exception != null)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"NAudio播放异常: {e.Exception.Message}");
-                            }
-                            else
-                            {
-                                System.Diagnostics.Debug.WriteLine("NAudio播放完成");
-                            }
-                        }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
-                        {
-                            Component = "DialogControl",
-                            Operation = "音频播放完成清理"
-                        });
-                    };
-                    
-                    _currentAudioPlayer.Init(_currentAudioReader);
-                    _currentAudioPlayer.Play();
-                    
-                    System.Diagnostics.Debug.WriteLine("NAudio开始播放");
-                    
-                    // 异步等待播放完成
-                    while (_currentAudioPlayer?.PlaybackState == PlaybackState.Playing)
-                    {
-                        await Task.Delay(100);
-                    }
-                    
-                    return true;
-                }, ExceptionHandlingService.HandlingStrategy.LogOnly, false, new ExceptionHandlingService.ExceptionContext
-                {
-                    Component = "DialogControl",
-                    Operation = "NAudio音频播放", 
-                    AdditionalData = new Dictionary<string, object>
-                    {
-                        ["AudioFileSize"] = audioBytes.Length,
-                        ["ContentType"] = contentType ?? "unknown",
-                        ["TempFile"] = tempFile
-                    }
-                });
-                
-                // 如果NAudio失败，尝试回退播放
-                if (!success)
-                {
-                    await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
-                    {
-                        System.Diagnostics.Debug.WriteLine("NAudio失败，尝试回退播放");
-                        FallbackAudioPlayback(tempFile);
-                        
-                        // 清理临时文件
-                        await CleanupTempFileAsync(tempFile);
-                        
-                        await Task.CompletedTask;
-                    }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
-                    {
-                        Component = "DialogControl",
-                        Operation = "音频播放回退处理"
-                    });
-                }
+                System.Diagnostics.Debug.WriteLine($"播放音频: 交由共享服务处理 {audioBytes.Length} bytes");
+                await _audioPlaybackService.PlayAsync(audioBytes, contentType);
             }, ExceptionHandlingService.HandlingStrategy.ShowMessageAndLog, new ExceptionHandlingService.ExceptionContext
             {
                 Component = "DialogControl",
@@ -2077,7 +1991,7 @@ namespace Buddie.Controls
         /// </summary>
         private async Task StopCurrentAudioAsync()
         {
-            await CleanupAudioResourcesAsync();
+            await _audioPlaybackService.StopAsync();
         }
         
         /// <summary>
@@ -2085,7 +1999,7 @@ namespace Buddie.Controls
         /// </summary>
         private void StopCurrentAudio()
         {
-            _ = StopCurrentAudioAsync();
+            _audioPlaybackService.Stop();
         }
         /// <summary>
         /// 根据ContentType和音频数据确定文件扩展名
@@ -2567,18 +2481,8 @@ namespace Buddie.Controls
         {
             ExceptionHandlingService.ExecuteSafely(() =>
             {
-                // 停止并释放音频播放资源
+                // 停止并释放音频播放资源（由共享服务管理）
                 StopCurrentAudio();
-                
-                // 关闭MediaFoundation
-                ExceptionHandlingService.ExecuteSafely(() =>
-                {
-                    MediaFoundationApi.Shutdown();
-                }, ExceptionHandlingService.HandlingStrategy.LogOnly, context: new ExceptionHandlingService.ExceptionContext
-                {
-                    Component = "DialogControl",
-                    Operation = "关闭MediaFoundation"
-                });
             }, ExceptionHandlingService.HandlingStrategy.LogOnly, context: new ExceptionHandlingService.ExceptionContext
             {
                 Component = "DialogControl",

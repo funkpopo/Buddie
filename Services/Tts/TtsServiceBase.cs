@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Buddie.Services.ExceptionHandling;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,7 +59,7 @@ namespace Buddie.Services.Tts
 
         public abstract TtsChannelType SupportedChannelType { get; }
 
-        public virtual async Task<TtsResponse> ConvertTextToSpeechAsync(TtsRequest request)
+        public virtual async Task<TtsResponse> ConvertTextToSpeechAsync(TtsRequest request, CancellationToken cancellationToken = default)
         {
             return await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
             {
@@ -81,7 +82,7 @@ namespace Buddie.Services.Tts
                 }
 
                 // 调用具体实现
-                var result = await CallTtsApiAsync(request);
+                var result = await CallTtsApiAsync(request, cancellationToken);
                 
                 stopwatch.Stop();
                 result.ProcessingTime = stopwatch.Elapsed;
@@ -125,7 +126,7 @@ namespace Buddie.Services.Tts
         /// <summary>
         /// 调用具体的TTS API实现
         /// </summary>
-        protected abstract Task<TtsResponse> CallTtsApiAsync(TtsRequest request);
+        protected abstract Task<TtsResponse> CallTtsApiAsync(TtsRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 设置通用的HTTP请求头

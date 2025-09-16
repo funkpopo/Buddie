@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Collections.Generic;
@@ -23,7 +24,7 @@ namespace Buddie.Services.Tts
     {
         public override TtsChannelType SupportedChannelType => TtsChannelType.MiniMax;
 
-        protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request)
+        protected override async Task<TtsResponse> CallTtsApiAsync(TtsRequest request, CancellationToken cancellationToken = default)
         {
             return await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
             {
@@ -48,7 +49,7 @@ namespace Buddie.Services.Tts
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 // 使用非流式处理
-                return await ProcessNonStreamingResponseAsync(config, content, apiUrl);
+                return await ProcessNonStreamingResponseAsync(config, content, apiUrl, cancellationToken);
             },
             new TtsResponse 
             { 
@@ -181,9 +182,9 @@ namespace Buddie.Services.Tts
         /// <summary>
         /// 处理非流式响应
         /// </summary>
-        private async Task<TtsResponse> ProcessNonStreamingResponseAsync(TtsConfiguration config, StringContent content, string apiUrl)
+        private async Task<TtsResponse> ProcessNonStreamingResponseAsync(TtsConfiguration config, StringContent content, string apiUrl, CancellationToken cancellationToken = default)
         {
-            var response = await _httpClient.PostAsync(apiUrl, content);
+            var response = await _httpClient.PostAsync(apiUrl, content, cancellationToken);
             
             _logger.LogInformation("MiniMax status: {Status} {Reason}", (int)response.StatusCode, response.ReasonPhrase);
             _logger.LogDebug("MiniMax headers: {Headers}", response.Headers);

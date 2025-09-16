@@ -9,7 +9,6 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NAudio.MediaFoundation;
-using NAudio.Wave;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -52,9 +51,9 @@ namespace Buddie.ViewModels
         private DbConversation? _currentConversation;
         private List<DbMessage> _currentMessages = new();
 
-        // TTS playback resources
-        private WaveOutEvent? _currentAudioPlayer;
-        private AudioFileReader? _currentAudioReader;
+        // Shared audio playback service
+        private readonly Buddie.Services.IAudioPlaybackService _audioPlaybackService = Buddie.App.GetService<Buddie.Services.IAudioPlaybackService>();
+        private CancellationTokenSource? _ttsCts;
 
         public DialogViewModel(AppSettings appSettings)
         {
@@ -71,10 +70,7 @@ namespace Buddie.ViewModels
                 }
             };
 
-            // Ensure NAudio MediaFoundation is initialized for MP3
-            ExceptionHandlingService.ExecuteSafely(() => MediaFoundationApi.Startup(),
-                ExceptionHandlingService.HandlingStrategy.LogOnly,
-                new ExceptionHandlingService.ExceptionContext { Component = nameof(DialogViewModel), Operation = "NAudio Startup" });
+            // Audio initialization is handled by IAudioPlaybackService
         }
 
         public bool IsDarkTheme => _appSettings.IsDarkTheme;
@@ -169,12 +165,12 @@ namespace Buddie.ViewModels
                     MessageBox.Show(msg, title, MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
-                if (ttsConfig == null)
-                {
-                    MessageBox.Show("未找到TTS配置，请先在设置中配置并激活TTS服务。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                await CallTtsApi(text, ttsConfig);
+                // cancel previous
+                try { _ttsCts?.Cancel(); } catch { }
+                _ttsCts?.Dispose();
+                _ttsCts = new CancellationTokenSource();
+
+                await CallTtsApi(text, ttsConfig, _ttsCts.Token);
             }, "TTS语音合成（VM）");
         }
 
@@ -358,7 +354,7 @@ namespace Buddie.ViewModels
 
         private static string ConvertImageToBase64(byte[] imageBytes) => Convert.ToBase64String(imageBytes);
 
-        private async Task CallTtsApi(string text, TtsConfiguration ttsConfig)
+        private async Task CallTtsApi(string text, TtsConfiguration ttsConfig, CancellationToken cancellationToken)
         {
             await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
             {
@@ -374,7 +370,7 @@ namespace Buddie.ViewModels
                 var cachedAudio = await _databaseService.GetTtsAudioAsync(textHash);
                 if (cachedAudio != null)
                 {
-                    await PlayAudioFromBytes(cachedAudio.AudioData);
+                    await _audioPlaybackService.PlayAsync(cachedAudio.AudioData, null, cancellationToken);
                     return;
                 }
 
@@ -384,11 +380,11 @@ namespace Buddie.ViewModels
                     Text = text,
                     Configuration = ttsConfig
                 };
-                var response = await service.ConvertTextToSpeechAsync(request);
+                var response = await service.ConvertTextToSpeechAsync(request, cancellationToken);
                 if (response.IsSuccess && response.AudioData != null)
                 {
                     await _databaseService.SaveTtsAudioAsync(textHash, response.AudioData, ttsConfigJson);
-                    await PlayAudioFromBytes(response.AudioData, response.ContentType);
+                    await _audioPlaybackService.PlayAsync(response.AudioData, response.ContentType, cancellationToken);
                 }
                 else
                 {
@@ -397,70 +393,10 @@ namespace Buddie.ViewModels
             }, "TTS语音合成");
         }
 
-        private async Task PlayAudioFromBytes(byte[] audioBytes, string? contentType = null)
+        public void CancelTts()
         {
-            await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
-            {
-                StopCurrentAudio();
-
-                var tempPath = Path.GetTempPath();
-                var extension = GetAudioExtension(audioBytes, contentType);
-                var tempFile = Path.Combine(tempPath, $"buddie_tts_{Guid.NewGuid()}{extension}");
-                await File.WriteAllBytesAsync(tempFile, audioBytes);
-
-                try
-                {
-                    _currentAudioReader = new AudioFileReader(tempFile);
-                    _currentAudioPlayer = new WaveOutEvent();
-                    _currentAudioPlayer.PlaybackStopped += async (s, e) =>
-                    {
-                        try
-                        {
-                            await CleanupAudioResourcesAsync(tempFile);
-                        }
-                        catch { }
-                    };
-                    _currentAudioPlayer.Init(_currentAudioReader);
-                    _currentAudioPlayer.Play();
-                }
-                catch
-                {
-                    await CleanupAudioResourcesAsync(tempFile);
-                    throw;
-                }
-            }, "播放TTS音频");
-        }
-
-        private void StopCurrentAudio()
-        {
-            try
-            {
-                _currentAudioPlayer?.Stop();
-                _currentAudioPlayer?.Dispose();
-                _currentAudioPlayer = null;
-            }
-            catch { }
-            finally
-            {
-                _currentAudioReader?.Dispose();
-                _currentAudioReader = null;
-            }
-        }
-
-        private async Task CleanupAudioResourcesAsync(string tempFile)
-        {
-            await Task.Yield();
-            StopCurrentAudio();
-            try
-            {
-                if (File.Exists(tempFile)) File.Delete(tempFile);
-            }
-            catch { }
-        }
-
-        private static string GetAudioExtension(byte[] audioBytes, string? contentType)
-        {
-            return Buddie.Services.Tts.TtsServiceBase.GetAudioExtension(contentType, audioBytes);
+            try { _ttsCts?.Cancel(); } catch { }
+            _ = _audioPlaybackService.StopAsync();
         }
 
         private static string GenerateHash(string input)

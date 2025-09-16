@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Buddie.Services.Tts
@@ -13,7 +14,7 @@ namespace Buddie.Services.Tts
         /// </summary>
         /// <param name="request">TTS请求</param>
         /// <returns>音频数据</returns>
-        Task<TtsResponse> ConvertTextToSpeechAsync(TtsRequest request);
+        Task<TtsResponse> ConvertTextToSpeechAsync(TtsRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 验证TTS配置是否有效
