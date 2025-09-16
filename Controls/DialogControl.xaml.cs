@@ -785,6 +785,7 @@ namespace Buddie.Controls
             bool inCodeBlock = false;
             bool inList = false;
             var codeBlockContent = new StringBuilder();
+            string? codeLanguage = null;
 
             for (int i = 0; i < lines.Length; i++)
             {
@@ -797,16 +798,20 @@ namespace Buddie.Controls
                     FinalizeParagraph(flowDocument, ref currentParagraph);
                     inCodeBlock = true;
                     codeBlockContent.Clear();
+                    // 提取代码语言（如 <pre><code class="language-csharp">）
+                    var m = System.Text.RegularExpressions.Regex.Match(trimmedLine, @"class\s*=\s*""language-([a-zA-Z0-9#_+\-.]+)""");
+                    codeLanguage = m.Success ? m.Groups[1].Value.ToLowerInvariant() : null;
                     continue;
                 }
                 else if (trimmedLine.StartsWith("</pre>") || trimmedLine.Contains("</pre>"))
                 {
                     if (inCodeBlock && codeBlockContent.Length > 0)
                     {
-                        CreateCodeBlock(flowDocument, codeBlockContent.ToString());
+                        CreateCodeBlock(flowDocument, codeBlockContent.ToString(), codeLanguage);
                     }
                     inCodeBlock = false;
                     codeBlockContent.Clear();
+                    codeLanguage = null;
                     continue;
                 }
                 else if (inCodeBlock)
@@ -899,37 +904,67 @@ namespace Buddie.Controls
             }
         }
 
-        private void CreateCodeBlock(FlowDocument flowDocument, string codeContent)
+        private void CreateCodeBlock(FlowDocument flowDocument, string codeContent, string? language)
         {
-            var codeRun = new Run(codeContent)
+            var border = new Border
             {
-                FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace")
-            };
-
-            var codeBlock = new Paragraph(codeRun)
-            {
-                FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace"),
-                Padding = new Thickness(12),
+                Padding = new Thickness(0),
                 Margin = new Thickness(0, 4, 0, 8),
+                CornerRadius = new CornerRadius(6),
                 BorderThickness = new Thickness(1)
             };
 
-            // 根据当前主题设置样式
-            var appSettings = DataContext as AppSettings;
-            if (appSettings?.IsDarkTheme == true)
+            var isDark = (DataContext as AppSettings)?.IsDarkTheme == true;
+            border.Background = isDark
+                ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(40, 40, 40))
+                : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(248, 248, 248));
+            border.BorderBrush = isDark
+                ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(80, 80, 80))
+                : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(225, 225, 225));
+
+            var grid = new Grid();
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var topBar = new DockPanel { LastChildFill = false, Margin = new Thickness(8, 6, 8, 0) };
+            if (!string.IsNullOrWhiteSpace(language))
             {
-                codeBlock.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(40, 40, 40));
-                codeBlock.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(80, 80, 80));
-                codeRun.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(220, 220, 220));
-            }
-            else
-            {
-                codeBlock.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(248, 248, 248));
-                codeBlock.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(225, 225, 225));
-                codeRun.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(33, 37, 41));
+                var langLabel = new TextBlock
+                {
+                    Text = language!,
+                    Foreground = isDark ? System.Windows.Media.Brushes.Gainsboro : System.Windows.Media.Brushes.DimGray,
+                    FontSize = 11,
+                    Margin = new Thickness(0, 0, 8, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                DockPanel.SetDock(langLabel, Dock.Left);
+                topBar.Children.Add(langLabel);
             }
 
-            flowDocument.Blocks.Add(codeBlock);
+            var copyBtn = new System.Windows.Controls.Button
+            {
+                Content = "复制",
+                Padding = new Thickness(6, 2, 6, 2),
+                Margin = new Thickness(0, 0, 0, 4),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                BorderThickness = new Thickness(0),
+                FontSize = 11,
+                Tag = codeContent
+            };
+            copyBtn.Click += CopyCodeButton_Click;
+            copyBtn.Background = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(70, 70, 70)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 230, 230));
+            copyBtn.Foreground = isDark ? System.Windows.Media.Brushes.White : System.Windows.Media.Brushes.Black;
+            DockPanel.SetDock(copyBtn, Dock.Right);
+            topBar.Children.Add(copyBtn);
+            Grid.SetRow(topBar, 0);
+            grid.Children.Add(topBar);
+
+            var codeViewer = CreateHighlightedCodeViewer(codeContent, language, isDark);
+            Grid.SetRow(codeViewer, 1);
+            grid.Children.Add(codeViewer);
+
+            border.Child = grid;
+            flowDocument.Blocks.Add(new BlockUIContainer(border));
         }
 
         private void CreateHeading(FlowDocument flowDocument, string headingHtml)
@@ -946,6 +981,212 @@ namespace Buddie.Controls
                 Margin = new Thickness(0, 8, 0, 4)
             };
             flowDocument.Blocks.Add(headingParagraph);
+        }
+
+        private FrameworkElement CreateHighlightedCodeViewer(string code, string? language, bool isDark)
+        {
+            var scroll = new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Margin = new Thickness(8, 2, 8, 8)
+            };
+
+            var rtb = new System.Windows.Controls.RichTextBox
+            {
+                IsReadOnly = true,
+                BorderThickness = new Thickness(0),
+                Background = System.Windows.Media.Brushes.Transparent,
+                FontFamily = new System.Windows.Media.FontFamily("Consolas, 'Courier New', monospace"),
+                FontSize = 12,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Hidden
+            };
+
+            var doc = new FlowDocument { PagePadding = new Thickness(0), LineHeight = 16 };
+            var para = new Paragraph { Margin = new Thickness(0) };
+
+            var lang = (language ?? string.Empty).ToLowerInvariant();
+            if (lang.Contains("json") || LooksLikeJson(code))
+            {
+                AppendJsonHighlightedRuns(para, code, isDark);
+            }
+            else if (lang.Contains("xml") || lang.Contains("html"))
+            {
+                AppendXmlHighlightedRuns(para, code, isDark);
+            }
+            else if (lang.Contains("cs") || lang.Contains("c#") || lang.Contains("csharp") || lang.Contains("js") || lang.Contains("ts") || lang.Contains("java") || lang.Contains("py"))
+            {
+                AppendCLikeHighlightedRuns(para, code, lang, isDark);
+            }
+            else
+            {
+                para.Inlines.Add(new Run(code) { Foreground = isDark ? System.Windows.Media.Brushes.Gainsboro : System.Windows.Media.Brushes.Black });
+            }
+
+            doc.Blocks.Add(para);
+            rtb.Document = doc;
+            scroll.Content = rtb;
+            return scroll;
+        }
+
+        private bool LooksLikeJson(string text)
+        {
+            var t = text.TrimStart();
+            return t.StartsWith("{") || t.StartsWith("[");
+        }
+
+        private void AppendJsonHighlightedRuns(Paragraph para, string code, bool isDark)
+        {
+            var keyBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(157, 220, 254)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 102, 204));
+            var strBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(206, 145, 120)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(163, 21, 21));
+            var numBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(181, 206, 168)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 128, 0));
+            var boolBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(86, 156, 214)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 0, 128));
+            var defBrush = isDark ? System.Windows.Media.Brushes.Gainsboro : System.Windows.Media.Brushes.Black;
+
+            var regex = new System.Text.RegularExpressions.Regex("\\\"(?<key>[^\\\"]+)\\\"[ \\t]*:[ \\t]*(?<value>\\\"[^\\\"]*\\\"|[0-9eE+\\-.]+|true|false|null)");
+            int lastIndex = 0;
+            foreach (System.Text.RegularExpressions.Match m in regex.Matches(code))
+            {
+                if (m.Index > lastIndex)
+                {
+                    para.Inlines.Add(new Run(code.Substring(lastIndex, m.Index - lastIndex)) { Foreground = defBrush });
+                }
+                para.Inlines.Add(new Run("\"" + m.Groups["key"].Value + "\"") { Foreground = keyBrush });
+                para.Inlines.Add(new Run(": ") { Foreground = defBrush });
+                var v = m.Groups["value"].Value;
+                if (v.StartsWith("\"")) para.Inlines.Add(new Run(v) { Foreground = strBrush });
+                else if (v == "true" || v == "false" || v == "null") para.Inlines.Add(new Run(v) { Foreground = boolBrush });
+                else para.Inlines.Add(new Run(v) { Foreground = numBrush });
+                lastIndex = m.Index + m.Length;
+            }
+            if (lastIndex < code.Length)
+            {
+                para.Inlines.Add(new Run(code.Substring(lastIndex)) { Foreground = defBrush });
+            }
+        }
+
+        private void AppendXmlHighlightedRuns(Paragraph para, string code, bool isDark)
+        {
+            var tagBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(86, 156, 214)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(163, 21, 21));
+            var attrBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(156, 220, 254)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 0, 255));
+            var valBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(206, 145, 120)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(163, 21, 21));
+            var defBrush = isDark ? System.Windows.Media.Brushes.Gainsboro : System.Windows.Media.Brushes.Black;
+
+            int idx = 0;
+            while (idx < code.Length)
+            {
+                int lt = code.IndexOf('<', idx);
+                if (lt == -1)
+                {
+                    para.Inlines.Add(new Run(code.Substring(idx)) { Foreground = defBrush });
+                    break;
+                }
+                if (lt > idx) para.Inlines.Add(new Run(code.Substring(idx, lt - idx)) { Foreground = defBrush });
+                int gt = code.IndexOf('>', lt + 1);
+                if (gt == -1)
+                {
+                    para.Inlines.Add(new Run(code.Substring(lt)) { Foreground = defBrush });
+                    break;
+                }
+                var tag = code.Substring(lt + 1, gt - lt - 1);
+                para.Inlines.Add(new Run("<") { Foreground = tagBrush });
+                var parts = tag.Split(new[] { ' ' }, 2);
+                para.Inlines.Add(new Run(parts[0]) { Foreground = tagBrush });
+                if (parts.Length > 1)
+                {
+                    var attrs = parts[1];
+                    var attrRegex = new System.Text.RegularExpressions.Regex("(?<name>\\w+)=\"(?<val>[^\"]*)\"");
+                    int last = 0;
+                    foreach (System.Text.RegularExpressions.Match m in attrRegex.Matches(attrs))
+                    {
+                        if (m.Index > last) para.Inlines.Add(new Run(attrs.Substring(last, m.Index - last)) { Foreground = defBrush });
+                        para.Inlines.Add(new Run(m.Groups["name"].Value) { Foreground = attrBrush });
+                        para.Inlines.Add(new Run("=\"") { Foreground = defBrush });
+                        para.Inlines.Add(new Run(m.Groups["val"].Value) { Foreground = valBrush });
+                        para.Inlines.Add(new Run("\"") { Foreground = defBrush });
+                        last = m.Index + m.Length;
+                    }
+                    if (last < attrs.Length) para.Inlines.Add(new Run(attrs.Substring(last)) { Foreground = defBrush });
+                }
+                para.Inlines.Add(new Run(">") { Foreground = tagBrush });
+                idx = gt + 1;
+            }
+        }
+
+        private void AppendCLikeHighlightedRuns(Paragraph para, string code, string lang, bool isDark)
+        {
+            var kwBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(86, 156, 214)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 0, 255));
+            var strBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(206, 145, 120)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(163, 21, 21));
+            var cmtBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(87, 166, 74)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 128, 0));
+            var defBrush = isDark ? System.Windows.Media.Brushes.Gainsboro : System.Windows.Media.Brushes.Black;
+
+            string[] keywords = lang.Contains("py")
+                ? new[] { "def","class","import","from","if","elif","else","for","while","try","except","finally","with","return","yield","as","pass","break","continue","lambda","global","nonlocal","in","is","not","and","or" }
+                : new[] { "class","struct","interface","enum","namespace","using","public","private","protected","internal","static","void","int","string","bool","var","new","return","if","else","switch","case","for","foreach","while","do","try","catch","finally","null","true","false","this","base","await","async","yield","break","continue","throw" };
+
+            using var reader = new StringReader(code);
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                int cmt = lang.Contains("py") ? line.IndexOf('#') : line.IndexOf("//");
+                string? cmtText = null;
+                if (cmt >= 0)
+                {
+                    cmtText = line.Substring(cmt);
+                    line = line.Substring(0, cmt);
+                }
+
+                var regex = new System.Text.RegularExpressions.Regex("(\"[^\"]*\"|'[^']*')");
+                int last = 0;
+                foreach (System.Text.RegularExpressions.Match m in regex.Matches(line))
+                {
+                    if (m.Index > last)
+                    {
+                        var segment = line.Substring(last, m.Index - last);
+                        AppendKeywords(para, segment, keywords, kwBrush, defBrush);
+                    }
+                    para.Inlines.Add(new Run(m.Value) { Foreground = strBrush });
+                    last = m.Index + m.Length;
+                }
+                if (last < line.Length)
+                {
+                    var tail = line.Substring(last);
+                    AppendKeywords(para, tail, keywords, kwBrush, defBrush);
+                }
+                if (!string.IsNullOrEmpty(cmtText))
+                {
+                    para.Inlines.Add(new Run(cmtText) { Foreground = cmtBrush });
+                }
+                para.Inlines.Add(new LineBreak());
+            }
+        }
+
+        private void AppendKeywords(Paragraph para, string text, string[] keywords, System.Windows.Media.Brush kwBrush, System.Windows.Media.Brush defBrush)
+        {
+            var parts = System.Text.RegularExpressions.Regex.Split(text, "(\\W)");
+            foreach (var p in parts)
+            {
+                if (string.IsNullOrEmpty(p)) continue;
+                if (keywords.Contains(p)) para.Inlines.Add(new Run(p) { Foreground = kwBrush });
+                else para.Inlines.Add(new Run(p) { Foreground = defBrush });
+            }
+        }
+
+        private void CopyCodeButton_Click(object? sender, RoutedEventArgs e)
+        {
+            ExceptionHandlingService.ExecuteSafely(() =>
+            {
+                if (sender is System.Windows.Controls.Button b && b.Tag is string text && !string.IsNullOrEmpty(text))
+                {
+                    System.Windows.Clipboard.SetText(text);
+                    var original = b.Content;
+                    b.Content = "已复制";
+                    var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                    timer.Tick += (s, _) => { b.Content = original; timer.Stop(); };
+                    timer.Start();
+                }
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext { Component = "DialogControl", Operation = "复制代码块" });
         }
 
         private void CreateListItem(FlowDocument flowDocument, string listItemHtml)
@@ -2781,6 +3022,239 @@ namespace Buddie.Controls
         /// 将截图转换为Base64字符串
         /// </summary>
         private string ConvertImageToBase64(byte[] imageBytes) => _imageService.ToBase64(imageBytes);
+
+        #endregion
+
+        #region 输入框 粘贴/拖拽 图片支持 + 重试/继续
+
+        private void DialogInput_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            try
+            {
+                if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+                {
+                    if (TryGetImageBytesFromClipboard(out var imageBytes) && imageBytes != null)
+                    {
+                        e.Handled = true;
+                        _currentLocalImage = imageBytes;
+                        _hasLocalImage = true;
+                        _currentScreenshot = null;
+                        _hasScreenshot = false;
+                        if (_viewModel != null)
+                        {
+                            _viewModel.LocalImage = imageBytes;
+                            _viewModel.ScreenshotImage = null;
+                        }
+                        ShowLocalImagePreview(imageBytes);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void DialogInput_PreviewDragOver(object sender, System.Windows.DragEventArgs e)
+        {
+            try
+            {
+                if (HasImageData(e.Data))
+                {
+                    e.Effects = System.Windows.DragDropEffects.Copy;
+                    e.Handled = true;
+                }
+            }
+            catch { }
+        }
+
+        private void DialogInput_Drop(object sender, System.Windows.DragEventArgs e)
+        {
+            ExceptionHandlingService.ExecuteSafely(() =>
+            {
+                if (TryGetImageBytesFromDataObject(e.Data, out var imageBytes) && imageBytes != null)
+                {
+                    _currentLocalImage = imageBytes;
+                    _hasLocalImage = true;
+                    _currentScreenshot = null;
+                    _hasScreenshot = false;
+                    if (_viewModel != null)
+                    {
+                        _viewModel.LocalImage = imageBytes;
+                        _viewModel.ScreenshotImage = null;
+                    }
+                    ShowLocalImagePreview(imageBytes);
+                    e.Handled = true;
+                }
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "拖拽图片到输入框"
+            });
+        }
+
+        private bool HasImageData(System.Windows.IDataObject data)
+        {
+            if (data == null) return false;
+            if (data.GetDataPresent(System.Windows.DataFormats.FileDrop))
+            {
+                try
+                {
+                    var files = data.GetData(System.Windows.DataFormats.FileDrop) as string[];
+                    if (files != null && files.Length > 0)
+                    {
+                        var ext = System.IO.Path.GetExtension(files[0]).ToLowerInvariant();
+                        return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp" || ext == ".webp";
+                    }
+                }
+                catch { }
+            }
+            if (data.GetDataPresent(System.Windows.DataFormats.Bitmap)) return true;
+            if (data.GetDataPresent("PNG")) return true;
+            return false;
+        }
+
+        private bool TryGetImageBytesFromClipboard(out byte[]? bytes)
+        {
+            try
+            {
+                if (System.Windows.Clipboard.ContainsImage())
+                {
+                    var bmp = System.Windows.Clipboard.GetImage();
+                    if (bmp != null)
+                    {
+                        bytes = BitmapSourceToPngBytes(bmp);
+                        return true;
+                    }
+                }
+                if (System.Windows.Clipboard.ContainsFileDropList())
+                {
+                    var files = System.Windows.Clipboard.GetFileDropList();
+                    if (files != null && files.Count > 0)
+                    {
+                        var path = files[0];
+                        var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp" || ext == ".webp")
+                        {
+                            bytes = File.ReadAllBytes(path);
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+            bytes = null;
+            return false;
+        }
+
+        private bool TryGetImageBytesFromDataObject(System.Windows.IDataObject data, out byte[]? bytes)
+        {
+            try
+            {
+                if (data.GetDataPresent(System.Windows.DataFormats.FileDrop))
+                {
+                    var files = data.GetData(System.Windows.DataFormats.FileDrop) as string[];
+                    if (files != null && files.Length > 0)
+                    {
+                        var path = files[0];
+                        var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp" || ext == ".webp")
+                        {
+                            bytes = File.ReadAllBytes(path);
+                            return true;
+                        }
+                    }
+                }
+                if (data.GetDataPresent(System.Windows.DataFormats.Bitmap))
+                {
+                    if (data.GetData(System.Windows.DataFormats.Bitmap) is System.Drawing.Bitmap bmp)
+                    {
+                        using var ms = new MemoryStream();
+                        bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                        bytes = ms.ToArray();
+                        return true;
+                    }
+                }
+                if (data.GetDataPresent("PNG"))
+                {
+                    if (data.GetData("PNG") is MemoryStream ms)
+                    {
+                        bytes = ms.ToArray();
+                        return true;
+                    }
+                }
+            }
+            catch { }
+            bytes = null;
+            return false;
+        }
+
+        private byte[] BitmapSourceToPngBytes(BitmapSource bitmap)
+        {
+            using var stream = new MemoryStream();
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            encoder.Save(stream);
+            return stream.ToArray();
+        }
+
+        private void RetryButton_Click(object sender, RoutedEventArgs e)
+        {
+            ExceptionHandlingService.ExecuteSafely(() =>
+            {
+                var lastUser = Messages.LastOrDefault(m => m.IsUser);
+                if (lastUser == null || string.IsNullOrWhiteSpace(lastUser.Content))
+                {
+                    AddMessageBubbleWithoutSave("没有可重试的上条用户消息。");
+                    return;
+                }
+
+                // 准备图片（若上次用户消息包含图片）
+                if (lastUser.HasImage && lastUser.ImageData != null)
+                {
+                    _currentLocalImage = lastUser.ImageData;
+                    _hasLocalImage = true;
+                    _currentScreenshot = null;
+                    _hasScreenshot = false;
+                    if (_viewModel != null)
+                    {
+                        _viewModel.LocalImage = lastUser.ImageData;
+                        _viewModel.ScreenshotImage = null;
+                    }
+                    ShowLocalImagePreview(lastUser.ImageData);
+                }
+                else
+                {
+                    // 清理图片状态
+                    _currentLocalImage = null;
+                    _hasLocalImage = false;
+                    _currentScreenshot = null;
+                    _hasScreenshot = false;
+                    if (_viewModel != null)
+                    {
+                        _viewModel.LocalImage = null;
+                        _viewModel.ScreenshotImage = null;
+                    }
+                    ScreenshotPreviewContainer.Visibility = Visibility.Collapsed;
+                }
+
+                if (DialogInput != null)
+                {
+                    DialogInput.Text = lastUser.Content;
+                }
+                SendMessage_Click(this, new RoutedEventArgs());
+            }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
+            {
+                Component = "DialogControl",
+                Operation = "重试上次回复"
+            });
+        }
+
+        private void ContinueButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (DialogInput != null)
+            {
+                DialogInput.Text = "请继续。";
+            }
+            SendMessage_Click(this, new RoutedEventArgs());
+        }
 
         #endregion
     }

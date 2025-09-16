@@ -516,6 +516,8 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="80"/>
                         </Grid.ColumnDefinitions>
                         
@@ -535,7 +537,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <TextBox x:Name="DialogInput"
+                            <TextBox x:Name="DialogInput" AllowDrop="True" PreviewDragOver="DialogInput_PreviewDragOver" Drop="DialogInput_Drop" PreviewKeyDown="DialogInput_PreviewKeyDown"
                                      Background="Transparent"
                                      BorderThickness="0"
                                      Padding="12,8"
@@ -647,8 +649,86 @@
                             </Button.Style>
                         </Button>
                         
-                        <Button x:Name="SendButton"
+                        <!-- 重试按钮 -->
+                        <Button x:Name="RetryButton"
                                 Grid.Column="3"
+                                Content="重试"
+                                Padding="10,0"
+                                Height="40"
+                                Margin="0,0,5,0"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                FontSize="13"
+                                Click="RetryButton_Click">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Background" Value="#6C757D"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="10"
+                                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#5A6268"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter Property="Background" Value="#545B62"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
+                        <!-- 继续按钮 -->
+                        <Button x:Name="ContinueButton"
+                                Grid.Column="4"
+                                Content="继续"
+                                Padding="10,0"
+                                Height="40"
+                                Margin="0,0,5,0"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                FontSize="13"
+                                Click="ContinueButton_Click">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Background" Value="#17A2B8"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="10"
+                                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#138496"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter Property="Background" Value="#117A8B"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
+                        <Button x:Name="SendButton"
+                                Grid.Column="5"
                                 Content="{loc:Resx Dialog_Send}"
                                 BorderThickness="0"
                                 Command="{Binding SendMessageCommand}"
