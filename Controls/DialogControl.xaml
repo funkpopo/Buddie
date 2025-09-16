@@ -162,6 +162,7 @@
                                                 </TextBlock>
                                             </StackPanel>
                                             <Button Grid.Column="1"
+                                                    x:Uid="Dialog_DeleteConversationButton"
                                                     Content="🗑"
                                                     Width="16"
                                                     Height="16"
@@ -170,7 +171,7 @@
                                                     FontSize="10"
                                                     Cursor="Hand"
                                                     Opacity="0.5"
-                                                    ToolTip="删除对话"
+                                                    ToolTip="{loc:Resx Tooltip_DeleteConversation}"
                                                     Command="{Binding DataContext.DeleteConversationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding Id}"/>
                                         </Grid>
@@ -273,6 +274,7 @@
                 
                 <!-- 对话消息区域（启用虚拟化） -->
                 <ListBox x:Name="DialogMessagesList"
+                         x:Uid="Dialog_MessagesList"
                          Grid.Row="1"
                          Margin="10"
                          Background="Transparent"
@@ -433,10 +435,11 @@
                                     </Style>
                                 </Border.Style>
                                 <Image x:Name="ScreenshotThumbnail"
+                                       x:Uid="Dialog_ScreenshotThumbnail"
                                        MaxHeight="60"
                                        Stretch="Uniform"
                                        Cursor="Hand"
-                                       ToolTip="点击查看大图">
+                                       ToolTip="{loc:Resx Tooltip_ViewImageFull}">
                                     <Image.InputBindings>
                                     <MouseBinding Gesture="LeftClick"
                                                   Command="{Binding DataContext.OpenScreenshotCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>

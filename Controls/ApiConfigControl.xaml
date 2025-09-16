@@ -11,7 +11,8 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="OpenAI API 配置"
+            <TextBlock x:Uid="Api_Header"
+                       Text="{loc:Resx API_Header}"
                        FontWeight="Bold"
                        FontSize="16"
                        Margin="0,0,0,15"
@@ -28,7 +29,8 @@
                 </TextBlock.Style>
             </TextBlock>
             <Button Grid.Column="1"
-                    Content="+ 添加配置"
+                    x:Uid="Api_AddConfigButton"
+                    Content="{loc:Resx API_AddConfig}"
                     Background="#28A745"
                     Foreground="White"
                     BorderThickness="0"
@@ -39,7 +41,8 @@
                     Cursor="Hand"
                     Style="{StaticResource RoundedButtonStyle}"/>
             <Button Grid.Column="2"
-                    Content="🧪 测试全部"
+                    x:Uid="Api_TestAllButton"
+                    Content="{loc:Resx API_TestAll}"
                     Background="#17A2B8"
                     Foreground="White"
                     BorderThickness="0"
@@ -93,7 +96,8 @@
                                     
                                     <!-- 配置名称 -->
                                     <TextBlock Grid.Row="0" Grid.Column="0"
-                                               Text="配置名称:"
+                                               x:Uid="Api_Edit_NameLabel"
+                                               Text="{loc:Resx ApiConfig_ConfigName_Label}"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
                                                VerticalAlignment="Center">
@@ -117,7 +121,8 @@
                                     
                                     <!-- 预设渠道选择 -->
                                     <TextBlock Grid.Row="1" Grid.Column="0"
-                                               Text="预设渠道:"
+                                               x:Uid="Api_Edit_PresetChannelLabel"
+                                               Text="{loc:Resx ApiConfig_PresetChannel_Label}"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
                                                VerticalAlignment="Center">
@@ -269,7 +274,8 @@
                                     
                                     <!-- API URL -->
                                     <TextBlock Grid.Row="2" Grid.Column="0"
-                                               Text="API URL:"
+                                               x:Uid="Api_Edit_ApiUrlLabel"
+                                               Text="{loc:Resx Common_ApiUrl_Label}"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
                                                VerticalAlignment="Center">
@@ -298,7 +304,8 @@
                                     
                                     <!-- API Key -->
                                     <TextBlock Grid.Row="3" Grid.Column="0"
-                                               Text="API Key:"
+                                               x:Uid="Api_Edit_ApiKeyLabel"
+                                               Text="{loc:Resx Common_ApiKey_Label}"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
                                                VerticalAlignment="Center">
@@ -328,7 +335,8 @@
                                     
                                     <!-- Model Name -->
                                     <TextBlock Grid.Row="4" Grid.Column="0"
-                                               Text="模型名称:"
+                                               x:Uid="Api_Edit_ModelNameLabel"
+                                               Text="{loc:Resx Common_ModelName_Label}"
                                                FontWeight="Bold"
                                                Margin="0,0,10,8"
                                                VerticalAlignment="Center">
@@ -354,15 +362,18 @@
                                     <StackPanel Grid.Row="5" Grid.Column="1"
                                                 Orientation="Vertical"
                                                 Margin="0,10,10,15">
-                                        <CheckBox Content="启用流式输出"
+                                        <CheckBox x:Uid="Api_Edit_EnableStreaming"
+                                                  Content="{loc:Resx ApiConfig_EnableStreaming}"
                                                   IsChecked="{Binding IsStreamingEnabled, Mode=TwoWay}"
                                                   Margin="0,0,0,12"
                                                   Style="{StaticResource ToggleSwitchStyle}"/>
-                                        <CheckBox Content="启用多模态"
+                                        <CheckBox x:Uid="Api_Edit_EnableMultimodal"
+                                                  Content="{loc:Resx ApiConfig_EnableMultimodal}"
                                                   IsChecked="{Binding IsMultimodalEnabled, Mode=TwoWay}"
                                                   Margin="0,0,0,12"
                                                   Style="{StaticResource ToggleSwitchStyle}"/>
-                                        <CheckBox Content="支持思维模式"
+                                        <CheckBox x:Uid="Api_Edit_SupportsThinking"
+                                                  Content="{loc:Resx ApiConfig_SupportsThinking}"
                                                   IsChecked="{Binding SupportsThinking, Mode=TwoWay}"
                                                   Style="{StaticResource ToggleSwitchStyle}"/>
                                     </StackPanel>
@@ -372,7 +383,8 @@
                                                 Orientation="Horizontal"
                                                 HorizontalAlignment="Right"
                                                 Margin="0,10,10,0">
-                                        <Button Content="保存"
+                                        <Button x:Uid="Api_Edit_SaveButton"
+                                                Content="{loc:Resx Button_Save}"
                                                 Background="#007BFF"
                                                 Foreground="White"
                                                 BorderThickness="0"
@@ -382,7 +394,8 @@
                                                 Click="SaveApiConfig_Click"
                                                 Cursor="Hand"
                                                 Style="{StaticResource RoundedButtonStyle}"/>
-                                        <Button Content="取消"
+                                        <Button x:Uid="Api_Edit_CancelButton"
+                                                Content="{loc:Resx Button_Cancel}"
                                                 Background="#6C757D"
                                                 Foreground="White"
                                                 BorderThickness="0"
@@ -465,8 +478,10 @@
                                     <StackPanel Grid.Row="2" Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Margin="0,0,0,8">
-                                        <TextBlock Text="API URL: "
-                                                   FontWeight="Bold">
+                                        <TextBlock x:Uid="Api_View_ApiUrlLabel"
+                                                   Text="{loc:Resx Common_ApiUrl_Label}"
+                                                   FontWeight="Bold"
+                                                   Margin="0,0,4,0">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="#6C757D"/>
@@ -652,7 +667,8 @@
                                         <!-- 第一行：测试和编辑按钮 -->
                                         <StackPanel Orientation="Horizontal"
                                                     Margin="0,0,0,8">
-                                            <Button Content="测试"
+                                            <Button x:Uid="Api_View_TestButton"
+                                                    Content="{loc:Resx Button_Test}"
                                                     Background="#28A745"
                                                     Foreground="White"
                                                     BorderThickness="0"
@@ -662,7 +678,8 @@
                                                     Click="TestApiConfig_Click"
                                                     Cursor="Hand"
                                                     Style="{StaticResource RoundedButtonStyle}"/>
-                                            <Button Content="编辑"
+                                            <Button x:Uid="Api_View_EditButton"
+                                                    Content="{loc:Resx Button_Edit}"
                                                     Background="#FFC107"
                                                     Foreground="White"
                                                     BorderThickness="0"
@@ -675,7 +692,8 @@
                                         <!-- 第二行：删除按钮 -->
                                         <StackPanel Orientation="Horizontal"
                                                     HorizontalAlignment="Center">
-                                            <Button Content="删除"
+                                            <Button x:Uid="Api_View_DeleteButton"
+                                                    Content="{loc:Resx Button_Delete}"
                                                     Background="#DC3545"
                                                     Foreground="White"
                                                     BorderThickness="0"
@@ -718,7 +736,8 @@
                            FontSize="32"
                            HorizontalAlignment="Center"
                            Margin="0,0,0,10"/>
-                <TextBlock Text="暂无API配置"
+                <TextBlock x:Uid="Api_EmptyState_Title"
+                           Text="{loc:Resx ApiConfig_Empty_Title}"
                            FontWeight="Bold"
                            FontSize="16"
                            HorizontalAlignment="Center"
@@ -734,7 +753,8 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
-                <TextBlock Text="点击右上角【添加配置】按钮来添加第一个配置"
+                <TextBlock x:Uid="Api_EmptyState_Hint"
+                           Text="{loc:Resx ApiConfig_Empty_Hint}"
                            HorizontalAlignment="Center"
                            TextWrapping="Wrap">
                     <TextBlock.Style>

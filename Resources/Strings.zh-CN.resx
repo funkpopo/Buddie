@@ -176,4 +176,44 @@
   <data name="App_CleanupTtsCache_Operation" xml:space="preserve">
     <value>清理 TTS 缓存</value>
   </data>
+  <!-- App / Common -->
+  <data name="App_Title" xml:space="preserve">
+    <value>Buddie</value>
+  </data>
+  <data name="Button_Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Button_Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Button_Edit" xml:space="preserve"><value>编辑</value></data>
+  <data name="Button_Delete" xml:space="preserve"><value>删除</value></data>
+  <data name="Button_Test" xml:space="preserve"><value>测试</value></data>
+  <data name="Button_TestConnection" xml:space="preserve"><value>测试连接</value></data>
+  <data name="Common_ApiUrl_Label" xml:space="preserve"><value>API URL:</value></data>
+  <data name="Common_ApiKey_Label" xml:space="preserve"><value>API Key:</value></data>
+  <data name="Common_ModelName_Label" xml:space="preserve"><value>模型名称:</value></data>
+  <!-- Dialog tooltips -->
+  <data name="Tooltip_ViewImageFull" xml:space="preserve"><value>点击查看大图</value></data>
+  <data name="Tooltip_DeleteConversation" xml:space="preserve"><value>删除对话</value></data>
+  <!-- API Config -->
+  <data name="API_Header" xml:space="preserve"><value>API 配置</value></data>
+  <data name="API_AddConfig" xml:space="preserve"><value>+ 添加配置</value></data>
+  <data name="API_TestAll" xml:space="preserve"><value>🧪 测试全部</value></data>
+  <data name="ApiConfig_ConfigName_Label" xml:space="preserve"><value>配置名称:</value></data>
+  <data name="ApiConfig_PresetChannel_Label" xml:space="preserve"><value>预设渠道:</value></data>
+  <data name="ApiConfig_EnableStreaming" xml:space="preserve"><value>启用流式输出</value></data>
+  <data name="ApiConfig_EnableMultimodal" xml:space="preserve"><value>启用多模态</value></data>
+  <data name="ApiConfig_SupportsThinking" xml:space="preserve"><value>支持思维模式</value></data>
+  <data name="ApiConfig_Empty_Title" xml:space="preserve"><value>暂无API配置</value></data>
+  <data name="ApiConfig_Empty_Hint" xml:space="preserve"><value>点击右上角【添加配置】按钮来添加第一个配置</value></data>
+  <!-- Realtime Config -->
+  <data name="Realtime_Header" xml:space="preserve"><value>实时交互配置</value></data>
+  <data name="Realtime_AddConfig" xml:space="preserve"><value>+ 添加实时交互配置</value></data>
+  <data name="Realtime_ChannelType_Label" xml:space="preserve"><value>渠道类型:</value></data>
+  <data name="Realtime_WebSocketUrl_Label" xml:space="preserve"><value>WebSocket URL:</value></data>
+  <data name="Realtime_VadMode_Label" xml:space="preserve"><value>VAD模式:</value></data>
+  <data name="Realtime_BlockSize_Label" xml:space="preserve"><value>块大小:</value></data>
+  <data name="Realtime_VadThreshold_Label" xml:space="preserve"><value>VAD阈值:</value></data>
+  <data name="Realtime_MinSpeechFrames_Label" xml:space="preserve"><value>语音起始帧:</value></data>
+  <data name="Realtime_MinSilenceFrames_Label" xml:space="preserve"><value>静音结束帧:</value></data>
+  <!-- TTS Config additions -->
+  <data name="TtsConfig_ActivateTooltip" xml:space="preserve"><value>激活后，该配置将用于对话界面的语音合成</value></data>
+  <data name="TtsConfig_TestMessageSample" xml:space="preserve"><value>你好，这是一条用于TTS测试的示例文本。</value></data>
 </root>
