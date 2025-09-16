@@ -18,6 +18,7 @@ using NAudio.Wave;
 using NAudio.MediaFoundation;
 using Markdig;
 using System.Windows.Documents;
+using System.Text.RegularExpressions;
 using Buddie.Database;
 using Buddie.Services.Tts;
 using System.Runtime.InteropServices;
@@ -48,9 +49,9 @@ namespace Buddie.Controls
         public event EventHandler<bool>? DialogVisibilityChanged;
         
         private CancellationTokenSource? _currentRequest;
-        private bool _isSending = false;
-        private bool _disposed = false;
-        private bool _isSidebarVisible = false;
+        private bool _isSending;
+        private bool _disposed;
+        private bool _isSidebarVisible;
         private readonly List<string> _conversationHistory = new List<string>();
         private readonly MarkdownPipeline _markdownPipeline;
         private DatabaseService _databaseService = null!;
@@ -59,11 +60,14 @@ namespace Buddie.Controls
         
         // 截图相关字段
         private byte[]? _currentScreenshot;
-        private bool _hasScreenshot = false;
+        private bool _hasScreenshot;
         
         // 本地图片相关字段
         private byte[]? _currentLocalImage;
-        private bool _hasLocalImage = false;
+        private bool _hasLocalImage;
+
+        // Common char arrays
+        private static readonly char[] NewLineChars = new[] { '\n', '\r' };
         
         // 当前API配置
         private OpenApiConfiguration? _currentApiConfiguration;
@@ -510,9 +514,9 @@ namespace Buddie.Controls
             {
                 messageModel.IsMarkdownContent = true;
                 // 对长内容延迟渲染，避免阻塞UI
-                if (message?.Length > 800)
+                if (message.Length > 800)
                 {
-                    Dispatcher.BeginInvoke(new Action(() =>
+                    _ = Dispatcher.BeginInvoke(new Action(() =>
                     {
                         messageModel.RenderedDocument = ConvertMarkdownToFlowDocument(message);
                     }), System.Windows.Threading.DispatcherPriority.Background);
@@ -711,22 +715,22 @@ namespace Buddie.Controls
             return border;
         }
 
-        private bool ContainsMarkdown(string text)
+        private static bool ContainsMarkdown(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return false;
 
             // 检测常见的Markdown语法
-            return text.Contains("**") ||        // 粗体
-                   text.Contains("*") ||         // 斜体
-                   text.Contains("```") ||       // 代码块
-                   text.Contains("`") ||         // 内联代码
-                   text.Contains("# ") ||        // 标题
-                   text.Contains("## ") ||       // 标题
-                   text.Contains("### ") ||      // 标题
-                   text.Contains("- ") ||        // 列表
-                   text.Contains("1. ") ||       // 有序列表
-                   text.Contains("[") && text.Contains("]("); // 链接
+            return text.Contains("**", StringComparison.Ordinal) ||        // 粗体
+                   text.Contains('*') ||                                   // 斜体
+                   text.Contains("```", StringComparison.Ordinal) ||       // 代码块
+                   text.Contains('`') ||                                   // 内联代码
+                   text.Contains("# ", StringComparison.Ordinal) ||       // 标题
+                   text.Contains("## ", StringComparison.Ordinal) ||      // 标题
+                   text.Contains("### ", StringComparison.Ordinal) ||     // 标题
+                   text.Contains("- ", StringComparison.Ordinal) ||       // 列表
+                   text.Contains("1. ", StringComparison.Ordinal) ||      // 有序列表
+                   (text.Contains('[') && text.Contains("](", StringComparison.Ordinal)); // 链接
         }
 
         /// <summary>
@@ -781,7 +785,7 @@ namespace Buddie.Controls
             // 预处理HTML，处理段落标签
             html = ProcessHtmlParagraphs(html);
             
-            var lines = html.Split(new[] { '\n', '\r' }, StringSplitOptions.None);
+            var lines = html.Split(NewLineChars, StringSplitOptions.None);
             Paragraph? currentParagraph = null;
             bool inCodeBlock = false;
             bool inList = false;
@@ -794,17 +798,17 @@ namespace Buddie.Controls
                 var trimmedLine = line.Trim();
 
                 // 处理代码块
-                if (trimmedLine.StartsWith("<pre>", StringComparison.Ordinal) || trimmedLine.Contains("<pre>"))
+                if (trimmedLine.StartsWith("<pre>", StringComparison.Ordinal) || trimmedLine.Contains("<pre>", StringComparison.Ordinal))
                 {
                     FinalizeParagraph(flowDocument, ref currentParagraph);
                     inCodeBlock = true;
                     codeBlockContent.Clear();
                     // 提取代码语言（如 <pre><code class="language-csharp">）
-                    var m = System.Text.RegularExpressions.Regex.Match(trimmedLine, @"class\s*=\s*""language-([a-zA-Z0-9#_+\-.]+)""");
+                    var m = LanguageClassRegex().Match(trimmedLine);
                     codeLanguage = m.Success ? m.Groups[1].Value.ToLowerInvariant() : null;
                     continue;
                 }
-                else if (trimmedLine.StartsWith("</pre>", StringComparison.Ordinal) || trimmedLine.Contains("</pre>"))
+                else if (trimmedLine.StartsWith("</pre>", StringComparison.Ordinal) || trimmedLine.Contains("</pre>", StringComparison.Ordinal))
                 {
                     if (inCodeBlock && codeBlockContent.Length > 0)
                     {
@@ -818,7 +822,7 @@ namespace Buddie.Controls
                 else if (inCodeBlock)
                 {
                     // 在代码块中，保留原始格式
-                    var codeText = System.Text.RegularExpressions.Regex.Replace(line, "<[^>]*>", "");
+                    var codeText = HtmlTagRegex().Replace(line, "");
                     if (codeBlockContent.Length > 0)
                         codeBlockContent.AppendLine();
                     codeBlockContent.Append(codeText);
@@ -884,19 +888,19 @@ namespace Buddie.Controls
             return flowDocument;
         }
 
-        private string ProcessHtmlParagraphs(string html)
+        private static string ProcessHtmlParagraphs(string html)
         {
             // 将<p>标签转换为双换行符，</p>标签移除
-            html = System.Text.RegularExpressions.Regex.Replace(html, @"<p[^>]*>", "\n\n");
-            html = System.Text.RegularExpressions.Regex.Replace(html, @"</p>", "");
+            html = OpenPTagRegex().Replace(html, "\n\n");
+            html = ClosePTagRegex().Replace(html, "");
             
             // 清理多余的换行符
-            html = System.Text.RegularExpressions.Regex.Replace(html, @"\n{3,}", "\n\n");
+            html = TripleNewlinesRegex().Replace(html, "\n\n");
             
             return html;
         }
 
-        private void FinalizeParagraph(FlowDocument flowDocument, ref Paragraph? currentParagraph)
+        private static void FinalizeParagraph(FlowDocument flowDocument, ref Paragraph? currentParagraph)
         {
             if (currentParagraph != null && currentParagraph.Inlines.Count > 0)
             {
@@ -968,9 +972,9 @@ namespace Buddie.Controls
             flowDocument.Blocks.Add(new BlockUIContainer(border));
         }
 
-        private void CreateHeading(FlowDocument flowDocument, string headingHtml)
+        private static void CreateHeading(FlowDocument flowDocument, string headingHtml)
         {
-            var text = System.Text.RegularExpressions.Regex.Replace(headingHtml, "<[^>]*>", "");
+            var text = HtmlTagRegex().Replace(headingHtml, "");
             var headingSize = headingHtml.StartsWith("<h1", StringComparison.Ordinal) ? 18 : 
                              headingHtml.StartsWith("<h2", StringComparison.Ordinal) ? 16 : 
                              headingHtml.StartsWith("<h3", StringComparison.Ordinal) ? 14 : 13;
@@ -984,7 +988,7 @@ namespace Buddie.Controls
             flowDocument.Blocks.Add(headingParagraph);
         }
 
-        private FrameworkElement CreateHighlightedCodeViewer(string code, string? language, bool isDark)
+        private static ScrollViewer CreateHighlightedCodeViewer(string code, string? language, bool isDark)
         {
             var scroll = new ScrollViewer
             {
@@ -1031,13 +1035,13 @@ namespace Buddie.Controls
             return scroll;
         }
 
-        private bool LooksLikeJson(string text)
+        private static bool LooksLikeJson(string text)
         {
             var t = text.TrimStart();
-            return t.StartsWith("{", StringComparison.Ordinal) || t.StartsWith("[", StringComparison.Ordinal);
+            return t.StartsWith('{') || t.StartsWith('[');
         }
 
-        private void AppendJsonHighlightedRuns(Paragraph para, string code, bool isDark)
+        private static void AppendJsonHighlightedRuns(Paragraph para, string code, bool isDark)
         {
             var keyBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(157, 220, 254)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 102, 204));
             var strBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(206, 145, 120)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(163, 21, 21));
@@ -1045,9 +1049,8 @@ namespace Buddie.Controls
             var boolBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(86, 156, 214)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 0, 128));
             var defBrush = isDark ? System.Windows.Media.Brushes.Gainsboro : System.Windows.Media.Brushes.Black;
 
-            var regex = new System.Text.RegularExpressions.Regex("\\\"(?<key>[^\\\"]+)\\\"[ \\t]*:[ \\t]*(?<value>\\\"[^\\\"]*\\\"|[0-9eE+\\-.]+|true|false|null)");
             int lastIndex = 0;
-            foreach (System.Text.RegularExpressions.Match m in regex.Matches(code))
+            foreach (System.Text.RegularExpressions.Match m in JsonKeyValueRegex().Matches(code))
             {
                 if (m.Index > lastIndex)
                 {
@@ -1056,7 +1059,7 @@ namespace Buddie.Controls
                 para.Inlines.Add(new Run("\"" + m.Groups["key"].Value + "\"") { Foreground = keyBrush });
                 para.Inlines.Add(new Run(": ") { Foreground = defBrush });
                 var v = m.Groups["value"].Value;
-                if (v.StartsWith("\"", StringComparison.Ordinal)) para.Inlines.Add(new Run(v) { Foreground = strBrush });
+                if (v.StartsWith('\"')) para.Inlines.Add(new Run(v) { Foreground = strBrush });
                 else if (v == "true" || v == "false" || v == "null") para.Inlines.Add(new Run(v) { Foreground = boolBrush });
                 else para.Inlines.Add(new Run(v) { Foreground = numBrush });
                 lastIndex = m.Index + m.Length;
@@ -1067,7 +1070,7 @@ namespace Buddie.Controls
             }
         }
 
-        private void AppendXmlHighlightedRuns(Paragraph para, string code, bool isDark)
+        private static void AppendXmlHighlightedRuns(Paragraph para, string code, bool isDark)
         {
             var tagBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(86, 156, 214)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(163, 21, 21));
             var attrBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(156, 220, 254)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 0, 255));
@@ -1092,14 +1095,13 @@ namespace Buddie.Controls
                 }
                 var tag = code.Substring(lt + 1, gt - lt - 1);
                 para.Inlines.Add(new Run("<") { Foreground = tagBrush });
-                var parts = tag.Split(new[] { ' ' }, 2);
+                var parts = tag.Split(' ', 2);
                 para.Inlines.Add(new Run(parts[0]) { Foreground = tagBrush });
                 if (parts.Length > 1)
                 {
                     var attrs = parts[1];
-                    var attrRegex = new System.Text.RegularExpressions.Regex("(?<name>\\w+)=\"(?<val>[^\"]*)\"");
                     int last = 0;
-                    foreach (System.Text.RegularExpressions.Match m in attrRegex.Matches(attrs))
+                    foreach (System.Text.RegularExpressions.Match m in AttrRegex().Matches(attrs))
                     {
                         if (m.Index > last) para.Inlines.Add(new Run(attrs.Substring(last, m.Index - last)) { Foreground = defBrush });
                         para.Inlines.Add(new Run(m.Groups["name"].Value) { Foreground = attrBrush });
@@ -1115,7 +1117,7 @@ namespace Buddie.Controls
             }
         }
 
-        private void AppendCLikeHighlightedRuns(Paragraph para, string code, string lang, bool isDark)
+        private static void AppendCLikeHighlightedRuns(Paragraph para, string code, string lang, bool isDark)
         {
             var kwBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(86, 156, 214)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 0, 255));
             var strBrush = isDark ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(206, 145, 120)) : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(163, 21, 21));
@@ -1130,7 +1132,7 @@ namespace Buddie.Controls
             string? line;
             while ((line = reader.ReadLine()) != null)
             {
-                int cmt = lang.Contains("py") ? line.IndexOf('#') : line.IndexOf("//");
+                int cmt = lang.Contains("py") ? line.IndexOf('#') : line.IndexOf("//", StringComparison.Ordinal);
                 string? cmtText = null;
                 if (cmt >= 0)
                 {
@@ -1138,7 +1140,7 @@ namespace Buddie.Controls
                     line = line.Substring(0, cmt);
                 }
 
-                var regex = new System.Text.RegularExpressions.Regex("(\"[^\"]*\"|'[^']*')");
+                var regex = QuotedStringRegex();
                 int last = 0;
                 foreach (System.Text.RegularExpressions.Match m in regex.Matches(line))
                 {
@@ -1163,9 +1165,9 @@ namespace Buddie.Controls
             }
         }
 
-        private void AppendKeywords(Paragraph para, string text, string[] keywords, System.Windows.Media.Brush kwBrush, System.Windows.Media.Brush defBrush)
+        private static void AppendKeywords(Paragraph para, string text, string[] keywords, System.Windows.Media.Brush kwBrush, System.Windows.Media.Brush defBrush)
         {
-            var parts = System.Text.RegularExpressions.Regex.Split(text, "(\\W)");
+            var parts = NonWordSplitRegex().Split(text);
             foreach (var p in parts)
             {
                 if (string.IsNullOrEmpty(p)) continue;
@@ -1190,9 +1192,9 @@ namespace Buddie.Controls
             }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext { Component = "DialogControl", Operation = "复制代码块" });
         }
 
-        private void CreateListItem(FlowDocument flowDocument, string listItemHtml)
+        private static void CreateListItem(FlowDocument flowDocument, string listItemHtml)
         {
-            var text = System.Text.RegularExpressions.Regex.Replace(listItemHtml, "<[^>]*>", "");
+            var text = HtmlTagRegex().Replace(listItemHtml, "");
             var listItem = new Paragraph(new Run("• " + text))
             {
                 Margin = new Thickness(16, 1, 0, 1)
@@ -1211,19 +1213,19 @@ namespace Buddie.Controls
             }
             else
             {
-                // 普通文本
-                var text = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]*>", "");
-                if (!string.IsNullOrEmpty(text))
-                {
-                    paragraph.Inlines.Add(new Run(text));
-                }
+            // 普通文本
+            var text = HtmlTagRegex().Replace(html, "");
+            if (!string.IsNullOrEmpty(text))
+            {
+                paragraph.Inlines.Add(new Run(text));
+            }
             }
         }
 
         private void ProcessComplexInlineFormatting(Paragraph paragraph, string html)
         {
             // 移除段落标签
-            html = System.Text.RegularExpressions.Regex.Replace(html, @"</?p[^>]*>", "");
+            html = ParagraphTagRegex().Replace(html, "");
             
             var segments = new List<(string text, bool isBold, bool isItalic, bool isCode)>();
             var currentIndex = 0;
@@ -1238,7 +1240,7 @@ namespace Buddie.Controls
                 if (match.Index > currentIndex)
                 {
                     var beforeText = html.Substring(currentIndex, match.Index - currentIndex);
-                    beforeText = System.Text.RegularExpressions.Regex.Replace(beforeText, "<[^>]*>", "");
+                    beforeText = HtmlTagRegex().Replace(beforeText, "");
                     if (!string.IsNullOrEmpty(beforeText))
                     {
                         segments.Add((beforeText, false, false, false));
@@ -1246,7 +1248,7 @@ namespace Buddie.Controls
                 }
                 
                 // 确定格式类型
-                var tag = match.Groups[1].Value.ToLower();
+                var tag = match.Groups[1].Value.ToLowerInvariant();
                 var content = match.Groups[2].Value;
                 bool isBold = tag == "strong" || tag == "b";
                 bool isItalic = tag == "em" || tag == "i";
@@ -1260,7 +1262,7 @@ namespace Buddie.Controls
             if (currentIndex < html.Length)
             {
                 var remainingText = html.Substring(currentIndex);
-                remainingText = System.Text.RegularExpressions.Regex.Replace(remainingText, "<[^>]*>", "");
+                remainingText = HtmlTagRegex().Replace(remainingText, "");
                 if (!string.IsNullOrEmpty(remainingText))
                 {
                     segments.Add((remainingText, false, false, false));
@@ -1300,7 +1302,7 @@ namespace Buddie.Controls
             }
         }
 
-        private void ProcessInlineFormatting(Paragraph paragraph, string html, string tag, FontWeight fontWeight, System.Windows.FontStyle fontStyle = default)
+        private static void ProcessInlineFormatting(Paragraph paragraph, string html, string tag, FontWeight fontWeight, System.Windows.FontStyle fontStyle = default)
         {
             var pattern = $"<{tag}>(.*?)</{tag}>";
             var matches = System.Text.RegularExpressions.Regex.Matches(html, pattern);
@@ -1312,7 +1314,7 @@ namespace Buddie.Controls
                 if (match.Index > lastIndex)
                 {
                     var beforeText = html.Substring(lastIndex, match.Index - lastIndex);
-                    beforeText = System.Text.RegularExpressions.Regex.Replace(beforeText, "<[^>]*>", "");
+                    beforeText = HtmlTagRegex().Replace(beforeText, "");
                     if (!string.IsNullOrEmpty(beforeText))
                         paragraph.Inlines.Add(new Run(beforeText));
                 }
@@ -1333,7 +1335,7 @@ namespace Buddie.Controls
             if (lastIndex < html.Length)
             {
                 var remainingText = html.Substring(lastIndex);
-                remainingText = System.Text.RegularExpressions.Regex.Replace(remainingText, "<[^>]*>", "");
+                remainingText = HtmlTagRegex().Replace(remainingText, "");
                 if (!string.IsNullOrEmpty(remainingText))
                     paragraph.Inlines.Add(new Run(remainingText));
             }
@@ -1465,7 +1467,7 @@ namespace Buddie.Controls
             SendButton.Foreground = System.Windows.Media.Brushes.White;
         }
 
-        private void UpdateTextElementsColor(DependencyObject parent, System.Windows.Media.Brush color)
+        private static void UpdateTextElementsColor(DependencyObject parent, System.Windows.Media.Brush color)
         {
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
             {
@@ -1681,7 +1683,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 构建最终的API URL
         /// </summary>
-        private string BuildFinalApiUrl(OpenApiConfiguration apiConfig)
+        private static string BuildFinalApiUrl(OpenApiConfiguration apiConfig)
         {
             return apiConfig.ChannelType switch
             {
@@ -1714,7 +1716,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 解析API响应内容
         /// </summary>
-        private string ParseApiResponse(string responseText, OpenApiConfiguration apiConfig)
+        private static string ParseApiResponse(string responseText, OpenApiConfiguration apiConfig)
         {
             return ApiResponseService.ParseNonStreamingResponse(responseText, apiConfig.ChannelType);
         }
@@ -1888,7 +1890,7 @@ namespace Buddie.Controls
         }
 
 
-        private List<string> ExtractCompleteSentences(StringBuilder buffer)
+        private static List<string> ExtractCompleteSentences(StringBuilder buffer)
         {
             var sentences = new List<string>();
             var text = buffer.ToString();
@@ -1928,7 +1930,7 @@ namespace Buddie.Controls
         }
 
 
-        private List<string> SplitTextIntoSentences(string text)
+        private static List<string> SplitTextIntoSentences(string text)
         {
             var sentences = new List<string>();
             var current = new StringBuilder();
@@ -1994,9 +1996,9 @@ namespace Buddie.Controls
                 if (ContainsMarkdown(finalContent))
                 {
                     _currentStreamingMessage.IsMarkdownContent = true;
-                    if (finalContent?.Length > 800)
+                    if (finalContent.Length > 800)
                     {
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        _ = Dispatcher.BeginInvoke(new Action(() =>
                         {
                             _currentStreamingMessage.RenderedDocument = ConvertMarkdownToFlowDocument(finalContent);
                         }), System.Windows.Threading.DispatcherPriority.Background);
@@ -2204,10 +2206,9 @@ namespace Buddie.Controls
             });
         }
 
-        private string GenerateHash(string input)
+        private static string GenerateHash(string input)
         {
-            using var sha256 = SHA256.Create();
-            byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+            byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
             return Convert.ToBase64String(bytes);
         }
 
@@ -2246,7 +2247,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 根据ContentType和音频数据确定文件扩展名
         /// </summary>
-        private string GetAudioExtension(byte[] audioBytes, string? contentType = null)
+        private static string GetAudioExtension(byte[] audioBytes, string? contentType = null)
         {
             // 首先尝试根据ContentType确定格式
             if (!string.IsNullOrEmpty(contentType))
@@ -2305,7 +2306,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 回退音频播放方法（当NAudio失败时使用）
         /// </summary>
-        private void FallbackAudioPlayback(string audioFile)
+        private static void FallbackAudioPlayback(string audioFile)
         {
             ExceptionHandlingService.ExecuteSafely(() =>
             {
@@ -2356,7 +2357,7 @@ namespace Buddie.Controls
             });
         }
         
-        private async Task CleanupTempFileAsync(string tempFile)
+        private static async Task CleanupTempFileAsync(string tempFile)
         {
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
@@ -2470,7 +2471,7 @@ namespace Buddie.Controls
                     if (firstUserMessage != null && firstUserMessage.Content.Length > 0)
                     {
                         var title = firstUserMessage.Content.Length > 20 
-                            ? firstUserMessage.Content.Substring(0, 20) + "..."
+                            ? string.Concat(firstUserMessage.Content.AsSpan(0, 20), "...")
                             : firstUserMessage.Content;
                         _currentConversation.Title = title;
                     }
@@ -2550,7 +2551,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 重建对话界面
         /// </summary>
-        private async Task RebuildConversationUI() => await Task.CompletedTask; // Moved to ViewModel
+        private static async Task RebuildConversationUI() => await Task.CompletedTask; // Moved to ViewModel
 
         /// <summary>
         /// 清空对话界面
@@ -3083,7 +3084,7 @@ namespace Buddie.Controls
             });
         }
 
-        private bool HasImageData(System.Windows.IDataObject data)
+        private static bool HasImageData(System.Windows.IDataObject data)
         {
             if (data == null) return false;
             if (data.GetDataPresent(System.Windows.DataFormats.FileDrop))
@@ -3104,7 +3105,7 @@ namespace Buddie.Controls
             return false;
         }
 
-        private bool TryGetImageBytesFromClipboard(out byte[]? bytes)
+        private static bool TryGetImageBytesFromClipboard(out byte[]? bytes)
         {
             try
             {
@@ -3123,11 +3124,14 @@ namespace Buddie.Controls
                     if (files != null && files.Count > 0)
                     {
                         var path = files[0];
-                        var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
-                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp" || ext == ".webp")
+                        if (!string.IsNullOrEmpty(path))
                         {
-                            bytes = File.ReadAllBytes(path);
-                            return true;
+                            var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp" || ext == ".webp")
+                            {
+                                bytes = File.ReadAllBytes(path);
+                                return true;
+                            }
                         }
                     }
                 }
@@ -3137,7 +3141,7 @@ namespace Buddie.Controls
             return false;
         }
 
-        private bool TryGetImageBytesFromDataObject(System.Windows.IDataObject data, out byte[]? bytes)
+        private static bool TryGetImageBytesFromDataObject(System.Windows.IDataObject data, out byte[]? bytes)
         {
             try
             {
@@ -3147,11 +3151,14 @@ namespace Buddie.Controls
                     if (files != null && files.Length > 0)
                     {
                         var path = files[0];
-                        var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
-                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp" || ext == ".webp")
+                        if (!string.IsNullOrEmpty(path))
                         {
-                            bytes = File.ReadAllBytes(path);
-                            return true;
+                            var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp" || ext == ".webp")
+                            {
+                                bytes = File.ReadAllBytes(path);
+                                return true;
+                            }
                         }
                     }
                 }
@@ -3179,7 +3186,7 @@ namespace Buddie.Controls
             return false;
         }
 
-        private byte[] BitmapSourceToPngBytes(BitmapSource bitmap)
+        private static byte[] BitmapSourceToPngBytes(BitmapSource bitmap)
         {
             using var stream = new MemoryStream();
             var encoder = new PngBitmapEncoder();
@@ -3250,6 +3257,37 @@ namespace Buddie.Controls
         }
 
         #endregion
+
+        // GeneratedRegex helpers for performance and SYSLIB1045 compliance
+        [GeneratedRegex("class\\s*=\\s*\"language-([a-zA-Z0-9#_+\\-.]+)\"")]
+        private static partial Regex LanguageClassRegex();
+
+        [GeneratedRegex("<[^>]*>")]
+        private static partial Regex HtmlTagRegex();
+
+        [GeneratedRegex("</?p[^>]*>")]
+        private static partial Regex ParagraphTagRegex();
+
+        [GeneratedRegex("<p[^>]*>")]
+        private static partial Regex OpenPTagRegex();
+
+        [GeneratedRegex("</p>")]
+        private static partial Regex ClosePTagRegex();
+
+        [GeneratedRegex("\n{3,}")]
+        private static partial Regex TripleNewlinesRegex();
+
+        [GeneratedRegex("\\\"(?<key>[^\\\"]+)\\\"[ \\t]*:[ \\t]*(?<value>\\\"[^\\\"]*\\\"|[0-9eE+\\-.]+|true|false|null)")]
+        private static partial Regex JsonKeyValueRegex();
+
+        [GeneratedRegex("(?<name>\\w+)=\"(?<val>[^\"]*)\"")]
+        private static partial Regex AttrRegex();
+
+        [GeneratedRegex("(\"[^\"]*\"|'[^']*')")]
+        private static partial Regex QuotedStringRegex();
+
+        [GeneratedRegex("(\\W)")]
+        private static partial Regex NonWordSplitRegex();
 
         #region IDisposable Implementation
 
