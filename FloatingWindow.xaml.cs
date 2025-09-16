@@ -24,12 +24,60 @@ namespace Buddie
     public partial class FloatingWindow : Window, IDisposable
     {
         private NotifyIcon? trayIcon;
-        private readonly IClickThroughService _clickThroughService;
+        private readonly ClickThroughService _clickThroughService;
         private readonly FloatingWindowViewModel _vm;
         private readonly AppSettings _appSettings = new AppSettings();
         private readonly CardColorManager _colorManager = new CardColorManager();
         private readonly ILogger<FloatingWindow> _logger;
-        private bool _disposed = false;
+        private bool _disposed;
+
+        private static partial class Log
+        {
+            [LoggerMessage(EventId = 1000, Level = LogLevel.Information, Message = "FloatingWindow constructor starting...")]
+            public static partial void FloatingWindowCtorStarting(ILogger logger);
+
+            [LoggerMessage(EventId = 1001, Level = LogLevel.Debug, Message = "InitializeComponent completed")]
+            public static partial void InitializeComponentCompleted(ILogger logger);
+
+            [LoggerMessage(EventId = 1002, Level = LogLevel.Error, Message = "InitializeComponent failed: {Message}")]
+            public static partial void InitializeComponentFailed(ILogger logger, Exception exception, string message);
+
+            [LoggerMessage(EventId = 1003, Level = LogLevel.Information, Message = "Creating FloatingWindowViewModel...")]
+            public static partial void CreatingFloatingWindowViewModel(ILogger logger);
+
+            [LoggerMessage(EventId = 1004, Level = LogLevel.Information, Message = "FloatingWindowViewModel created")]
+            public static partial void FloatingWindowViewModelCreated(ILogger logger);
+
+            [LoggerMessage(EventId = 1005, Level = LogLevel.Error, Message = "FloatingWindowViewModel creation failed: {Message}")]
+            public static partial void FloatingWindowViewModelCreationFailed(ILogger logger, Exception exception, string message);
+
+            [LoggerMessage(EventId = 1006, Level = LogLevel.Debug, Message = "DataContext set")]
+            public static partial void DataContextSet(ILogger logger);
+
+            [LoggerMessage(EventId = 1007, Level = LogLevel.Information, Message = "ClickThroughService initialized")]
+            public static partial void ClickThroughServiceInitialized(ILogger logger);
+
+            [LoggerMessage(EventId = 1008, Level = LogLevel.Information, Message = "InitializeTrayIcon completed")]
+            public static partial void InitializeTrayIconCompleted(ILogger logger);
+
+            [LoggerMessage(EventId = 1009, Level = LogLevel.Error, Message = "InitializeTrayIcon failed: {Message}")]
+            public static partial void InitializeTrayIconFailed(ILogger logger, Exception exception, string message);
+
+            [LoggerMessage(EventId = 1010, Level = LogLevel.Debug, Message = "InitializeControls completed")]
+            public static partial void InitializeControlsCompleted(ILogger logger);
+
+            [LoggerMessage(EventId = 1100, Level = LogLevel.Information, Message = "=== 颜色管理器测试结果 ===")]
+            public static partial void ColorManagerTestHeader(ILogger logger);
+
+            [LoggerMessage(EventId = 1101, Level = LogLevel.Information, Message = "测试功能暂时不可用")]
+            public static partial void ColorManagerTestUnavailable(ILogger logger);
+
+            [LoggerMessage(EventId = 1102, Level = LogLevel.Information, Message = "=========================")]
+            public static partial void ColorManagerTestFooter(ILogger logger);
+
+            [LoggerMessage(EventId = 1103, Level = LogLevel.Error, Message = "颜色管理器测试失败: {Message}")]
+            public static partial void ColorManagerTestFailed(ILogger logger, Exception exception, string message);
+        }
         
         // 实时交互服务
         private RealtimeInteractionService? _realtimeService;
@@ -52,55 +100,55 @@ namespace Buddie
 
         public FloatingWindow()
         {
-            _logger = Buddie.App.Services.GetRequiredService<ILoggerFactory>().CreateLogger<FloatingWindow>();
-            _logger.LogInformation("FloatingWindow constructor starting...");
+            _logger = Buddie.App.Services!.GetRequiredService<ILoggerFactory>().CreateLogger<FloatingWindow>();
+            Log.FloatingWindowCtorStarting(_logger);
             
             try
             {
                 InitializeComponent();
-                _logger.LogDebug("InitializeComponent completed");
+                Log.InitializeComponentCompleted(_logger);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "InitializeComponent failed: {Message}", ex.Message);
+                Log.InitializeComponentFailed(_logger, ex, ex.Message);
                 throw;
             }
             
             // ViewModel wiring
-            _logger.LogInformation("Creating FloatingWindowViewModel...");
+            Log.CreatingFloatingWindowViewModel(_logger);
             try
             {
                 _vm = new FloatingWindowViewModel(_appSettings, RealtimeService);
-                _logger.LogInformation("FloatingWindowViewModel created");
+                Log.FloatingWindowViewModelCreated(_logger);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "FloatingWindowViewModel creation failed: {Message}", ex.Message);
+                Log.FloatingWindowViewModelCreationFailed(_logger, ex, ex.Message);
                 throw;
             }
             
             this.DataContext = _vm;
-            _logger.LogDebug("DataContext set");
+            Log.DataContextSet(_logger);
             
             // Initialize ClickThroughService
             _clickThroughService = new ClickThroughService();
             _vm.SetClickThroughService(_clickThroughService);
-            _logger.LogInformation("ClickThroughService initialized");
+            Log.ClickThroughServiceInitialized(_logger);
 
             // Initialize tray icon after ViewModel is ready
             try
             {
                 InitializeTrayIcon();
-                _logger.LogInformation("InitializeTrayIcon completed");
+                Log.InitializeTrayIconCompleted(_logger);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "InitializeTrayIcon failed: {Message}", ex.Message);
+                Log.InitializeTrayIconFailed(_logger, ex, ex.Message);
                 throw;
             }
             
             InitializeControls();
-            _logger.LogDebug("InitializeControls completed");
+            Log.InitializeControlsCompleted(_logger);
             
             // Initial cards sync to view is handled by ViewModel
 
@@ -317,13 +365,13 @@ namespace Buddie
             try
             {
                 // 测试功能已移除
-                _logger.LogInformation("=== 颜色管理器测试结果 ===");
-                _logger.LogInformation("测试功能暂时不可用");
-                _logger.LogInformation("=========================");
+                Log.ColorManagerTestHeader(_logger);
+                Log.ColorManagerTestUnavailable(_logger);
+                Log.ColorManagerTestFooter(_logger);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "颜色管理器测试失败: {Message}", ex.Message);
+                Log.ColorManagerTestFailed(_logger, ex, ex.Message);
             }
         }
         
@@ -387,7 +435,7 @@ namespace Buddie
         /// <summary>
         /// 保存当前对话记录
         /// </summary>
-        private async Task SaveCurrentConversation()
+        private static async Task SaveCurrentConversation()
         {
             try
             {
@@ -574,7 +622,7 @@ namespace Buddie
         /// <summary>
         /// 检查元素是否为输入元素
         /// </summary>
-        private bool IsInputElement(DependencyObject? element)
+        private static bool IsInputElement(DependencyObject? element)
         {
             if (element == null) return false;
             
@@ -589,7 +637,7 @@ namespace Buddie
         /// <summary>
         /// 检查是否有输入元素父级（带深度限制防止无限递归）
         /// </summary>
-        private bool HasInputElementParent(DependencyObject? element, int maxDepth = 10)
+        private static bool HasInputElementParent(DependencyObject? element, int maxDepth = 10)
         {
             if (element == null || maxDepth <= 0) return false;
             
@@ -610,7 +658,7 @@ namespace Buddie
         /// <summary>
         /// 检查元素或其父级是否为输入元素
         /// </summary>
-        private bool IsInputElementOrChild(DependencyObject? element)
+        private static bool IsInputElementOrChild(DependencyObject? element)
         {
             return IsInputElement(element) || HasInputElementParent(element);
         }
@@ -618,7 +666,7 @@ namespace Buddie
         /// <summary>
         /// 检查当前是否有任何输入元素获得焦点
         /// </summary>
-        private bool IsAnyInputElementFocused()
+        private static bool IsAnyInputElementFocused()
         {
             var focusedElement = Keyboard.FocusedElement as DependencyObject;
             return IsInputElementOrChild(focusedElement);
