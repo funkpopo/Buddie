@@ -1,0 +1,71 @@
+# EditorConfig is awesome: https://EditorConfig.org
+root = true
+
+# Files
+[*]
+charset = utf-8
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# .NET analyzers and code style (C#)
+[*.cs]
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = true
+
+# Analyzer severity (keep non-blocking by default)
+dotnet_analyzer_diagnostic.severity = warning
+dotnet_analyzer_diagnostic.category-Performance.severity = warning
+dotnet_analyzer_diagnostic.category-Style.severity = suggestion
+dotnet_analyzer_diagnostic.category-Design.severity = warning
+
+# var preferences
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion
+
+# Null checking and pattern style
+csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
+csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
+csharp_style_prefer_switch_expression = true:suggestion
+csharp_style_prefer_pattern_matching = true:suggestion
+
+# Expression-bodied members
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = when_on_single_line:suggestion
+csharp_style_expression_bodied_ctors = false:suggestion
+
+# Using directive placement
+csharp_using_directive_placement = outside_namespace:suggestion
+
+# New line preferences
+csharp_new_line_between_query_expression_clauses = true
+csharp_new_line_before_open_brace = all
+
+# Prefer braces
+csharp_prefer_braces = true:warning
+
+# Qualification
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
+dotnet_style_qualification_for_event = false:suggestion
+
+# Naming rules
+dotnet_naming_rule.private_fields_underscore.applicable_kinds = field
+dotnet_naming_rule.private_fields_underscore.applicable_accessibilities = private
+dotnet_naming_rule.private_fields_underscore.enforcement_level = suggestion
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_prefix
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.underscore_prefix.required_prefix = _
+dotnet_naming_style.underscore_prefix.capitalization = camel_case
+
+# File headers (none)
+file_header_template = none
+
