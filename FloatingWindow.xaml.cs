@@ -199,6 +199,15 @@ namespace Buddie
             // 初始化对话控件（MVVM）
             var dialogVm = new Buddie.ViewModels.DialogViewModel(_appSettings);
             DialogControl.InitializeViewModel(dialogVm);
+            // 注入对话控件依赖（通过DI容器创建的服务）
+            var sp = Buddie.App.Services!;
+            var screenSvc = sp.GetRequiredService<Buddie.Services.IScreenService>();
+            var imageSvc = sp.GetRequiredService<Buddie.Services.IImageService>();
+            var dbSvc = sp.GetRequiredService<Buddie.Database.DatabaseService>();
+            var dlgLogger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Buddie.Controls.DialogControl>>();
+            var ttsResolver = sp.GetRequiredService<Buddie.Services.Tts.ITtsServiceResolver>();
+            var httpFactory = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>();
+            DialogControl.InitializeServices(screenSvc, imageSvc, dbSvc, dlgLogger, ttsResolver, httpFactory);
             DialogControl.DialogClosed += (s, e) => _vm.OnDialogClosed();
             DialogControl.DialogVisibilityChanged += (s, isVisible) => _vm.IsDialogVisible = isVisible;
             

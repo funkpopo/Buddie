@@ -53,7 +53,7 @@ namespace Buddie.Controls
         private bool _isSidebarVisible = false;
         private readonly List<string> _conversationHistory = new List<string>();
         private readonly MarkdownPipeline _markdownPipeline;
-        private readonly DatabaseService _databaseService = Buddie.App.GetService<Buddie.Database.DatabaseService>();
+        private DatabaseService _databaseService = null!;
         private DbConversation? _currentConversation;
         private List<DbMessage> _currentMessages = new List<DbMessage>();
         
@@ -67,43 +67,25 @@ namespace Buddie.Controls
         
         // 当前API配置
         private OpenApiConfiguration? _currentApiConfiguration;
-        private readonly ILogger _logger = Buddie.App.Services?.GetService(typeof(ILoggerFactory)) is ILoggerFactory lf ? lf.CreateLogger(typeof(DialogControl).FullName!) : Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+        private ILogger _logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+        private IScreenService _screenService = null!;
+        private IImageService _imageService = null!;
+        private Buddie.Services.Tts.ITtsServiceResolver _ttsServiceResolver = null!;
+        private System.Net.Http.IHttpClientFactory _httpClientFactory = null!;
 
-        #region Windows API for Multi-Monitor Support
-        
-        [DllImport("user32.dll")]
-        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
-        
-        [DllImport("user32.dll")]
-        private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
-        
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
-        
-        private const uint MONITOR_DEFAULTTONEAREST = 2;
-        private const uint GW_OWNER = 4;
-        
-        [StructLayout(LayoutKind.Sequential)]
-        private struct RECT
+        #region Screen/Image Services Injection
+        public void InitializeServices(IScreenService screenService, IImageService imageService, DatabaseService databaseService, ILogger<DialogControl> logger, Buddie.Services.Tts.ITtsServiceResolver ttsServiceResolver, System.Net.Http.IHttpClientFactory httpClientFactory)
         {
-            public int Left;
-            public int Top;
-            public int Right;
-            public int Bottom;
+            _screenService = screenService;
+            _imageService = imageService;
+            _databaseService = databaseService;
+            _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+            _ttsServiceResolver = ttsServiceResolver;
+            _httpClientFactory = httpClientFactory;
         }
-        
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-        private struct MONITORINFO
-        {
-            public int cbSize;
-            public RECT rcMonitor;
-            public RECT rcWork;
-            public uint dwFlags;
-        }
-        
         #endregion
 
-        #region Screen Detection Methods
+        #region Screen Detection Methods (delegated)
         
         /// <summary>
         /// 获取当前应用窗口所在的屏幕边界
@@ -111,214 +93,9 @@ namespace Buddie.Controls
         /// <returns>屏幕边界矩形，如果失败则返回主屏幕边界</returns>
         private Rectangle GetCurrentWindowScreen()
         {
-            try
-            {
-                var mainWindow = Window.GetWindow(this);
-                if (mainWindow != null)
-                {
-                    // 方法1：使用WPF窗口位置直接检测
-                    var windowBounds = GetWindowScreenByPosition(mainWindow);
-                    if (windowBounds.Width > 0 && windowBounds.Height > 0)
-                    {
-                        _logger.LogDebug("DialogControl: 通过窗口位置检测到屏幕 = {Bounds}", windowBounds);
-                        return windowBounds;
-                    }
-
-                    // 方法2：使用Windows API检测（备用方法）
-                    if (mainWindow.IsLoaded)
-                    {
-                        var windowInteropHelper = new System.Windows.Interop.WindowInteropHelper(mainWindow);
-                        var hwnd = windowInteropHelper.EnsureHandle();
-                        
-                        _logger.LogDebug("DialogControl: 窗口句柄 = {Handle}", hwnd);
-                        
-                        if (hwnd != IntPtr.Zero)
-                        {
-                            var hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-                            _logger.LogDebug("DialogControl: 监视器句柄 = {Handle}", hMonitor);
-                            
-                            if (hMonitor != IntPtr.Zero)
-                            {
-                                var monitorInfo = new MONITORINFO();
-                                monitorInfo.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
-                                
-                                if (GetMonitorInfo(hMonitor, ref monitorInfo))
-                                {
-                                    var screenBounds = new Rectangle(
-                                        monitorInfo.rcMonitor.Left,
-                                        monitorInfo.rcMonitor.Top,
-                                        monitorInfo.rcMonitor.Right - monitorInfo.rcMonitor.Left,
-                                        monitorInfo.rcMonitor.Bottom - monitorInfo.rcMonitor.Top
-                                    );
-                                    
-                                    _logger.LogDebug("DialogControl: 通过Windows API检测到屏幕 = {Bounds}", screenBounds);
-                                    
-                                    if (screenBounds.Width > 0 && screenBounds.Height > 0)
-                                    {
-                                        return screenBounds;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogInformation("DialogControl: 窗口尚未加载完成，使用主屏幕");
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning("DialogControl: 无法获取主窗口");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "DialogControl: 获取当前窗口屏幕时出错 = {Message}", ex.Message);
-                ExceptionHandlingService.ExecuteSafely(() => 
-                {
-                    throw;
-                }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
-                {
-                    Component = "DialogControl",
-                    Operation = "获取当前窗口屏幕"
-                });
-            }
-
-            // 如果检测失败，回退到主屏幕
-            _logger.LogInformation("DialogControl: 回退到主屏幕");
-            return GetPrimaryScreenBounds();
+            var mainWindow = Window.GetWindow(this);
+            return _screenService != null ? _screenService.GetCurrentWindowScreen(mainWindow) : new Rectangle(0, 0, 1920, 1080);
         }
-        
-        /// <summary>
-        /// 通过窗口位置检测屏幕边界
-        /// </summary>
-        private Rectangle GetWindowScreenByPosition(Window window)
-        {
-            try
-            {
-                // 获取窗口的中心点
-                var windowLeft = window.Left;
-                var windowTop = window.Top;
-                var windowWidth = window.ActualWidth;
-                var windowHeight = window.ActualHeight;
-                
-                // 如果窗口尺寸无效，使用窗口左上角
-                if (windowWidth <= 0 || windowHeight <= 0)
-                {
-                    windowWidth = 100;
-                    windowHeight = 100;
-                }
-                
-                var centerX = (int)(windowLeft + windowWidth / 2);
-                var centerY = (int)(windowTop + windowHeight / 2);
-                
-                _logger.LogDebug("DialogControl: 窗口位置=({Left},{Top}), 尺寸=({W},{H}), 中心点=({CX},{CY})", windowLeft, windowTop, windowWidth, windowHeight, centerX, centerY);
-                
-                // 查找包含窗口中心点的屏幕
-                foreach (var screen in System.Windows.Forms.Screen.AllScreens)
-                {
-                    _logger.LogTrace("DialogControl: 检查屏幕 {Device} = {Bounds}", screen.DeviceName, screen.Bounds);
-                    
-                    if (screen.Bounds.Contains(centerX, centerY))
-                    {
-                        _logger.LogDebug("DialogControl: 找到匹配的屏幕 {Device} = {Bounds}", screen.DeviceName, screen.Bounds);
-                        return screen.Bounds;
-                    }
-                }
-                
-                // 如果中心点不在任何屏幕上，查找距离最近的屏幕
-                var nearestScreen = System.Windows.Forms.Screen.AllScreens
-                    .OrderBy(s => GetDistanceToScreen(centerX, centerY, s.Bounds))
-                    .FirstOrDefault();
-                    
-                if (nearestScreen != null)
-                {
-                    _logger.LogDebug("DialogControl: 使用最近的屏幕 {Device} = {Bounds}", nearestScreen.DeviceName, nearestScreen.Bounds);
-                    return nearestScreen.Bounds;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "DialogControl: 通过窗口位置检测屏幕时出错 = {Message}", ex.Message);
-            }
-            
-            return new Rectangle();
-        }
-        
-        /// <summary>
-        /// 计算点到屏幕边界的距离
-        /// </summary>
-        private double GetDistanceToScreen(int x, int y, Rectangle screenBounds)
-        {
-            var centerX = screenBounds.X + screenBounds.Width / 2;
-            var centerY = screenBounds.Y + screenBounds.Height / 2;
-            return Math.Sqrt(Math.Pow(x - centerX, 2) + Math.Pow(y - centerY, 2));
-        }
-        
-        /// <summary>
-        /// 获取主屏幕边界
-        /// </summary>
-        private Rectangle GetPrimaryScreenBounds()
-        {
-            var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
-            return primaryScreen?.Bounds ?? new Rectangle(0, 0, 1920, 1080);
-        }
-        
-        /// <summary>
-        /// 获取指定屏幕的System.Windows.Forms.Screen对象
-        /// </summary>
-        /// <param name="screenBounds">屏幕边界</param>
-        /// <returns>匹配的Screen对象，如果没找到则返回主屏幕</returns>
-        private System.Windows.Forms.Screen GetScreenByBounds(Rectangle screenBounds)
-        {
-            try
-            {
-                // 查找匹配边界的屏幕
-                foreach (var screen in System.Windows.Forms.Screen.AllScreens)
-                {
-                    if (screen.Bounds.Equals(screenBounds))
-                    {
-                        return screen;
-                    }
-                }
-                
-                // 如果没有完全匹配的，找包含屏幕中心点的屏幕
-                var centerX = screenBounds.X + screenBounds.Width / 2;
-                var centerY = screenBounds.Y + screenBounds.Height / 2;
-                var centerPoint = new System.Drawing.Point(centerX, centerY);
-                
-                foreach (var screen in System.Windows.Forms.Screen.AllScreens)
-                {
-                    if (screen.Bounds.Contains(centerPoint))
-                    {
-                        return screen;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // 使用ExceptionHandlingService处理异常
-                ExceptionHandlingService.ExecuteSafely(() => 
-                {
-                    throw; // 重新抛出以便正确处理
-                }, ExceptionHandlingService.HandlingStrategy.LogOnly, new ExceptionHandlingService.ExceptionContext
-                {
-                    Component = "DialogControl",
-                    Operation = "根据边界查找屏幕"
-                });
-            }
-
-            // 回退到主屏幕
-            var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
-            if (primaryScreen != null) return primaryScreen;
-            
-            var allScreens = System.Windows.Forms.Screen.AllScreens;
-            if (allScreens.Length > 0) return allScreens[0];
-            
-            // 这种情况理论上不应该发生，但为了安全起见
-            throw new InvalidOperationException("系统中没有检测到任何屏幕");
-        }
-        
         #endregion
 
         // 附加属性用于绑定FlowDocument到RichTextBox
@@ -1576,8 +1353,7 @@ namespace Buddie.Controls
         /// </summary>
         private HttpClient CreateHttpClient(OpenApiConfiguration apiConfig)
         {
-            var factory = App.GetService<System.Net.Http.IHttpClientFactory>();
-            var httpClient = factory.CreateClient();
+            var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromMinutes(5);
             
             // 根据渠道类型设置不同的认证头
@@ -2132,8 +1908,7 @@ namespace Buddie.Controls
                 System.Diagnostics.Debug.WriteLine("TTS API: 未找到缓存，使用TTS服务生成新音频");
                 
                 // 使用DI解析的解析器创建相应的TTS服务
-                var resolver = Buddie.App.GetService<Buddie.Services.Tts.ITtsServiceResolver>();
-                using var ttsService = resolver.Create(ttsConfig.ChannelType);
+                using var ttsService = _ttsServiceResolver.Create(ttsConfig.ChannelType);
                 
                 // 创建TTS请求
                 var ttsRequest = new TtsRequest
@@ -2894,15 +2669,7 @@ namespace Buddie.Controls
             ExceptionHandlingService.ExecuteSafely(() =>
             {
                 // 转换字节数组为BitmapImage
-                var bitmapImage = new BitmapImage();
-                using (var stream = new MemoryStream(imageBytes))
-                {
-                    bitmapImage.BeginInit();
-                    bitmapImage.StreamSource = stream;
-                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmapImage.EndInit();
-                    bitmapImage.Freeze();
-                }
+                var bitmapImage = _imageService.CreateBitmapImage(imageBytes);
                 
                 // 显示预览UI
                 if (ScreenshotPreviewContainer != null && ScreenshotThumbnail != null)
@@ -2998,30 +2765,7 @@ namespace Buddie.Controls
             byte[]? result = null;
             try
             {
-                result = await Task.Run(() =>
-                {
-                    return ExceptionHandlingService.ExecuteSafely(() =>
-                    {
-                        // 使用预先获取的屏幕边界
-                        _logger.LogDebug("DialogControl: 使用屏幕边界进行截图 = {Bounds}", screenBounds);
-                        
-                        // 创建位图
-                        using var bitmap = new System.Drawing.Bitmap(screenBounds.Width, screenBounds.Height);
-                        using var graphics = System.Drawing.Graphics.FromImage(bitmap);
-                        
-                        // 截取屏幕 - 使用正确的屏幕坐标
-                        graphics.CopyFromScreen(screenBounds.X, screenBounds.Y, 0, 0, screenBounds.Size);
-                        
-                        // 转换为字节数组
-                        using var memoryStream = new MemoryStream();
-                        bitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
-                        return memoryStream.ToArray();
-                    }, ExceptionHandlingService.HandlingStrategy.LogOnly, (byte[]?)null, new ExceptionHandlingService.ExceptionContext
-                    {
-                        Component = "DialogControl",
-                        Operation = "屏幕截取"
-                    });
-                });
+                result = await _screenService.CaptureScreenAsync(screenBounds);
             }
             finally
             {
@@ -3056,30 +2800,7 @@ namespace Buddie.Controls
                 screenBounds = GetCurrentWindowScreen();
             });
 
-            return await Task.Run(() =>
-            {
-                return ExceptionHandlingService.ExecuteSafely(() =>
-                {
-                    // 使用预先获取的屏幕边界
-                    _logger.LogDebug("DialogControl: CaptureScreenAsync使用屏幕边界 = {Bounds}", screenBounds);
-                    
-                    // 创建位图
-                    using var bitmap = new System.Drawing.Bitmap(screenBounds.Width, screenBounds.Height);
-                    using var graphics = System.Drawing.Graphics.FromImage(bitmap);
-                    
-                    // 截取屏幕 - 使用正确的屏幕坐标
-                    graphics.CopyFromScreen(screenBounds.X, screenBounds.Y, 0, 0, screenBounds.Size);
-                    
-                    // 转换为字节数组
-                    using var memoryStream = new MemoryStream();
-                    bitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
-                    return memoryStream.ToArray();
-                }, ExceptionHandlingService.HandlingStrategy.LogOnly, (byte[]?)null, new ExceptionHandlingService.ExceptionContext
-                {
-                    Component = "DialogControl",
-                    Operation = "屏幕截取"
-                });
-            });
+            return await _screenService.CaptureScreenAsync(screenBounds);
         }
 
         /// <summary>
@@ -3089,15 +2810,7 @@ namespace Buddie.Controls
         {
             ExceptionHandlingService.ExecuteSafely(() =>
             {
-                // 将字节数组转换为BitmapImage
-                using var memoryStream = new MemoryStream(screenshotBytes);
-                var bitmapImage = new BitmapImage();
-                bitmapImage.BeginInit();
-                bitmapImage.StreamSource = memoryStream;
-                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                bitmapImage.DecodePixelWidth = 300; // 限制缩略图宽度
-                bitmapImage.EndInit();
-                bitmapImage.Freeze();
+                var bitmapImage = _imageService.CreateBitmapImage(screenshotBytes, 300);
                 
                 // 设置预览图片
                 ScreenshotThumbnail.Source = bitmapImage;
@@ -3163,10 +2876,7 @@ namespace Buddie.Controls
         /// <summary>
         /// 将截图转换为Base64字符串
         /// </summary>
-        private string ConvertImageToBase64(byte[] imageBytes)
-        {
-            return Convert.ToBase64String(imageBytes);
-        }
+        private string ConvertImageToBase64(byte[] imageBytes) => _imageService.ToBase64(imageBytes);
 
         #endregion
     }

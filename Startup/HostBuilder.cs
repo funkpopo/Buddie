@@ -70,6 +70,10 @@ namespace Buddie.Startup
                     services.AddSingleton<global::Buddie.Services.RealtimeInteractionService>();
                     services.AddSingleton<global::Buddie.Services.EnhancedRealtimeInteractionService>();
                     services.AddSingleton<global::Buddie.Services.RealtimeClient>();
+
+                    // Screen/Image services
+                    services.AddSingleton<global::Buddie.Services.IScreenService, global::Buddie.Services.ScreenService>();
+                    services.AddSingleton<global::Buddie.Services.IImageService, global::Buddie.Services.ImageService>();
                 })
                 .Build();
 
@@ -78,4 +82,3 @@ namespace Buddie.Startup
         }
     }
 }
-
