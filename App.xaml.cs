@@ -4,13 +4,10 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Buddie.Database;
 using Buddie.Services.ExceptionHandling;
-using Polly;
-using Polly.Extensions.Http;
-using System.Net.Http;
+using Buddie.Startup;
 
 namespace Buddie
 {
@@ -42,64 +39,9 @@ namespace Buddie
         {
             await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                // Build Host (DI + Logging + HttpClient + Configuration)
-                _host = Host.CreateDefaultBuilder()
-                    .ConfigureAppConfiguration((context, config) =>
-                    {
-                        config.SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-                              .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-                    })
-                    .ConfigureLogging((context, logging) =>
-                    {
-                        logging.ClearProviders();
-                        logging.AddConfiguration(context.Configuration.GetSection("Logging"));
-                        logging.AddDebug();
-                        logging.AddConsole();
-                    })
-                    .ConfigureServices((context, services) =>
-                    {
-                        _configuration = context.Configuration;
-                        
-                        // 配置 HttpClient
-                        services.AddHttpClient();
-                        
-                        // 为 TTS 服务配置专用的 HttpClient with Polly
-                        var httpConfig = _configuration.GetSection("HttpClient");
-                        var retryCount = httpConfig.GetValue<int>("Retry:Count", 3);
-                        var baseDelay = httpConfig.GetValue<int>("Retry:BaseDelaySeconds", 2);
-                        var circuitBreakerThreshold = httpConfig.GetValue<int>("CircuitBreaker:FailureThreshold", 5);
-                        var circuitBreakerDuration = httpConfig.GetValue<int>("CircuitBreaker:DurationSeconds", 30);
-                        var timeoutMinutes = httpConfig.GetValue<int>("TimeoutMinutes", 2);
-                        
-                        services.AddHttpClient("TtsClient", client =>
-                        {
-                            client.Timeout = TimeSpan.FromMinutes(timeoutMinutes);
-                        })
-                        .AddPolicyHandler((sp, request) => GetRetryPolicy(sp, retryCount, baseDelay))
-                        .AddPolicyHandler((sp, request) => GetCircuitBreakerPolicy(sp, circuitBreakerThreshold, circuitBreakerDuration));
-                        
-                        services.AddSingleton<IErrorNotifier, WpfErrorNotifier>();
-                        
-                        // Database services
-                        services.AddSingleton<IDatabasePathProvider, DatabasePathProvider>();
-                        services.AddSingleton<ISqliteConnectionPool, SqliteConnectionPool>();
-                        services.AddSingleton<DatabaseService>();
-                        services.AddSingleton<IDatabaseInitializer, DatabaseInitializer>();
-
-                        // TTS services + resolver（基于Keyed DI，按渠道类型解析实现）
-                        services.AddKeyedTransient<global::Buddie.Services.Tts.ITtsService, global::Buddie.Services.Tts.OpenAiTtsService>(global::Buddie.Services.Tts.TtsChannelType.OpenAI);
-                        services.AddKeyedTransient<global::Buddie.Services.Tts.ITtsService, global::Buddie.Services.Tts.ElevenLabsTtsService>(global::Buddie.Services.Tts.TtsChannelType.ElevenLabs);
-                        services.AddKeyedTransient<global::Buddie.Services.Tts.ITtsService, global::Buddie.Services.Tts.MiniMaxTtsService>(global::Buddie.Services.Tts.TtsChannelType.MiniMax);
-                        services.AddSingleton<global::Buddie.Services.Tts.ITtsServiceResolver, global::Buddie.Services.Tts.DefaultTtsServiceResolver>();
-
-                        // Realtime services
-                        services.AddSingleton<Services.RealtimeInteractionService>();
-                        services.AddSingleton<Services.EnhancedRealtimeInteractionService>();
-                        services.AddSingleton<Services.RealtimeClient>();
-                    })
-                    .Build();
-
-                await _host.StartAsync();
+                // 构建并启动 Host（DI/Logging/HttpClient/Config）
+                _host = await AppHostBuilder.BuildAndStartAsync();
+                _configuration = _host.Services.GetRequiredService<IConfiguration>();
                 _logger = _host.Services.GetRequiredService<Microsoft.Extensions.Logging.ILogger<App>>();
                 _logger.LogInformation("Host started successfully");
 
@@ -228,47 +170,5 @@ namespace Buddie
             }
         }
         
-        /// <summary>
-        /// 配置 HTTP 重试策略
-        /// </summary>
-        private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(IServiceProvider sp, int retryCount = 3, int baseDelaySeconds = 2)
-        {
-            var logger = sp.GetService<ILogger<App>>()
-                         ?? sp.GetService<ILoggerFactory>()?.CreateLogger("HttpPolicies")
-                         ?? NullLogger<App>.Instance;
-            return HttpPolicyExtensions
-                .HandleTransientHttpError() // 处理 HttpRequestException, 5XX and 408
-                .OrResult(msg => !msg.IsSuccessStatusCode)
-                .WaitAndRetryAsync(
-                    retryCount,
-                    retryAttempt => TimeSpan.FromSeconds(Math.Pow(baseDelaySeconds, retryAttempt)), // 指数退避
-                    onRetry: (outcome, timespan, attempt, context) =>
-                    {
-                        logger.LogWarning("HTTP retry {Attempt} after {Delay}s; status={StatusCode}", attempt, timespan.TotalSeconds, (int?)outcome.Result?.StatusCode);
-                    });
-        }
-        
-        /// <summary>
-        /// 配置熔断器策略
-        /// </summary>
-        private static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy(IServiceProvider sp, int failureThreshold = 5, int durationSeconds = 30)
-        {
-            var logger = sp.GetService<ILogger<App>>()
-                         ?? sp.GetService<ILoggerFactory>()?.CreateLogger("HttpPolicies")
-                         ?? NullLogger<App>.Instance;
-            return HttpPolicyExtensions
-                .HandleTransientHttpError()
-                .CircuitBreakerAsync(
-                    failureThreshold,
-                    TimeSpan.FromSeconds(durationSeconds),
-                    onBreak: (result, timespan) =>
-                    {
-                        logger.LogError("Circuit broken for {Duration}s; lastStatus={StatusCode}", timespan.TotalSeconds, (int?)result.Result?.StatusCode);
-                    },
-                    onReset: () =>
-                    {
-                        logger.LogInformation("Circuit reset");
-                    });
-        }
     }
 }
