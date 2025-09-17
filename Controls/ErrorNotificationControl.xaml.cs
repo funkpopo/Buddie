@@ -8,7 +8,7 @@ namespace Buddie.Controls
 {
     public partial class ErrorNotificationControl : UserControl
     {
-        private bool _isDetailsVisible = false;
+        private bool _isDetailsVisible;
         private Action? _retryAction;
         private DoubleAnimation? _fadeAnimation;
 

@@ -23,7 +23,7 @@ namespace Buddie.ViewModels
     public partial class DialogViewModel : ObservableObject, IDisposable
     {
         private readonly AppSettings _appSettings;
-        private bool _disposed = false;
+        private bool _disposed;
         private readonly DatabaseService _databaseService = Buddie.App.GetService<DatabaseService>();
         private readonly ITtsServiceResolver _ttsServiceResolver = Buddie.App.GetService<ITtsServiceResolver>();
         private readonly System.Net.Http.IHttpClientFactory _httpClientFactory = Buddie.App.GetService<System.Net.Http.IHttpClientFactory>();
@@ -89,7 +89,7 @@ namespace Buddie.ViewModels
         public event EventHandler? ToggleSidebarRequested;
         public event EventHandler? CloseRequested;
         public event EventHandler? NewConversationRequested;
-        public event EventHandler<string>? CopyRequested;
+        //public event EventHandler<string>? CopyRequested; // Unused event
         public event EventHandler<int>? DeleteConversationRequested;
         public event EventHandler? RemoveScreenshotRequested;
         public event EventHandler? OpenScreenshotRequested;

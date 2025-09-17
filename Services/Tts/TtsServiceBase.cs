@@ -16,10 +16,13 @@ namespace Buddie.Services.Tts
     /// </summary>
     public abstract class TtsServiceBase : ITtsService, IDisposable
     {
-        private bool _disposed = false;
-        protected readonly HttpClient _httpClient;
+        private bool _disposed;
+        private readonly HttpClient _httpClient;
         private readonly IHttpClientFactory? _httpClientFactory;
-        protected readonly ILogger _logger;
+        private readonly ILogger _logger;
+
+        protected HttpClient HttpClient => _httpClient;
+        protected ILogger Logger => _logger;
         private static readonly IDictionary<string, string> _contentTypeToExtension = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
         {
             ["audio/mpeg"] = ".mp3",
@@ -65,7 +68,7 @@ namespace Buddie.Services.Tts
             {
                 var stopwatch = Stopwatch.StartNew();
                 
-                _logger.LogInformation("TTS {Channel}: start, textLength={Length}", SupportedChannelType, request.Text.Length);
+                Logger.LogInformation("TTS {Channel}: start, textLength={Length}", SupportedChannelType, request.Text.Length);
 
                 // 验证配置
                 var validation = ValidateConfiguration(request.Configuration);
@@ -87,7 +90,7 @@ namespace Buddie.Services.Tts
                 stopwatch.Stop();
                 result.ProcessingTime = stopwatch.Elapsed;
                 
-                _logger.LogInformation("TTS {Channel}: done, size={SizeBytes}B, elapsedMs={Elapsed}", SupportedChannelType, result.AudioData.Length, result.ProcessingTime.TotalMilliseconds);
+                Logger.LogInformation("TTS {Channel}: done, size={SizeBytes}B, elapsedMs={Elapsed}", SupportedChannelType, result.AudioData.Length, result.ProcessingTime.TotalMilliseconds);
                 
                 return result;
             }, 
@@ -133,7 +136,7 @@ namespace Buddie.Services.Tts
         /// </summary>
         protected virtual void SetupHttpHeaders(TtsConfiguration config)
         {
-            _httpClient.DefaultRequestHeaders.Clear();
+            HttpClient.DefaultRequestHeaders.Clear();
         }
 
         /// <summary>
@@ -154,7 +157,7 @@ namespace Buddie.Services.Tts
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("TTS HTTP失败: {Status} {Reason}. Body: {Preview}", (int)response.StatusCode, response.ReasonPhrase, errorContent?.Length > 500 ? errorContent.Substring(0, 500) + "..." : errorContent);
+                Logger.LogError("TTS HTTP失败: {Status} {Reason}. Body: {Preview}", (int)response.StatusCode, response.ReasonPhrase, errorContent?.Length > 500 ? errorContent.Substring(0, 500) + "..." : errorContent);
                 return new TtsResponse
                 {
                     IsSuccess = false,

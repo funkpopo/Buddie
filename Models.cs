@@ -118,7 +118,7 @@ namespace Buddie
 
     public enum VadMode
     {
-        CLIENT_VAD
+        ClientVad
     }
 
     public class TtsPresetChannel
@@ -133,7 +133,7 @@ namespace Buddie
         public double MaxSpeed { get; set; } = 4.0;
         public string AuthHeaderFormat { get; set; } = "Bearer {0}";
         public string RequestFormat { get; set; } = "openai";
-        public bool SupportsStreaming { get; set; } = false;
+        public bool SupportsStreaming { get; set; }
     }
 
     public class PresetChannel
@@ -143,8 +143,8 @@ namespace Buddie
         public string DefaultApiUrl { get; set; } = "";
         public string[] SupportedModels { get; set; } = Array.Empty<string>();
         public bool SupportsStreaming { get; set; } = true;
-        public bool SupportsMultimodal { get; set; } = false;
-        public bool SupportsThinking { get; set; } = false;
+        public bool SupportsMultimodal { get; set; }
+        public bool SupportsThinking { get; set; }
         public string AuthHeaderFormat { get; set; } = "Bearer {0}";
         public string RequestFormat { get; set; } = "openai";
     }
@@ -157,13 +157,13 @@ namespace Buddie
         private string _apiKey = "";
         private string _modelName = "";
         private bool _isStreamingEnabled = true;
-        private bool _isMultimodalEnabled = false;
+        private bool _isMultimodalEnabled;
         private bool _isEditMode = true;
-        private bool _isSaved = false;
+        private bool _isSaved;
         private TestStatus _testStatus = TestStatus.NotTested;
         private string _testMessage = "";
         private ChannelType _channelType = ChannelType.Custom;
-        private bool _supportsThinking = false;
+        private bool _supportsThinking;
 
         public int Id
         {
@@ -311,8 +311,8 @@ namespace Buddie
         private string _voice = "";
         private double _speed = 1.0;
         private bool _isEditMode = true;
-        private bool _isSaved = false;
-        private bool _isActive = false;
+        private bool _isSaved;
+        private bool _isActive;
 
         public TtsConfiguration()
         {
@@ -663,7 +663,7 @@ namespace Buddie
         private bool _isTopmost = true;
         private bool _showInTaskbar = true;
         private bool _enableAnimation = true;
-        private bool _isDarkTheme = false;
+        private bool _isDarkTheme;
         private ObservableCollection<OpenApiConfiguration> _apiConfigurations = new ObservableCollection<OpenApiConfiguration>();
         private ObservableCollection<TtsConfiguration> _ttsConfigurations = new ObservableCollection<TtsConfiguration>();
         private ObservableCollection<RealtimeConfiguration> _realtimeConfigurations = new ObservableCollection<RealtimeConfiguration>();
@@ -1101,8 +1101,8 @@ namespace Buddie
         private int _vadMinSpeechFrames = 3;
         private int _vadMinSilenceFrames = 10;
         private bool _isEditMode = true;
-        private bool _isSaved = false;
-        private bool _isActive = false;
+        private bool _isSaved;
+        private bool _isActive;
         private int _sampleRate = 24000;
         private int _chunkSize = 3200;
         private TestStatus _testStatus = TestStatus.NotTested;

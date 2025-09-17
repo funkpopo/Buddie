@@ -19,7 +19,7 @@ namespace Buddie.Controls
     {
         private readonly HttpClient httpClient = Buddie.App.GetService<System.Net.Http.IHttpClientFactory>().CreateClient();
         private readonly ConcurrentDictionary<string, CancellationTokenSource> testCancellationTokens = new();
-        private bool _isInitializing = false;
+        private bool _isInitializing;
 
         public event EventHandler<OpenApiConfiguration>? ConfigurationAdded;
         public event EventHandler<OpenApiConfiguration>? ConfigurationRemoved;
@@ -59,7 +59,7 @@ namespace Buddie.Controls
 
             var newConfig = new OpenApiConfiguration
             {
-                Name = string.Format(LocalizationManager.GetString("ApiConfig_DefaultName"), configurations.Count + 1),
+                Name = string.Format(System.Globalization.CultureInfo.InvariantCulture, LocalizationManager.GetString("ApiConfig_DefaultName"), configurations.Count + 1),
                 ApiUrl = "https://api.openai.com/v1/chat/completions",
                 ModelName = "", // 空的模型名称，让用户手动填写
                 IsStreamingEnabled = true,
@@ -133,7 +133,7 @@ namespace Buddie.Controls
             if (button?.DataContext is OpenApiConfiguration config)
             {
                 var result = MessageBox.Show(
-                    string.Format(LocalizationManager.GetString("Confirm_DeleteConfig_Message")), 
+                    string.Format(System.Globalization.CultureInfo.InvariantCulture, LocalizationManager.GetString("Confirm_DeleteConfig_Message")), 
                     LocalizationManager.GetString("Confirm_DeleteConfig_Title"), 
                     MessageBoxButton.YesNo, 
                     MessageBoxImage.Question);
@@ -247,12 +247,12 @@ namespace Buddie.Controls
                         if (isValidResponse)
                         {
                             config.TestStatus = TestStatus.Success;
-                            config.TestMessage = string.Format(LocalizationManager.GetString("ApiConfig_Test_Success"), delayMs);
+                            config.TestMessage = string.Format(System.Globalization.CultureInfo.InvariantCulture, LocalizationManager.GetString("ApiConfig_Test_Success"), delayMs);
                         }
                         else
                         {
                             config.TestStatus = TestStatus.Failed;
-                            config.TestMessage = string.Format(LocalizationManager.GetString("ApiConfig_Test_InvalidResponse"), delayMs);
+                            config.TestMessage = string.Format(System.Globalization.CultureInfo.InvariantCulture, LocalizationManager.GetString("ApiConfig_Test_InvalidResponse"), delayMs);
                         }
                     }
                     else

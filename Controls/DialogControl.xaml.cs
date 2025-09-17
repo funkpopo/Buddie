@@ -44,7 +44,7 @@ namespace Buddie.Controls
         // UI virtualization - ObservableCollection for messages
         public ObservableCollection<MessageDisplayModel> Messages { get; private set; }
 
-        public event EventHandler<string>? MessageSent;
+        //public event EventHandler<string>? MessageSent; // Unused event
         public event EventHandler? DialogClosed;
         public event EventHandler<bool>? DialogVisibilityChanged;
         

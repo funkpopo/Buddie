@@ -14,9 +14,9 @@ namespace Buddie.Controls
     {
         public event EventHandler? SettingsClosed;
         public event EventHandler? ResetSettingsRequested;
-        public event EventHandler<bool>? TopMostChanged;
-        public event EventHandler<bool>? ShowInTaskbarChanged;
-        public event EventHandler<bool>? DarkThemeChanged;
+        //public event EventHandler<bool>? TopMostChanged; // Unused event
+        //public event EventHandler<bool>? ShowInTaskbarChanged; // Unused event
+        //public event EventHandler<bool>? DarkThemeChanged; // Unused event
         public event EventHandler<TtsConfiguration>? TtsConfigurationActivated;
         public event EventHandler<TtsConfiguration>? TtsConfigurationAdded;
         public event EventHandler<TtsConfiguration>? TtsConfigurationUpdated;

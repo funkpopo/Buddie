@@ -14,9 +14,9 @@ namespace Buddie.Database
         private string? _decryptedApiKey; // 缓存解密后的值
         private string _modelName = "";
         private bool _isStreamingEnabled = true;
-        private bool _isMultimodalEnabled = false;
-        private int _channelType = 0; // ChannelType enum as int
-        private bool _supportsThinking = false;
+        private bool _isMultimodalEnabled;
+        private int _channelType; // ChannelType enum as int
+        private bool _supportsThinking;
         private DateTime _createdAt = DateTime.UtcNow;
         private DateTime _updatedAt = DateTime.UtcNow;
 
@@ -141,8 +141,8 @@ namespace Buddie.Database
         private string _model = "";
         private string _voice = "";
         private double _speed = 1.0;
-        private bool _isStreamingEnabled = false;
-        private bool _isActive = false;
+        private bool _isStreamingEnabled;
+        private bool _isActive;
         private int? _channelType = null; // TtsChannelType enum as nullable int for backward compatibility
         private DateTime _createdAt = DateTime.UtcNow;
         private DateTime _updatedAt = DateTime.UtcNow;
@@ -270,7 +270,7 @@ namespace Buddie.Database
         private string _title = "";
         private DateTime _createdAt = DateTime.UtcNow;
         private DateTime _updatedAt = DateTime.UtcNow;
-        private int _messageCount = 0;
+        private int _messageCount;
 
         public int Id
         {
@@ -468,7 +468,7 @@ namespace Buddie.Database
         private bool _isTopmost = true;
         private bool _showInTaskbar = true;
         private bool _enableAnimation = true;
-        private bool _isDarkTheme = false;
+        private bool _isDarkTheme;
         private DateTime _updatedAt = DateTime.UtcNow;
 
         public int Id

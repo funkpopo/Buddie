@@ -21,7 +21,7 @@ namespace Buddie.Services
             string apiKey,
             string model,
             string voice,
-            TurnDetectionMode turnDetectionMode = TurnDetectionMode.CLIENT_VAD)
+            TurnDetectionMode turnDetectionMode = TurnDetectionMode.ClientVad)
         {
             _baseUrl = baseUrl;
             _apiKey = apiKey;

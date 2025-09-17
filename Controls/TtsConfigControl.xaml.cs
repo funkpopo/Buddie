@@ -162,9 +162,9 @@ namespace Buddie.Controls
                     break;
 
                 case TtsChannelType.OpenAI:
-                    if (!config.Voice.Equals("alloy") && !config.Voice.Equals("echo") && 
-                        !config.Voice.Equals("fable") && !config.Voice.Equals("onyx") && 
-                        !config.Voice.Equals("nova") && !config.Voice.Equals("shimmer"))
+                    if (!config.Voice.Equals("alloy", System.StringComparison.Ordinal) && !config.Voice.Equals("echo", System.StringComparison.Ordinal) &&
+                        !config.Voice.Equals("fable", System.StringComparison.Ordinal) && !config.Voice.Equals("onyx", System.StringComparison.Ordinal) &&
+                        !config.Voice.Equals("nova", System.StringComparison.Ordinal) && !config.Voice.Equals("shimmer", System.StringComparison.Ordinal))
                         return Buddie.Localization.LocalizationManager.GetString("Tts_OpenAI_InvalidVoice");
                     
                     break;
