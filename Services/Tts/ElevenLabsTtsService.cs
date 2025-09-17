@@ -32,8 +32,8 @@ namespace Buddie.Services.Tts
             // 统一通过基类的HttpClient+Headers策略
             SetupHttpHeaders(config);
 
-            _logger.LogInformation("ElevenLabs TTS: voice={Voice}, model={Model}, speed={Speed}", config.Voice, config.Model, config.Speed);
-            _logger.LogTrace("Text: {Text}", request.Text);
+            Logger.LogInformation("ElevenLabs TTS: voice={Voice}, model={Model}, speed={Speed}", config.Voice, config.Model, config.Speed);
+            Logger.LogTrace("Text: {Text}", request.Text);
 
             var modelToUse = !string.IsNullOrEmpty(config.Model) ? config.Model : "eleven_multilingual_v2";
 
@@ -41,7 +41,7 @@ namespace Buddie.Services.Tts
             var apiUrl = !string.IsNullOrWhiteSpace(config.ApiUrl) && config.ApiUrl.Contains("{voice_id}")
                 ? config.ApiUrl.Replace("{voice_id}", config.Voice ?? string.Empty)
                 : $"https://api.elevenlabs.io/v1/text-to-speech/{config.Voice}?output_format=mp3_44100_128";
-            _logger.LogDebug("ElevenLabs request URL: {Url}", apiUrl);
+            Logger.LogDebug("ElevenLabs request URL: {Url}", apiUrl);
 
             var voiceSpeed = config.Speed > 0 ? config.Speed : 1.0;
             var requestBody = new
@@ -60,10 +60,10 @@ namespace Buddie.Services.Tts
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
-            _logger.LogTrace("ElevenLabs request body: {Body}", jsonContent);
+            Logger.LogTrace("ElevenLabs request body: {Body}", jsonContent);
 
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync(apiUrl, content, cancellationToken);
+            var response = await HttpClient.PostAsync(apiUrl, content, cancellationToken);
             return await ProcessHttpResponseAsync(response);
         }
 
@@ -85,7 +85,7 @@ namespace Buddie.Services.Tts
                     _elevenLabsClient = new ElevenLabsClient(auth);
                     _currentApiKey = config.ApiKey;
                     
-                    _logger.LogInformation("ElevenLabs client initialized");
+                    Logger.LogInformation("ElevenLabs client initialized");
                     
                     // 异步获取并记录默认语音设置（不阻塞主流程）
                     Task.Run(async () =>
@@ -110,10 +110,10 @@ namespace Buddie.Services.Tts
         protected override void SetupHttpHeaders(TtsConfiguration config)
         {
             // 统一清理并设置所需头
-            _httpClient.DefaultRequestHeaders.Clear();
+            HttpClient.DefaultRequestHeaders.Clear();
             if (!string.IsNullOrEmpty(config.ApiKey))
             {
-                _httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+                HttpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
             }
         }
 
@@ -172,10 +172,10 @@ namespace Buddie.Services.Tts
         {
             return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+                HttpClient.DefaultRequestHeaders.Clear();
+                HttpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
                 
-                var response = await _httpClient.GetAsync("https://api.elevenlabs.io/v1/voices");
+                var response = await HttpClient.GetAsync("https://api.elevenlabs.io/v1/voices");
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -194,12 +194,12 @@ namespace Buddie.Services.Tts
                         }
                     }
                     
-                    _logger.LogInformation("Voices fetched: {Count}", voiceIds.Count);
+                    Logger.LogInformation("Voices fetched: {Count}", voiceIds.Count);
                     return voiceIds.ToArray();
                 }
                 else
                 {
-                    _logger.LogWarning("Get voices failed: {Status}", response.StatusCode);
+                    Logger.LogWarning("Get voices failed: {Status}", response.StatusCode);
                     return Array.Empty<string>();
                 }
             }, 
@@ -219,20 +219,20 @@ namespace Buddie.Services.Tts
         {
             return await ExceptionHandlingService.ExecuteSafelyAsync(async () =>
             {
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
+                HttpClient.DefaultRequestHeaders.Clear();
+                HttpClient.DefaultRequestHeaders.Add("xi-api-key", config.ApiKey);
                 
-                var response = await _httpClient.GetAsync($"https://api.elevenlabs.io/v1/voices/settings/default");
+                var response = await HttpClient.GetAsync($"https://api.elevenlabs.io/v1/voices/settings/default");
                 
                 if (response.IsSuccessStatusCode)
                 {
                     var jsonContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogDebug("Default voice settings: {Body}", jsonContent);
+                    Logger.LogDebug("Default voice settings: {Body}", jsonContent);
                     return jsonContent;
                 }
                 else
                 {
-                    _logger.LogWarning("Get default voice settings failed: {Status}", response.StatusCode);
+                    Logger.LogWarning("Get default voice settings failed: {Status}", response.StatusCode);
                     return string.Empty;
                 }
             },

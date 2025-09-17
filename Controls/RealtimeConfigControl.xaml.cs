@@ -55,7 +55,7 @@ namespace Buddie.Controls
             {
                 var vadModeItems = new[]
                 {
-                    new { Display = "客户端VAD", Value = VadMode.CLIENT_VAD }
+                    new { Display = "客户端VAD", Value = VadMode.ClientVad }
                 };
                 
                 comboBox.ItemsSource = vadModeItems;
@@ -132,7 +132,7 @@ namespace Buddie.Controls
                         {
                             var vadModeItems = new[]
                             {
-                                new { Display = "客户端VAD", Value = VadMode.CLIENT_VAD }
+                                new { Display = "客户端VAD", Value = VadMode.ClientVad }
                             };
                             
                             vadModeComboBox.ItemsSource = vadModeItems;
@@ -202,7 +202,7 @@ namespace Buddie.Controls
                         {
                             var vadModeItems = new[]
                             {
-                                new { Display = "客户端VAD", Value = VadMode.CLIENT_VAD }
+                                new { Display = "客户端VAD", Value = VadMode.ClientVad }
                             };
                             
                             vadModeComboBox.ItemsSource = vadModeItems;
@@ -308,7 +308,7 @@ namespace Buddie.Controls
                         {
                             var vadModeItems = new[]
                             {
-                                new { Display = "客户端VAD", Value = VadMode.CLIENT_VAD }
+                                new { Display = "客户端VAD", Value = VadMode.ClientVad }
                             };
                             
                             vadModeComboBox.ItemsSource = vadModeItems;

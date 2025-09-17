@@ -43,8 +43,8 @@ namespace Buddie.Services.Tts
                 // 构建完整的API URL，包含GroupId参数
                 var apiUrl = BuildApiUrl(config);
                 
-                Log.MiniMaxRequestBody(_logger, json);
-                Log.MiniMaxRequestUrl(_logger, apiUrl);
+                Log.MiniMaxRequestBody(Logger, json);
+                Log.MiniMaxRequestUrl(Logger, apiUrl);
 
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -107,16 +107,16 @@ namespace Buddie.Services.Tts
             var fmt = (string)((Dictionary<string, object>)requestBody["audio_setting"])["format"];
             var outFmt = (string)requestBody["output_format"];
             var stream = (bool)requestBody["stream"];
-            Log.MiniMaxParamCheck(_logger, model, textLen, voiceId, speed, fmt, outFmt, stream);
+            Log.MiniMaxParamCheck(Logger, model, textLen, voiceId, speed, fmt, outFmt, stream);
             
             // 验证关键字段不为空
             if (string.IsNullOrEmpty(requestBody["model"]?.ToString()))
-                Log.MiniMaxModelEmpty(_logger);
+                Log.MiniMaxModelEmpty(Logger);
             if (string.IsNullOrEmpty(requestBody["text"]?.ToString()))
-                Log.MiniMaxTextEmpty(_logger);
+                Log.MiniMaxTextEmpty(Logger);
             var voiceSetting = (Dictionary<string, object>)requestBody["voice_setting"];
             if (string.IsNullOrEmpty(voiceSetting["voice_id"]?.ToString()))
-                Log.MiniMaxVoiceIdEmpty(_logger);
+                Log.MiniMaxVoiceIdEmpty(Logger);
 
             return requestBody;
         }
@@ -154,7 +154,7 @@ namespace Buddie.Services.Tts
                     var parts = apiKey.Split('|');
                     if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[1]))
                     {
-                        Log.ExtractedGroupIdFormat1(_logger);
+                        Log.ExtractedGroupIdFormat1(Logger);
                         return parts[1].Trim();
                     }
                 }
@@ -165,7 +165,7 @@ namespace Buddie.Services.Tts
                     var parts = apiKey.Split(':');
                     if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[0]))
                     {
-                        Log.ExtractedGroupIdFormat2(_logger);
+                        Log.ExtractedGroupIdFormat2(Logger);
                         return parts[0].Trim();
                     }
                 }
@@ -177,7 +177,7 @@ namespace Buddie.Services.Tts
                              "格式2: YOUR_GROUP_ID:YOUR_API_KEY\n" +
                              "您可以在MiniMax控制台找到您的GroupId";
             
-            Log.MiniMaxMessageError(_logger, errorMessage);
+            Log.MiniMaxMessageError(Logger, errorMessage);
             throw new TtsException(SupportedChannelType, errorMessage);
         }
 
@@ -186,10 +186,10 @@ namespace Buddie.Services.Tts
         /// </summary>
         private async Task<TtsResponse> ProcessNonStreamingResponseAsync(TtsConfiguration config, StringContent content, string apiUrl, CancellationToken cancellationToken = default)
         {
-            var response = await _httpClient.PostAsync(apiUrl, content, cancellationToken);
+            var response = await HttpClient.PostAsync(apiUrl, content, cancellationToken);
             
-            Log.MiniMaxStatus(_logger, (int)response.StatusCode, response.ReasonPhrase);
-            Log.MiniMaxHeaders(_logger, response.Headers?.ToString() ?? string.Empty);
+            Log.MiniMaxStatus(Logger, (int)response.StatusCode, response.ReasonPhrase);
+            Log.MiniMaxHeaders(Logger, response.Headers?.ToString() ?? string.Empty);
             
             if (response.IsSuccessStatusCode)
             {
@@ -214,7 +214,7 @@ namespace Buddie.Services.Tts
                     var shortContent = responseContent.Length > 500 
                         ? string.Concat(responseContent.AsSpan(0, 500), "...") 
                         : responseContent;
-                    Log.MiniMaxReturnedNonJson(_logger, shortContent);
+                    Log.MiniMaxReturnedNonJson(Logger, shortContent);
                     
                     return new TtsResponse
                     {
@@ -226,7 +226,7 @@ namespace Buddie.Services.Tts
                 
                 try
                 {
-                    Log.MiniMaxResponseJson(_logger, responseContent);
+                    Log.MiniMaxResponseJson(Logger, responseContent);
                     
                     using var document = JsonDocument.Parse(responseContent);
                     var root = document.RootElement;
@@ -240,7 +240,7 @@ namespace Buddie.Services.Tts
                             var errorMsg = baseResp.TryGetProperty("status_msg", out var statusMsg) 
                                 ? statusMsg.GetString() : "未知错误";
                             
-                            Log.MiniMaxApiError(_logger, statusCode.GetInt32(), errorMsg ?? string.Empty);
+                            Log.MiniMaxApiError(Logger, statusCode.GetInt32(), errorMsg ?? string.Empty);
                             
                             return new TtsResponse
                             {
@@ -391,12 +391,12 @@ namespace Buddie.Services.Tts
                     bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
                 }
                 
-                Log.HexDecoded(_logger, hex.Length, bytes.Length);
+                Log.HexDecoded(Logger, hex.Length, bytes.Length);
                 return bytes;
             }
             catch (Exception ex)
             {
-                Log.HexDecodeFailed(_logger, ex, ex.Message);
+                Log.HexDecodeFailed(Logger, ex, ex.Message);
                 throw new ArgumentException($"十六进制转换失败: {ex.Message}", ex);
             }
         }
@@ -421,11 +421,11 @@ namespace Buddie.Services.Tts
             if (cleanText.Length > 1000)
             {
                 cleanText = cleanText[..1000];
-                Log.TextTruncated1000(_logger);
+                Log.TextTruncated1000(Logger);
             }
             
-            Log.OriginalText(_logger, text ?? string.Empty);
-            Log.CleanedText(_logger, cleanText);
+            Log.OriginalText(Logger, text ?? string.Empty);
+            Log.CleanedText(Logger, cleanText);
             
             return cleanText;
         }
@@ -435,22 +435,22 @@ namespace Buddie.Services.Tts
             base.SetupHttpHeaders(config);
             
             // 清除可能存在的旧头
-            _httpClient.DefaultRequestHeaders.Remove("Authorization");
+            HttpClient.DefaultRequestHeaders.Remove("Authorization");
             // 不要在这里设置Content-Type，它应该由StringContent自动处理
             
             if (!string.IsNullOrEmpty(config.ApiKey))
             {
                 // 从API Key中提取纯API Key部分（去除GroupId）
                 var pureApiKey = ExtractPureApiKey(config.ApiKey);
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {pureApiKey}");
-                Log.MiniMaxAuthSet(_logger, ApiKeyProtection.Mask(pureApiKey));
+                HttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {pureApiKey}");
+                Log.MiniMaxAuthSet(Logger, ApiKeyProtection.Mask(pureApiKey));
             }
             else
             {
-                Log.MiniMaxApiKeyEmpty(_logger);
+                Log.MiniMaxApiKeyEmpty(Logger);
             }
             
-            Log.MiniMaxHeadersConfigured(_logger);
+            Log.MiniMaxHeadersConfigured(Logger);
         }
         
         /// <summary>

@@ -141,7 +141,7 @@ namespace Buddie.Services
                     apiKey,
                     "qwen-omni-turbo-realtime",
                     "Chelsie",
-                    TurnDetectionMode.CLIENT_VAD);
+                    TurnDetectionMode.ClientVad);
 
                 var audioReceived = false;
                 var textReceived = false;

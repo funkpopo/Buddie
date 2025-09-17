@@ -43,7 +43,7 @@ namespace Buddie.Services
                     _configuration.ApiKey,
                     _configuration.Model,
                     _configuration.Voice,
-                    TurnDetectionMode.CLIENT_VAD);
+                    TurnDetectionMode.ClientVad);
 
                 // 订阅事件
                 _adapter.OnTextDelta += text => OnTextResponse?.Invoke(text);

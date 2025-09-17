@@ -37,11 +37,11 @@ namespace Buddie.Services.Tts
                 };
 
                 var json = JsonSerializer.Serialize(requestBody);
-                _logger.LogDebug("OpenAI request body: {Body}", json);
+                Logger.LogDebug("OpenAI request body: {Body}", json);
 
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 
-                var response = await _httpClient.PostAsync(config.ApiUrl, content, cancellationToken);
+                var response = await HttpClient.PostAsync(config.ApiUrl, content, cancellationToken);
                 var result = await ProcessHttpResponseAsync(response);
 
                 if (!result.IsSuccess)
@@ -67,7 +67,7 @@ namespace Buddie.Services.Tts
             
             if (!string.IsNullOrEmpty(config.ApiKey))
             {
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+                HttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
             }
         }
 

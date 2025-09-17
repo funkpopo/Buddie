@@ -1096,7 +1096,7 @@ namespace Buddie
         private string _apiKey = "";
         private string _model = "";
         private string _voice = "";
-        private VadMode _vadMode = VadMode.CLIENT_VAD;
+        private VadMode _vadMode = VadMode.ClientVad;
         private double _vadThreshold = 0.02;
         private int _vadMinSpeechFrames = 3;
         private int _vadMinSilenceFrames = 10;
@@ -1282,14 +1282,14 @@ namespace Buddie
                 case RealtimeChannelType.QwenOmni:
                     BaseUrl = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
                     Model = "qwen-omni-turbo-realtime";
-                    VadMode = VadMode.CLIENT_VAD; // 默认使用客户端VAD
+                    VadMode = VadMode.ClientVad; // 默认使用客户端VAD
                     SampleRate = 24000;
                     ChunkSize = 3200;
                     break;
                 case RealtimeChannelType.Custom:
                     BaseUrl = "";
                     Model = "";
-                    VadMode = VadMode.CLIENT_VAD;
+                    VadMode = VadMode.ClientVad;
                     SampleRate = 24000;
                     ChunkSize = 3200;
                     break;
