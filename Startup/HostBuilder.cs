@@ -66,6 +66,9 @@ namespace Buddie.Startup
                     services.AddKeyedTransient<global::Buddie.Services.Tts.ITtsService, global::Buddie.Services.Tts.MiniMaxTtsService>(global::Buddie.Services.Tts.TtsChannelType.MiniMax);
                     services.AddSingleton<global::Buddie.Services.Tts.ITtsServiceResolver, global::Buddie.Services.Tts.DefaultTtsServiceResolver>();
 
+                    // TTS Queue Service
+                    services.AddSingleton<global::Buddie.Services.Tts.ITtsQueueService, global::Buddie.Services.Tts.TtsQueueService>();
+
                     // 实时服务
                     services.AddSingleton<global::Buddie.Services.RealtimeInteractionService>();
                     services.AddSingleton<global::Buddie.Services.EnhancedRealtimeInteractionService>();

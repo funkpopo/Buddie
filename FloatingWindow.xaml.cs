@@ -255,9 +255,10 @@ namespace Buddie
             var dbSvc = sp.GetRequiredService<Buddie.Database.DatabaseService>();
             var dlgLogger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Buddie.Controls.DialogControl>>();
             var ttsResolver = sp.GetRequiredService<Buddie.Services.Tts.ITtsServiceResolver>();
+            var ttsQueueSvc = sp.GetRequiredService<Buddie.Services.Tts.ITtsQueueService>();
             var httpFactory = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>();
             var audioSvc = sp.GetRequiredService<Buddie.Services.IAudioPlaybackService>();
-            DialogControl.InitializeServices(screenSvc, imageSvc, dbSvc, dlgLogger, ttsResolver, httpFactory, audioSvc);
+            DialogControl.InitializeServices(screenSvc, imageSvc, dbSvc, dlgLogger, ttsResolver, ttsQueueSvc, httpFactory, audioSvc);
             DialogControl.DialogClosed += (s, e) => _vm.OnDialogClosed();
             DialogControl.DialogVisibilityChanged += (s, isVisible) => _vm.IsDialogVisible = isVisible;
             

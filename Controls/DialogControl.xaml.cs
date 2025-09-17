@@ -75,18 +75,26 @@ namespace Buddie.Controls
         private IScreenService _screenService = null!;
         private IImageService _imageService = null!;
         private Buddie.Services.Tts.ITtsServiceResolver _ttsServiceResolver = null!;
+        private Buddie.Services.Tts.ITtsQueueService _ttsQueueService = null!;
         private System.Net.Http.IHttpClientFactory _httpClientFactory = null!;
 
         #region Screen/Image Services Injection
-        public void InitializeServices(IScreenService screenService, IImageService imageService, DatabaseService databaseService, ILogger<DialogControl> logger, Buddie.Services.Tts.ITtsServiceResolver ttsServiceResolver, System.Net.Http.IHttpClientFactory httpClientFactory, Buddie.Services.IAudioPlaybackService audioPlaybackService)
+        public void InitializeServices(IScreenService screenService, IImageService imageService, DatabaseService databaseService, ILogger<DialogControl> logger, Buddie.Services.Tts.ITtsServiceResolver ttsServiceResolver, Buddie.Services.Tts.ITtsQueueService ttsQueueService, System.Net.Http.IHttpClientFactory httpClientFactory, Buddie.Services.IAudioPlaybackService audioPlaybackService)
         {
             _screenService = screenService;
             _imageService = imageService;
             _databaseService = databaseService;
             _logger = (Microsoft.Extensions.Logging.ILogger?)logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
             _ttsServiceResolver = ttsServiceResolver;
+            _ttsQueueService = ttsQueueService;
             _httpClientFactory = httpClientFactory;
             _audioPlaybackService = audioPlaybackService;
+
+            // Initialize the TTS Playback Control
+            if (TtsPlaybackControl != null)
+            {
+                TtsPlaybackControl.Initialize(_ttsQueueService);
+            }
         }
         #endregion
 
@@ -2052,7 +2060,7 @@ namespace Buddie.Controls
             {
                 var button = sender as System.Windows.Controls.Button;
                 var messageText = button?.Tag as string;
-                
+
                 if (string.IsNullOrEmpty(messageText) || button == null)
                 {
                     System.Diagnostics.Debug.WriteLine("TTS: 消息文本为空或按钮为null");
@@ -2061,7 +2069,7 @@ namespace Buddie.Controls
 
                 var appSettings = DataContext as AppSettings;
                 var ttsConfig = appSettings?.GetActiveTtsConfiguration();
-                
+
                 if (ttsConfig == null)
                 {
                     System.Diagnostics.Debug.WriteLine("TTS: 未找到激活的TTS配置");
@@ -2070,7 +2078,7 @@ namespace Buddie.Controls
                 }
 
                 System.Diagnostics.Debug.WriteLine($"TTS: 开始处理消息，长度: {messageText.Length}");
-                
+
                 // 改变按钮状态表示正在处理
                 var originalContent = button.Content;
                 button.Content = "⏳";
@@ -2078,8 +2086,25 @@ namespace Buddie.Controls
 
                 try
                 {
-                    await CallTtsApi(messageText, ttsConfig);
-                    System.Diagnostics.Debug.WriteLine("TTS: 调用成功");
+                    // Use the TTS queue service to enqueue the message
+                    if (_ttsQueueService != null)
+                    {
+                        await _ttsQueueService.EnqueueAsync(messageText, ttsConfig);
+
+                        // Show the TTS playback control if hidden
+                        if (TtsPlaybackControl != null && TtsPlaybackControl.Visibility != Visibility.Visible)
+                        {
+                            TtsPlaybackControl.Visibility = Visibility.Visible;
+                        }
+
+                        System.Diagnostics.Debug.WriteLine("TTS: 消息已添加到播放队列");
+                    }
+                    else
+                    {
+                        // Fallback to direct API call if queue service is not available
+                        await CallTtsApi(messageText, ttsConfig);
+                        System.Diagnostics.Debug.WriteLine("TTS: 直接API调用成功");
+                    }
                 }
                 finally
                 {
@@ -3288,6 +3313,115 @@ namespace Buddie.Controls
 
         [GeneratedRegex("(\\W)")]
         private static partial Regex NonWordSplitRegex();
+
+        #region Batch TTS Synthesis
+
+        /// <summary>
+        /// 批量合成当前会话的所有消息
+        /// </summary>
+        public async Task SynthesizeAllMessagesAsync()
+        {
+            await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
+            {
+                var appSettings = DataContext as AppSettings;
+                var ttsConfig = appSettings?.GetActiveTtsConfiguration();
+
+                if (ttsConfig == null || _ttsQueueService == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("TTS: 未找到激活的TTS配置或队列服务");
+                    return;
+                }
+
+                // Get all AI messages from the current conversation
+                var aiMessages = Messages.Where(m => !m.IsUser && !string.IsNullOrWhiteSpace(m.Content)).ToList();
+
+                if (!aiMessages.Any())
+                {
+                    System.Windows.MessageBox.Show("当前会话没有可合成的AI消息。", "提示",
+                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    return;
+                }
+
+                // Show the TTS playback control
+                if (TtsPlaybackControl != null && TtsPlaybackControl.Visibility != Visibility.Visible)
+                {
+                    TtsPlaybackControl.Visibility = Visibility.Visible;
+                }
+
+                // Enqueue all AI messages in batch
+                var texts = aiMessages.Select(m => m.Content).ToList();
+                await _ttsQueueService.EnqueueBatchAsync(texts, ttsConfig);
+
+                System.Diagnostics.Debug.WriteLine($"TTS: 批量添加 {texts.Count} 条消息到合成队列");
+            }, "批量TTS合成");
+        }
+
+        /// <summary>
+        /// 合成选中的消息
+        /// </summary>
+        public async Task SynthesizeSelectedMessagesAsync(IEnumerable<MessageDisplayModel> selectedMessages)
+        {
+            await ExceptionHandlingService.Tts.ExecuteSafelyAsync(async () =>
+            {
+                var appSettings = DataContext as AppSettings;
+                var ttsConfig = appSettings?.GetActiveTtsConfiguration();
+
+                if (ttsConfig == null || _ttsQueueService == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("TTS: 未找到激活的TTS配置或队列服务");
+                    return;
+                }
+
+                var validMessages = selectedMessages
+                    .Where(m => !string.IsNullOrWhiteSpace(m.Content))
+                    .ToList();
+
+                if (!validMessages.Any())
+                {
+                    System.Windows.MessageBox.Show("没有选中有效的消息。", "提示",
+                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    return;
+                }
+
+                // Show the TTS playback control
+                if (TtsPlaybackControl != null && TtsPlaybackControl.Visibility != Visibility.Visible)
+                {
+                    TtsPlaybackControl.Visibility = Visibility.Visible;
+                }
+
+                // Enqueue selected messages
+                var texts = validMessages.Select(m => m.Content).ToList();
+                await _ttsQueueService.EnqueueBatchAsync(texts, ttsConfig);
+
+                System.Diagnostics.Debug.WriteLine($"TTS: 批量添加 {texts.Count} 条选中消息到合成队列");
+            }, "合成选中的消息");
+        }
+
+        /// <summary>
+        /// 清空TTS队列
+        /// </summary>
+        public async Task ClearTtsQueueAsync()
+        {
+            if (_ttsQueueService != null)
+            {
+                await _ttsQueueService.ClearQueueAsync();
+                System.Diagnostics.Debug.WriteLine("TTS: 已清空合成队列");
+            }
+        }
+
+        /// <summary>
+        /// 预加载下一批消息
+        /// </summary>
+        public async Task PreloadNextMessagesAsync(int count = 3)
+        {
+            if (_ttsQueueService != null)
+            {
+                await _ttsQueueService.PreloadNextAsync(count);
+                System.Diagnostics.Debug.WriteLine($"TTS: 预加载 {count} 条消息");
+            }
+        }
+
+        #endregion
 
         #region IDisposable Implementation
 

@@ -82,7 +82,7 @@ namespace Buddie.Services
                     linkedCts.Token.ThrowIfCancellationRequested();
                     lock (_sync)
                     {
-                        if (_player == null || _player.PlaybackState != PlaybackState.Playing)
+                        if (_player == null || _player.PlaybackState != NAudio.Wave.PlaybackState.Playing)
                             break;
                     }
                     await Task.Delay(100, linkedCts.Token);

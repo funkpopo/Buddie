@@ -1,0 +1,232 @@
+<UserControl x:Class="Buddie.Controls.TtsPlaybackControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:Buddie.Controls"
+             mc:Ignorable="d"
+             d:DesignHeight="80" d:DesignWidth="400">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/SharedResources.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Converters -->
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+            <!-- Custom converter for PlaybackState -->
+            <local:PlaybackStateToIconConverter x:Key="PlaybackStateToIconConverter"/>
+            <local:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter"/>
+
+            <!-- Styles -->
+            <Style x:Key="PlaybackButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonStyle}">
+                <Setter Property="Width" Value="32"/>
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="Margin" Value="2"/>
+                <Setter Property="Padding" Value="4"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            </Style>
+
+            <Style x:Key="ProgressSliderStyle" TargetType="Slider">
+                <Setter Property="Height" Value="20"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="IsMoveToPointEnabled" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Slider">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*" MinHeight="20"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Track Name="PART_Track" Grid.Row="1">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource SliderButtonStyle}"
+                                                      Command="Slider.DecreaseLarge">
+                                            <RepeatButton.Background>
+                                                <SolidColorBrush Color="{DynamicResource AccentColor}"/>
+                                            </RepeatButton.Background>
+                                        </RepeatButton>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource SliderThumbStyle}"/>
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource SliderButtonStyle}"
+                                                      Command="Slider.IncreaseLarge">
+                                            <RepeatButton.Background>
+                                                <SolidColorBrush Color="{DynamicResource BackgroundColor}" Opacity="0.3"/>
+                                            </RepeatButton.Background>
+                                        </RepeatButton>
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="VolumeSliderStyle" TargetType="Slider" BasedOn="{StaticResource ProgressSliderStyle}">
+                <Setter Property="Width" Value="80"/>
+                <Setter Property="Minimum" Value="0"/>
+                <Setter Property="Maximum" Value="1"/>
+                <Setter Property="Value" Value="1"/>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Border Background="{DynamicResource BackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Current Playing Item Info -->
+            <Grid Grid.Row="0" Margin="0,0,0,4"
+                  Visibility="{Binding HasCurrentItem, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="🔊"
+                           FontSize="16"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
+
+                <TextBlock Grid.Column="1"
+                           Text="{Binding CurrentItemText}"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource ForegroundBrush}"/>
+
+                <TextBlock Grid.Column="2"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontSize="10">
+                    <TextBlock.Text>
+                        <MultiBinding StringFormat="{}{0} / {1}">
+                            <Binding Path="CurrentPosition" Converter="{StaticResource TimeSpanToStringConverter}"/>
+                            <Binding Path="Duration" Converter="{StaticResource TimeSpanToStringConverter}"/>
+                        </MultiBinding>
+                    </TextBlock.Text>
+                </TextBlock>
+            </Grid>
+
+            <!-- Progress Bar -->
+            <Slider Grid.Row="1"
+                    x:Name="ProgressSlider"
+                    Style="{StaticResource ProgressSliderStyle}"
+                    Minimum="0"
+                    Maximum="1"
+                    Value="{Binding Progress, Mode=TwoWay}"
+                    IsEnabled="{Binding CanSeek}"
+                    Margin="0,0,0,4"
+                    PreviewMouseDown="ProgressSlider_PreviewMouseDown"
+                    PreviewMouseUp="ProgressSlider_PreviewMouseUp"/>
+
+            <!-- Playback Controls -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Main Controls -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <!-- Previous -->
+                    <Button x:Name="PreviousButton"
+                            Style="{StaticResource PlaybackButtonStyle}"
+                            Content="&#xE892;"
+                            ToolTip="上一个"
+                            Click="PreviousButton_Click"
+                            IsEnabled="{Binding CanSkipPrevious}"/>
+
+                    <!-- Play/Pause -->
+                    <Button x:Name="PlayPauseButton"
+                            Style="{StaticResource PlaybackButtonStyle}"
+                            Content="{Binding PlaybackState, Converter={StaticResource PlaybackStateToIconConverter}}"
+                            ToolTip="{Binding PlayPauseTooltip}"
+                            Click="PlayPauseButton_Click"
+                            IsEnabled="{Binding CanPlay}"/>
+
+                    <!-- Stop -->
+                    <Button x:Name="StopButton"
+                            Style="{StaticResource PlaybackButtonStyle}"
+                            Content="&#xE71A;"
+                            ToolTip="停止"
+                            Click="StopButton_Click"
+                            IsEnabled="{Binding CanStop}"/>
+
+                    <!-- Next -->
+                    <Button x:Name="NextButton"
+                            Style="{StaticResource PlaybackButtonStyle}"
+                            Content="&#xE893;"
+                            ToolTip="下一个"
+                            Click="NextButton_Click"
+                            IsEnabled="{Binding CanSkipNext}"/>
+                </StackPanel>
+
+                <!-- Queue Info -->
+                <TextBlock Grid.Column="1"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontSize="11">
+                    <Run Text="队列: "/>
+                    <Run Text="{Binding QueueCount}"/>
+                    <Run Text=" 项"/>
+                    <Run Text=" ("/>
+                    <Run Text="{Binding PendingCount}"/>
+                    <Run Text=" 待处理)"/>
+                </TextBlock>
+
+                <!-- Speed Control -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0">
+                    <TextBlock Text="速度:"
+                               VerticalAlignment="Center"
+                               Margin="0,0,4,0"
+                               FontSize="11"
+                               Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <ComboBox x:Name="SpeedComboBox"
+                              Width="60"
+                              SelectedValue="{Binding PlaybackSpeed}"
+                              SelectionChanged="SpeedComboBox_SelectionChanged">
+                        <ComboBoxItem Content="0.5x" Tag="0.5"/>
+                        <ComboBoxItem Content="0.75x" Tag="0.75"/>
+                        <ComboBoxItem Content="1.0x" Tag="1.0" IsSelected="True"/>
+                        <ComboBoxItem Content="1.25x" Tag="1.25"/>
+                        <ComboBoxItem Content="1.5x" Tag="1.5"/>
+                        <ComboBoxItem Content="2.0x" Tag="2.0"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Volume Control -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal">
+                    <TextBlock Text="🔊"
+                               VerticalAlignment="Center"
+                               Margin="0,0,4,0"/>
+                    <Slider x:Name="VolumeSlider"
+                            Style="{StaticResource VolumeSliderStyle}"
+                            Value="{Binding Volume, Mode=TwoWay}"
+                            ValueChanged="VolumeSlider_ValueChanged"
+                            ToolTip="{Binding Volume, StringFormat='音量: {0:P0}'}"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

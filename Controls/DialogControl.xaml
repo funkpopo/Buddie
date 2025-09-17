@@ -189,6 +189,7 @@
                     <RowDefinition Height="40"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 
                 <!-- 对话界面标题栏 -->
@@ -382,9 +383,15 @@
                             </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
-                
+
+                <!-- TTS Playback Control -->
+                <local:TtsPlaybackControl x:Name="TtsPlaybackControl"
+                                          Grid.Row="2"
+                                          Margin="10,5,10,5"
+                                          Visibility="Collapsed"/>
+
                 <!-- 输入区域 -->
-                <Grid Grid.Row="2"
+                <Grid Grid.Row="3"
                       Margin="10,5,10,10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
