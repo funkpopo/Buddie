@@ -325,6 +325,10 @@ namespace Buddie
                 rightClickPressed = false;
             };
             contextMenu.Items.Add(exitItem);
+
+            // 将右键菜单绑定到托盘图标
+            trayIcon.ContextMenuStrip = contextMenu;
+
             // 初始化托盘图标到ViewModel
             _vm.InitializeTrayIcon(trayIcon);
             

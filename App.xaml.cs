@@ -43,49 +43,49 @@ namespace Buddie
                 _host = await AppHostBuilder.BuildAndStartAsync();
                 _configuration = _host.Services.GetRequiredService<IConfiguration>();
                 _logger = _host.Services.GetRequiredService<Microsoft.Extensions.Logging.ILogger<App>>();
-                _logger.LogInformation("Host started successfully");
+                Log.HostStarted(_logger);
 
                 // Wire ExceptionHandlingService with notifier + logger
-                _logger.LogDebug("Getting IErrorNotifier...");
+                Log.GettingErrorNotifier(_logger);
                 var notifier = _host.Services.GetRequiredService<IErrorNotifier>();
-                _logger.LogDebug("Got IErrorNotifier successfully");
+                Log.GotErrorNotifier(_logger);
                 
-                _logger.LogDebug("Getting ILoggerFactory...");
+                Log.GettingLoggerFactory(_logger);
                 var loggerFactory = _host.Services.GetRequiredService<ILoggerFactory>();
-                _logger.LogDebug("Got ILoggerFactory successfully");
+                Log.GotLoggerFactory(_logger);
                 
-                _logger.LogInformation("Configuring ExceptionHandlingService...");
+                Log.ConfiguringExceptionHandlingService(_logger);
                 ExceptionHandlingService.Configure(notifier, loggerFactory);
-                _logger.LogInformation("ExceptionHandlingService configured successfully");
+                Log.ExceptionHandlingServiceConfigured(_logger);
 
                 // Set up global exception handlers
-                _logger.LogInformation("Setting up global exception handlers...");
+                Log.SettingUpExceptionHandlers(_logger);
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
                 DispatcherUnhandledException += App_DispatcherUnhandledException;
-                _logger.LogInformation("Global exception handlers set up successfully");
+                Log.ExceptionHandlersSetUp(_logger);
                 
                 // Initialize database
-                _logger.LogDebug("Getting IDatabaseInitializer...");
+                Log.GettingDatabaseInitializer(_logger);
                 var dbInitializer = _host.Services.GetRequiredService<IDatabaseInitializer>();
-                _logger.LogDebug("Got IDatabaseInitializer successfully");
+                Log.GotDatabaseInitializer(_logger);
                 
-                _logger.LogInformation("Initializing database...");
+                Log.InitializingDatabase(_logger);
                 await dbInitializer.InitializeAsync();
-                _logger.LogInformation("Database initialized successfully");
+                Log.DatabaseInitialized(_logger);
 
                 // Create and show main window
-                _logger.LogInformation("Creating FloatingWindow...");
+                Log.CreatingFloatingWindow(_logger);
                 var floatingWindow = new FloatingWindow();
-                _logger.LogInformation("FloatingWindow created successfully");
+                Log.FloatingWindowCreated(_logger);
                 
                 // Load settings from database
-                _logger.LogInformation("Loading settings from database...");
+                Log.LoadingSettings(_logger);
                 await floatingWindow.LoadSettingsFromDatabaseAsync();
-                _logger.LogInformation("Settings loaded successfully");
+                Log.SettingsLoaded(_logger);
                 
-                _logger.LogInformation("Showing FloatingWindow...");
+                Log.ShowingFloatingWindow(_logger);
                 floatingWindow.Show();
-                _logger.LogInformation("FloatingWindow shown successfully");
+                Log.FloatingWindowShown(_logger);
             },
             ExceptionHandlingService.HandlingStrategy.ShowMessage,
             new ExceptionHandlingService.ExceptionContext

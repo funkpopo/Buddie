@@ -36,8 +36,7 @@ namespace Buddie.Database
         /// </summary>
         public async Task<IDisposableConnection> GetConnectionAsync(CancellationToken cancellationToken = default)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(SqliteConnectionPool));
+            ObjectDisposedException.ThrowIf(_disposed, nameof(SqliteConnectionPool));
 
             // 序列化写操作
             await _writeSemaphore.WaitAsync(cancellationToken);

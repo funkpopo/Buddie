@@ -84,8 +84,7 @@ namespace Buddie.Database
 
         public async Task SaveAppSettingsAsync(DbAppSettings settings)
         {
-            if (settings == null)
-                throw new ArgumentNullException(nameof(settings));
+            ArgumentNullException.ThrowIfNull(settings);
                 
             settings.UpdatedAt = DateTime.UtcNow;
 
