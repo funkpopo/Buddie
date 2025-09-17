@@ -29,6 +29,7 @@ namespace Buddie
         private readonly AppSettings _appSettings = new AppSettings();
         private readonly CardColorManager _colorManager = new CardColorManager();
         private readonly ILogger<FloatingWindow> _logger;
+        private readonly IWindowPositioningService? _windowPositioningService;
         private bool _disposed;
 
         private static partial class Log
@@ -129,11 +130,14 @@ namespace Buddie
             
             this.DataContext = _vm;
             Log.DataContextSet(_logger);
-            
+
             // Initialize ClickThroughService
             _clickThroughService = new ClickThroughService();
             _vm.SetClickThroughService(_clickThroughService);
             Log.ClickThroughServiceInitialized(_logger);
+
+            // 获取窗口定位服务
+            _windowPositioningService = Buddie.App.Services?.GetService<IWindowPositioningService>();
 
             // Initialize tray icon after ViewModel is ready
             try
@@ -203,8 +207,88 @@ namespace Buddie
             
             // 初始化用户友好错误服务
             UserFriendlyErrorService.Initialize(ErrorNotificationContainer);
+
+            // 初始化窗口定位命令
+            InitializeWindowPositioningCommands();
         }
         
+        #region Window Positioning Commands
+
+        private void InitializeWindowPositioningCommands()
+        {
+            if (_windowPositioningService == null) return;
+
+            // 注册对齐到左上角的命令
+            this.CommandBindings.Add(new CommandBinding(
+                Buddie.Commands.WindowPositioningCommands.AlignTopLeft,
+                (s, e) => AlignWindow(IWindowPositioningService.ScreenCorner.TopLeft)));
+
+            // 注册对齐到右上角的命令
+            this.CommandBindings.Add(new CommandBinding(
+                Buddie.Commands.WindowPositioningCommands.AlignTopRight,
+                (s, e) => AlignWindow(IWindowPositioningService.ScreenCorner.TopRight)));
+
+            // 注册对齐到左下角的命令
+            this.CommandBindings.Add(new CommandBinding(
+                Buddie.Commands.WindowPositioningCommands.AlignBottomLeft,
+                (s, e) => AlignWindow(IWindowPositioningService.ScreenCorner.BottomLeft)));
+
+            // 注册对齐到右下角的命令
+            this.CommandBindings.Add(new CommandBinding(
+                Buddie.Commands.WindowPositioningCommands.AlignBottomRight,
+                (s, e) => AlignWindow(IWindowPositioningService.ScreenCorner.BottomRight)));
+
+            // 注册对齐到中央的命令
+            this.CommandBindings.Add(new CommandBinding(
+                Buddie.Commands.WindowPositioningCommands.AlignCenter,
+                (s, e) => AlignWindow(IWindowPositioningService.ScreenCorner.Center)));
+
+            // 注册切换到下一个显示器的命令
+            this.CommandBindings.Add(new CommandBinding(
+                Buddie.Commands.WindowPositioningCommands.NextScreen,
+                (s, e) => MoveToNextScreen()));
+        }
+
+        private void AlignWindow(IWindowPositioningService.ScreenCorner corner)
+        {
+            if (_windowPositioningService == null) return;
+
+            try
+            {
+                _windowPositioningService.AlignWindowToCurrentScreen(this, corner);
+                _logger.LogInformation("窗口已对齐到 {Corner}", corner);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "对齐窗口到 {Corner} 时出错", corner);
+            }
+        }
+
+        private void MoveToNextScreen()
+        {
+            if (_windowPositioningService == null) return;
+
+            try
+            {
+                var screens = _windowPositioningService.GetAllScreens().ToList();
+                if (screens.Count <= 1) return;
+
+                var currentScreen = _windowPositioningService.GetWindowScreen(this);
+                var currentIndex = screens.IndexOf(currentScreen);
+                var nextIndex = (currentIndex + 1) % screens.Count;
+                var nextScreen = screens[nextIndex];
+
+                _windowPositioningService.AlignWindowToScreen(this, nextScreen, IWindowPositioningService.ScreenCorner.Center);
+                _logger.LogInformation("窗口已移动到显示器 {ScreenIndex}", nextIndex + 1);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "切换到下一个显示器时出错");
+            }
+        }
+
+        #endregion
+
         private void FloatingWindow_SourceInitialized(object? sender, EventArgs e)
         {
             // 设置窗口句柄到ClickThroughService
@@ -258,7 +342,8 @@ namespace Buddie
             var ttsQueueSvc = sp.GetRequiredService<Buddie.Services.Tts.ITtsQueueService>();
             var httpFactory = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>();
             var audioSvc = sp.GetRequiredService<Buddie.Services.IAudioPlaybackService>();
-            DialogControl.InitializeServices(screenSvc, imageSvc, dbSvc, dlgLogger, ttsResolver, ttsQueueSvc, httpFactory, audioSvc);
+            var windowPosSvc = sp.GetRequiredService<Buddie.Services.IWindowPositioningService>();
+            DialogControl.InitializeServices(screenSvc, imageSvc, dbSvc, dlgLogger, ttsResolver, ttsQueueSvc, httpFactory, audioSvc, windowPosSvc);
             DialogControl.DialogClosed += (s, e) => _vm.OnDialogClosed();
             DialogControl.DialogVisibilityChanged += (s, isVisible) => _vm.IsDialogVisible = isVisible;
             

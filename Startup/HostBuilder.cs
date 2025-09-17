@@ -77,6 +77,7 @@ namespace Buddie.Startup
                     // Screen/Image services
                     services.AddSingleton<global::Buddie.Services.IScreenService, global::Buddie.Services.ScreenService>();
                     services.AddSingleton<global::Buddie.Services.IImageService, global::Buddie.Services.ImageService>();
+                    services.AddSingleton<global::Buddie.Services.IWindowPositioningService, global::Buddie.Services.WindowPositioningService>();
 
                     // Audio playback service (shared by VM and Control)
                     services.AddSingleton<global::Buddie.Services.IAudioPlaybackService, global::Buddie.Services.AudioPlaybackService>();

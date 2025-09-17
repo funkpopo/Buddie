@@ -77,9 +77,10 @@ namespace Buddie.Controls
         private Buddie.Services.Tts.ITtsServiceResolver _ttsServiceResolver = null!;
         private Buddie.Services.Tts.ITtsQueueService _ttsQueueService = null!;
         private System.Net.Http.IHttpClientFactory _httpClientFactory = null!;
+        private IWindowPositioningService _windowPositioningService = null!;
 
         #region Screen/Image Services Injection
-        public void InitializeServices(IScreenService screenService, IImageService imageService, DatabaseService databaseService, ILogger<DialogControl> logger, Buddie.Services.Tts.ITtsServiceResolver ttsServiceResolver, Buddie.Services.Tts.ITtsQueueService ttsQueueService, System.Net.Http.IHttpClientFactory httpClientFactory, Buddie.Services.IAudioPlaybackService audioPlaybackService)
+        public void InitializeServices(IScreenService screenService, IImageService imageService, DatabaseService databaseService, ILogger<DialogControl> logger, Buddie.Services.Tts.ITtsServiceResolver ttsServiceResolver, Buddie.Services.Tts.ITtsQueueService ttsQueueService, System.Net.Http.IHttpClientFactory httpClientFactory, Buddie.Services.IAudioPlaybackService audioPlaybackService, IWindowPositioningService windowPositioningService)
         {
             _screenService = screenService;
             _imageService = imageService;
@@ -89,6 +90,7 @@ namespace Buddie.Controls
             _ttsQueueService = ttsQueueService;
             _httpClientFactory = httpClientFactory;
             _audioPlaybackService = audioPlaybackService;
+            _windowPositioningService = windowPositioningService;
 
             // Initialize the TTS Playback Control
             if (TtsPlaybackControl != null)
@@ -107,6 +109,12 @@ namespace Buddie.Controls
         private Rectangle GetCurrentWindowScreen()
         {
             var mainWindow = Window.GetWindow(this);
+            if (_windowPositioningService != null && mainWindow != null)
+            {
+                // 使用窗口定位服务获取当前屏幕信息
+                var screen = _windowPositioningService.GetWindowScreen(mainWindow);
+                return screen.Bounds;
+            }
             return _screenService != null ? _screenService.GetCurrentWindowScreen(mainWindow) : new Rectangle(0, 0, 1920, 1080);
         }
         #endregion
@@ -378,6 +386,16 @@ namespace Buddie.Controls
             DialogInterface.Visibility = Visibility.Visible;
             DialogInterface.Opacity = 1.0; // 初始显示时完全不透明
             DialogVisibilityChanged?.Invoke(this, true);
+
+            // 确保对话框在屏幕可见区域内
+            if (_windowPositioningService != null)
+            {
+                var window = Window.GetWindow(this);
+                if (window != null)
+                {
+                    _windowPositioningService.EnsureWindowInScreen(window);
+                }
+            }
         }
 
         /// &lt;summary&gt;
